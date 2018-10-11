@@ -1,0 +1,113 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: pipelines.koalja.aljabr.io
+spec:
+  group: koalja.aljabr.io
+  names:
+    kind: Pipeline
+    plural: pipelines
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            links:
+              items:
+                properties:
+                  destinationRef:
+                    type: string
+                  name:
+                    type: string
+                  source:
+                    properties:
+                      type:
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  sourceRef:
+                    type: string
+                required:
+                - name
+                - sourceRef
+                - destinationRef
+                type: object
+              type: array
+            tasks:
+              items:
+                properties:
+                  executor:
+                    properties:
+                      container:
+                        type: string
+                    required:
+                    - container
+                    type: object
+                  inputs:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        typeRef:
+                          type: string
+                      required:
+                      - name
+                      - typeRef
+                      type: object
+                    type: array
+                  name:
+                    type: string
+                  outputs:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        typeRef:
+                          type: string
+                      required:
+                      - name
+                      - typeRef
+                      type: object
+                    type: array
+                required:
+                - name
+                - inputs
+                - outputs
+                - executor
+                type: object
+              type: array
+            types:
+              items:
+                properties:
+                  format:
+                    type: string
+                  name:
+                    type: string
+                  protocol:
+                    type: string
+                required:
+                - name
+                - protocol
+                type: object
+              type: array
+          type: object
+        status:
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

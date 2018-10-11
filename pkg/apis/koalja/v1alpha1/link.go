@@ -1,0 +1,44 @@
+/*
+Copyright 2018 Aljabr Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha1
+
+// LinkSpec holds the specification of a single link between tasks
+type LinkSpec struct {
+	// Name of the link
+	Name string `json:"name"`
+	// Source of the link
+	Source *LinkSourceSpec `json:"source,omitempty"`
+	// SourceRef specifies the source of the link as `taskName/outputName`.
+	// SourceRef must be empty when Source is specified.
+	SourceRef string `json:"sourceRef"`
+	// DestinationRef specifies the destination of the link as `taskName/inputName`
+	DestinationRef string `json:"destinationRef"`
+}
+
+// LinkSourceSpec holds the specification
+type LinkSourceSpec struct {
+	// Type of source
+	Type LinkSourceType `json:"type"`
+}
+
+// LinkSourceType indicates the type of source of a link
+type LinkSourceType string
+
+const (
+	// LinkSourceTypeFileDrop indicates that the source of a link is a manual file drop.
+	LinkSourceTypeFileDrop LinkSourceType = "FileDrop"
+)
