@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha1
 
+import "github.com/pkg/errors"
+
 // LinkSpec holds the specification of a single link between tasks
 type LinkSpec struct {
 	// Name of the link
@@ -24,7 +26,7 @@ type LinkSpec struct {
 	Source *LinkSourceSpec `json:"source,omitempty"`
 	// SourceRef specifies the source of the link as `taskName/outputName`.
 	// SourceRef must be empty when Source is specified.
-	SourceRef string `json:"sourceRef"`
+	SourceRef string `json:"sourceRef,omitempty"`
 	// DestinationRef specifies the destination of the link as `taskName/inputName`
 	DestinationRef string `json:"destinationRef"`
 }
@@ -42,3 +44,26 @@ const (
 	// LinkSourceTypeFileDrop indicates that the source of a link is a manual file drop.
 	LinkSourceTypeFileDrop LinkSourceType = "FileDrop"
 )
+
+// Validate the link in the context of the given pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (ls LinkSpec) Validate(ps PipelineSpec) error {
+	if err := ValidateName(ls.Name); err != nil {
+		return maskAny(err)
+	}
+	if ls.Source == nil && ls.SourceRef == "" {
+		return errors.Wrapf(ErrValidation, "Source or SourceRef expected in link '%s'", ls.Name)
+	} else if ls.Source != nil && ls.SourceRef != "" {
+		return errors.Wrapf(ErrValidation, "Source or SourceRef expected in link '%s', not both", ls.Name)
+	} else if ls.SourceRef != "" {
+		if _, _, err := SplitTaskRef(ls.SourceRef); err != nil {
+			return maskAny(err)
+		}
+	}
+	if ls.DestinationRef == "" {
+		return errors.Wrapf(ErrValidation, "DestinationRef expected in link '%s'", ls.Name)
+	} else if _, _, err := SplitTaskRef(ls.DestinationRef); err != nil {
+		return maskAny(err)
+	}
+	return nil
+}

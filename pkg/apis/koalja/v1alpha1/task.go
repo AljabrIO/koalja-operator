@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha1
 
+import "github.com/pkg/errors"
+
 // TaskSpec holds the specification of a single task
 type TaskSpec struct {
 	// Name of the task
@@ -26,4 +28,67 @@ type TaskSpec struct {
 	Outputs []TaskOutputSpec `json:"outputs"`
 	// Executor holds the spec of the execution part of the task
 	Executor *TaskExecutorSpec `json:"executor"`
+}
+
+// InputByName returns the input of the task that has the given name.
+// Returns false if not found.
+func (ts TaskSpec) InputByName(name string) (TaskInputSpec, bool) {
+	for _, x := range ts.Inputs {
+		if x.Name == name {
+			return x, true
+		}
+	}
+	return TaskInputSpec{}, false
+}
+
+// OutputByName returns the output of the task that has the given name.
+// Returns false if not found.
+func (ts TaskSpec) OutputByName(name string) (TaskOutputSpec, bool) {
+	for _, x := range ts.Outputs {
+		if x.Name == name {
+			return x, true
+		}
+	}
+	return TaskOutputSpec{}, false
+}
+
+// Validate the task in the context of the given pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (ts TaskSpec) Validate(ps PipelineSpec) error {
+	if err := ValidateName(ts.Name); err != nil {
+		return maskAny(err)
+	}
+	if ts.Executor == nil {
+		return errors.Wrapf(ErrValidation, "Executor expected in task '%s'", ts.Name)
+	}
+	if len(ts.Inputs) == 0 {
+		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 input", ts.Name)
+	}
+	if len(ts.Outputs) == 0 {
+		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 output", ts.Name)
+	}
+	names := make(map[string]struct{})
+	for _, x := range ts.Inputs {
+		if _, found := names[x.Name]; found {
+			return errors.Wrapf(ErrValidation, "Duplicate input name '%s' in task '%s'", x.Name, ts.Name)
+		}
+		names[x.Name] = struct{}{}
+		if err := x.Validate(ps); err != nil {
+			return maskAny(err)
+		}
+	}
+	names = make(map[string]struct{})
+	for _, x := range ts.Outputs {
+		if _, found := names[x.Name]; found {
+			return errors.Wrapf(ErrValidation, "Duplicate output name '%s' in task '%s'", x.Name, ts.Name)
+		}
+		names[x.Name] = struct{}{}
+		if err := x.Validate(ps); err != nil {
+			return maskAny(err)
+		}
+	}
+	if err := ts.Executor.Validate(ps); err != nil {
+		return maskAny(err)
+	}
+	return nil
 }

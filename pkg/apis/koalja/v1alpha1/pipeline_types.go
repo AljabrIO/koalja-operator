@@ -97,3 +97,24 @@ func (ps PipelineSpec) TypeByName(name string) (TypeSpec, bool) {
 	}
 	return TypeSpec{}, false
 }
+
+// Validate the pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (ps PipelineSpec) Validate() error {
+	for _, x := range ps.Tasks {
+		if err := x.Validate(ps); err != nil {
+			return maskAny(err)
+		}
+	}
+	for _, x := range ps.Links {
+		if err := x.Validate(ps); err != nil {
+			return maskAny(err)
+		}
+	}
+	for _, x := range ps.Types {
+		if err := x.Validate(ps); err != nil {
+			return maskAny(err)
+		}
+	}
+	return nil
+}

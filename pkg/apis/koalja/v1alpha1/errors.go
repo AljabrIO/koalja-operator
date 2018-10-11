@@ -18,19 +18,14 @@ package v1alpha1
 
 import "github.com/pkg/errors"
 
-// TaskExecutorSpec holds the specification of the execution part of a task
-type TaskExecutorSpec struct {
-	// Container holds the image name of the container to execute
-	Container string `json:"container"`
-	// Args passed as commandline to the container
-	Args []string `json:"args,omitempty"`
-}
+var (
+	maskAny = errors.WithStack
 
-// Validate the task executor in the context of the given pipeline spec.
-// Return an error when an issue is found, nil when all ok.
-func (tes TaskExecutorSpec) Validate(ps PipelineSpec) error {
-	if tes.Container == "" {
-		return errors.Wrapf(ErrValidation, "Container expected")
-	}
-	return nil
+	// ErrValidation indicates a problem with a specification
+	ErrValidation = errors.New("validation")
+)
+
+// IsValidation returns true when the given error is or is caused by a ErrValidation.
+func IsValidation(err error) bool {
+	return errors.Cause(err) == ErrValidation
 }

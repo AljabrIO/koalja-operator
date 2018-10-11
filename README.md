@@ -4,5 +4,14 @@
 
 ```bash
 export DOCKERNAMESPACE=<your-docker-hub-account-name>
-make docker-build docker-push
+make docker
+```
+
+## Deployment
+
+```bash
+# Install the CRD
+make install
+# Deploy operator
+make deploy
 ```

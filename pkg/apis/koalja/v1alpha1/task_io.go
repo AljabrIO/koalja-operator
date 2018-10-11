@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha1
 
+import "github.com/pkg/errors"
+
 // TaskInputSpec holds the specification of a single input of a task
 type TaskInputSpec struct {
 	// Name of the input
@@ -30,4 +32,34 @@ type TaskOutputSpec struct {
 	Name string `json:"name"`
 	// Reference to the type of the output
 	TypeRef string `json:"typeRef"`
+}
+
+// Validate the task input in the context of the given pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (tis TaskInputSpec) Validate(ps PipelineSpec) error {
+	if err := ValidateName(tis.Name); err != nil {
+		return maskAny(err)
+	}
+	if tis.TypeRef == "" {
+		return errors.Wrapf(ErrValidation, "TypeRef expected")
+	}
+	if _, found := ps.TypeByName(tis.TypeRef); !found {
+		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tis.TypeRef)
+	}
+	return nil
+}
+
+// Validate the task output in the context of the given pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (tos TaskOutputSpec) Validate(ps PipelineSpec) error {
+	if err := ValidateName(tos.Name); err != nil {
+		return maskAny(err)
+	}
+	if tos.TypeRef == "" {
+		return errors.Wrapf(ErrValidation, "TypeRef expected")
+	}
+	if _, found := ps.TypeByName(tos.TypeRef); !found {
+		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tos.TypeRef)
+	}
+	return nil
 }

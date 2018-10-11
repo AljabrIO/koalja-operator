@@ -32,6 +32,7 @@ install: manifests
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	kubectl apply -f config/crds
+	kustomize build config/default | kubectl delete -f -
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -59,3 +60,6 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+# Build docker image and push it
+docker: docker-build docker-push

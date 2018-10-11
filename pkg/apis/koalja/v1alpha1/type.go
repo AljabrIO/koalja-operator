@@ -38,3 +38,12 @@ const (
 // Format of a data type.
 // Indicates the format of the content of the data.
 type Format string
+
+// Validate the data in the context of the given pipeline spec.
+// Return an error when an issue is found, nil when all ok.
+func (ts TypeSpec) Validate(ps PipelineSpec) error {
+	if err := ValidateName(ts.Name); err != nil {
+		return maskAny(err)
+	}
+	return nil
+}

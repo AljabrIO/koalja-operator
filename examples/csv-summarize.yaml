@@ -1,0 +1,40 @@
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: csv-clean-and-total
+spec:
+  tasks:
+  - name: cleanCSV
+    inputs:
+    - name: csvInputFile
+      typeRef: singleCSVFile
+    outputs:
+    - name: csvOutputFile
+      typeRef: singleCSVFile
+      ready: ContainerTerminated
+    executor:
+      container: ewoutp/cleanCSVConverter:latest
+      args: ["--input", "{{.inputs.csvInputFile.path }}", "--output", "{{.outputs.csvOutputFile.path}}"]
+  - name: totalCSV
+    inputs:
+    - name: csvInputFile
+      typeRef: singleCSVFile
+    outputs:
+    - name: csvOutputFile
+      typeRef: singleCSVFile
+      ready: ContainerTerminated
+    executor:
+      container: ewoutp/summarizeCSVConverter:latest
+      args: ["--input", "{{.inputs.csvInputFile.path }}", "--output", "{{.outputs.csvOutputFile.path}}"]
+  links:
+  - name: csvInput
+    source:
+      type: FileDrop
+    destinationRef: cleanCSV/csvInputFile
+  - name: fromCleanToTotal
+    sourceRef: cleanCSV/csvOutputFile
+    destinationRef: totalCSV/csvInputFile
+  types:
+  - name: singleCSVFile
+    protocol: File
+    format: CSV
