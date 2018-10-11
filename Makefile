@@ -1,8 +1,10 @@
-# Image URL to use all building/pushing image targets
+# Various simple defines
 VERSION ?= dev
-IMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 GOOS ?= linux
 GOARCH ?= amd64
+
+# Image URL to use all building/pushing image targets
+MANAGERIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 
 all: check-vars test manager
 
@@ -56,7 +58,7 @@ generate:
 
 # Build the docker image for the manager (aka operator)
 docker-manager: check-vars manager
-	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t ${IMG} .
-	docker push ${IMG}
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t $(MANAGERIMG) .
+	docker push $(MANAGERIMG)
 	@echo "updating kustomize image patch file for manager resource"
-	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
+	sed -i'' -e 's@image: .*@image: '"$(MANAGERIMG)"'@' ./config/default/manager_image_patch.yaml
