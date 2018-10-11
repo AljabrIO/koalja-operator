@@ -2,9 +2,11 @@
 VERSION ?= dev
 GOOS ?= linux
 GOARCH ?= amd64
+GOMOD=github.com/AljabrIO/koalja-operator
 
 # Image URL to use all building/pushing image targets
 MANAGERIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
+PIPELINEAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-pipeline-agent:$(VERSION)
 
 all: check-vars test manager
 
@@ -24,7 +26,12 @@ test: generate fmt vet manifests
 # Build manager binary
 manager: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager github.com/AljabrIO/koalja-operator/cmd/manager
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
+
+# Build pipeline_agent binary
+pipeline_agent: generate fmt vet
+	mkdir -p bin/$(GOOS)/$(GOARCH)/
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/pipeline_agent $(GOMOD)/cmd/pipeline_agent
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -62,3 +69,10 @@ docker-manager: check-vars manager
 	docker push $(MANAGERIMG)
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"$(MANAGERIMG)"'@' ./config/default/manager_image_patch.yaml
+
+# Build the docker image for the pipeline agent
+docker-pipeline_agent: check-vars pipeline_agent
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/pipeline_agent/Dockerfile -t $(PIPELINEAGENTIMG) .
+	docker push $(PIPELINEAGENTIMG)
+	#@echo "updating kustomize image patch file for pipeline_agent resource"
+	#sed -i'' -e 's@image: .*@image: '"$(PIPELINEAGENTIMG)"'@' ./config/default/manager_image_patch.yaml
