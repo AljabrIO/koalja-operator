@@ -4,7 +4,7 @@
 
 ```bash
 export DOCKERNAMESPACE=<your-docker-hub-account-name>
-make docker
+make docker-manager
 ```
 
 ## Deployment

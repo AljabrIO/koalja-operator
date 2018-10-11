@@ -1,6 +1,8 @@
 # Image URL to use all building/pushing image targets
 VERSION ?= dev
 IMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
+GOOS ?= linux
+GOARCH ?= amd64
 
 all: check-vars test manager
 
@@ -19,7 +21,8 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager github.com/AljabrIO/koalja-operator/cmd/manager
+	mkdir -p bin/$(GOOS)/$(GOARCH)/
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager github.com/AljabrIO/koalja-operator/cmd/manager
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -32,7 +35,7 @@ install: manifests
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	kubectl apply -f config/crds
-	kustomize build config/default | kubectl delete -f -
+	@kustomize build config/default | kubectl delete -f - || true
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -51,15 +54,9 @@ vet:
 generate:
 	go generate ./pkg/... ./cmd/...
 
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+# Build the docker image for the manager (aka operator)
+docker-manager: check-vars manager
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t ${IMG} .
+	docker push ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
-
-# Push the docker image
-docker-push:
-	docker push ${IMG}
-
-# Build docker image and push it
-docker: docker-build docker-push
