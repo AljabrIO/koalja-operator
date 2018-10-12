@@ -22,7 +22,10 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/AljabrIO/koalja-operator/pkg/agent"
 )
 
 const (
@@ -61,6 +64,42 @@ func FixupKubernetesName(name string) string {
 	return result
 }
 
+// SetAgentContainerDefaults applies default values to a container used to run an agent
+func SetAgentContainerDefaults(c *corev1.Container) {
+	if c.Name == "" {
+		c.Name = "agent"
+	}
+	if len(c.Ports) == 0 {
+		c.Ports = []corev1.ContainerPort{
+			corev1.ContainerPort{
+				Name:          "api",
+				ContainerPort: agent.AgentAPIPort,
+			},
+		}
+	}
+}
+
+// SetContainerEnvVars sets the given environment variables into the given container
+func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
+	for k, v := range vars {
+		found := false
+		for i, ev := range c.Env {
+			if ev.Name == k {
+				c.Env[i].Value = v
+				c.Env[i].ValueFrom = nil
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.Env = append(c.Env, corev1.EnvVar{
+				Name:  k,
+				Value: v,
+			})
+		}
+	}
+}
+
 // CreatePipelineAgentDeploymentName returns the name of the pipeline agent
 // for the given pipeline.
 func CreatePipelineAgentDeploymentName(pipelineName string) string {
@@ -71,4 +110,10 @@ func CreatePipelineAgentDeploymentName(pipelineName string) string {
 // for the given pipeline + link.
 func CreateLinkAgentDeploymentName(pipelineName, linkName string) string {
 	return FixupKubernetesName(pipelineName + "-link-" + linkName + "-agent")
+}
+
+// CreateTaskAgentDeploymentName returns the name of the task agent
+// for the given pipeline + task.
+func CreateTaskAgentDeploymentName(pipelineName, taskName string) string {
+	return FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
 }

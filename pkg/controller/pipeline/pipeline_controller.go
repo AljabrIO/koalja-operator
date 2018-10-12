@@ -20,10 +20,9 @@ import (
 	"context"
 	"log"
 	"reflect"
+	"strconv"
 	"time"
 
-	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
-	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/AljabrIO/koalja-operator/pkg/agent"
+	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
+	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 )
 
 // Add creates a new Pipeline Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -69,8 +72,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch Deployments since we're launching a Pipeline Agent Deployment
+	// Watch Deployments since we're launching a various Agent Deployments
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &koaljav1alpha1.Pipeline{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch Services since we're launching a various Agent Services
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &koaljav1alpha1.Pipeline{},
 	})
@@ -94,6 +106,7 @@ type ReconcilePipeline struct {
 // and what is in the Pipeline.Spec
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=v1,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
@@ -136,6 +149,15 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		}
 	}
 
+	// Ensure task agents are created
+	for _, t := range instance.Spec.Tasks {
+		if lresult, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
+			return lresult, err
+		} else {
+			result = MergeReconcileResult(result, lresult)
+		}
+	}
+
 	return result, nil
 }
 
@@ -156,12 +178,15 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		}, nil
 	}
 	c := *plAgentList.Items[0].Spec.Container
-	if c.Name == "" {
-		c.Name = "agent"
-	}
+	SetAgentContainerDefaults(&c)
+	SetContainerEnvVars(&c, map[string]string{
+		agent.EnvAPIPort:      strconv.Itoa(agent.AgentAPIPort),
+		agent.EnvPipelineName: instance.Name,
+	})
 
 	// Define the desired Deployment object for pipeline agent
 	deplName := CreatePipelineAgentDeploymentName(instance.Name)
+	deplLabels := map[string]string{"deployment": deplName}
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
@@ -169,10 +194,10 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"deployment": deplName},
+				MatchLabels: deplLabels,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": deplName}},
+				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{c},
 				},
@@ -183,26 +208,73 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		return reconcile.Result{}, err
 	}
 
-	// Check if the pipeline agent Deployment already exists
-	found := &appsv1.Deployment{}
-	if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-		log.Printf("Creating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		if err := r.Create(ctx, deploy); err != nil {
-			log.Printf("Failed to create Pipeline Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+	{
+		// Check if the pipeline agent Deployment already exists
+		found := &appsv1.Deployment{}
+		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Printf("Creating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			if err := r.Create(ctx, deploy); err != nil {
+				log.Printf("Failed to create Pipeline Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
 			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+				found.Spec = deploy.Spec
+				log.Printf("Updating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
 		}
-	} else if err != nil {
-		return reconcile.Result{}, err
 	}
 
-	// Update the found object and write the result back if there are any changes
-	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
-		found.Spec = deploy.Spec
-		log.Printf("Updating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		if err := r.Update(ctx, found); err != nil {
+	{
+		// Define the desired Service object for pipeline agent
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deplName,
+				Namespace: instance.Namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: deplLabels,
+				Type:     corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					corev1.ServicePort{
+						Name: "api",
+						Port: agent.AgentAPIPort,
+					},
+				},
+			},
+		}
+		if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
+
+		// Check if the pipeline agent Service already exists
+		found := &corev1.Service{}
+		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Printf("Creating Pipeline Agent Service %s/%s\n", service.Namespace, service.Name)
+			if err := r.Create(ctx, service); err != nil {
+				log.Printf("Failed to create Pipeline Agent Service %s/%s: %s\n", service.Namespace, service.Name, err)
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if !reflect.DeepEqual(service.Spec, found.Spec) {
+				found.Spec = service.Spec
+				log.Printf("Updating Pipeline Agent Service %s/%s\n", service.Namespace, service.Name)
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		}
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -223,12 +295,19 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		}, nil
 	}
 	c := *linkAgentList.Items[0].Spec.Container
-	if c.Name == "" {
-		c.Name = "agent"
-	}
+	SetAgentContainerDefaults(&c)
+	SetContainerEnvVars(&c, map[string]string{
+		agent.EnvAPIPort:      strconv.Itoa(agent.AgentAPIPort),
+		agent.EnvPipelineName: instance.Name,
+		agent.EnvLinkName:     link.Name,
+	})
 
 	// Define the desired Deployment object for link agent
 	deplName := CreateLinkAgentDeploymentName(instance.Name, link.Name)
+	deplLabels := map[string]string{
+		"deployment": deplName,
+		"link":       link.Name,
+	}
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
@@ -236,16 +315,10 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"deployment": deplName,
-					"link":       link.Name,
-				},
+				MatchLabels: deplLabels,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
-					"deployment": deplName,
-					"link":       link.Name,
-				}},
+				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{c},
 				},
@@ -256,25 +329,148 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		return reconcile.Result{}, err
 	}
 
-	// Check if the link agent Deployment already exists
-	found := &appsv1.Deployment{}
-	if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-		log.Printf("Creating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		if err := r.Create(ctx, deploy); err != nil {
-			log.Printf("Failed to create Link Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+	{
+		// Check if the link agent Deployment already exists
+		found := &appsv1.Deployment{}
+		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Printf("Creating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			if err := r.Create(ctx, deploy); err != nil {
+				log.Printf("Failed to create Link Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+				found.Spec = deploy.Spec
+				log.Printf("Updating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		}
+	}
+
+	{
+		// Define the desired Service object for link agent
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deplName,
+				Namespace: instance.Namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: deplLabels,
+				Type:     corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					corev1.ServicePort{
+						Name: "api",
+						Port: agent.AgentAPIPort,
+					},
+				},
+			},
+		}
+		if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-	} else if err != nil {
+
+		// Check if the link agent Service already exists
+		found := &corev1.Service{}
+		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Printf("Creating Link Agent Service %s/%s\n", service.Namespace, service.Name)
+			if err := r.Create(ctx, service); err != nil {
+				log.Printf("Failed to create Link Agent Service %s/%s: %s\n", service.Namespace, service.Name, err)
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if !reflect.DeepEqual(service.Spec, found.Spec) {
+				found.Spec = service.Spec
+				log.Printf("Updating Link Agent Service %s/%s\n", service.Namespace, service.Name)
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensureTaskAgent ensures that a task agent is launched for the given task in given pipeline instance.
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=tasks,verbs=get;list;watch
+func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, error) {
+	// Search for task agent resource
+	var taskAgentList agentsv1alpha1.TaskList
+	if err := r.List(ctx, &client.ListOptions{}, &taskAgentList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(taskAgentList.Items) == 0 {
+		// No task agent resource found
+		log.Println("No Task Agents found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	c := *taskAgentList.Items[0].Spec.Container
+	SetAgentContainerDefaults(&c)
+	SetContainerEnvVars(&c, map[string]string{
+		agent.EnvPipelineName: instance.Name,
+		agent.EnvTaskName:     task.Name,
+	})
+
+	// Define the desired Deployment object for task agent
+	deplName := CreateTaskAgentDeploymentName(instance.Name, task.Name)
+	deplLabels := map[string]string{
+		"deployment": deplName,
+		"task":       task.Name,
+	}
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deplName,
+			Namespace: instance.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: deplLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{c},
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Update the found object and write the result back if there are any changes
-	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
-		found.Spec = deploy.Spec
-		log.Printf("Updating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		if err := r.Update(ctx, found); err != nil {
+	{
+		// Check if the task agent Deployment already exists
+		found := &appsv1.Deployment{}
+		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Printf("Creating Task Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			if err := r.Create(ctx, deploy); err != nil {
+				log.Printf("Failed to create Task Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
 			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+				found.Spec = deploy.Spec
+				log.Printf("Updating Task Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
