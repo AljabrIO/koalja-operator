@@ -20,10 +20,12 @@ import (
 	"testing"
 	"time"
 
+	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,11 +37,11 @@ import (
 var c client.Client
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
-var depKey = types.NamespacedName{Name: "foo-deployment", Namespace: "default"}
+var depKey = types.NamespacedName{Name: "foo-pl-agent", Namespace: "default"}
 
 const timeout = time.Second * 5
 
-func TestReconcile(t *testing.T) {
+func TestReconcileWithPipelineAgent(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	instance := &koaljav1alpha1.Pipeline{ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"}}
 
@@ -52,6 +54,15 @@ func TestReconcile(t *testing.T) {
 	recFn, requests := SetupTestReconcile(newReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 	defer close(StartTestManager(mgr, g))
+
+	// Create Pipeline Agent
+	plAgentInstance := &agentsv1alpha1.Pipeline{
+		ObjectMeta: metav1.ObjectMeta{Name: "defplagent", Namespace: "default"},
+		Spec: agentsv1alpha1.PipelineSpec{
+			Container: &corev1.Container{Image: "myimage"},
+		},
+	}
+	g.Expect(c.Create(context.TODO(), plAgentInstance)).Should(gomega.Succeed())
 
 	// Create the Pipeline object and expect the Reconcile and Deployment to be created
 	err = c.Create(context.TODO(), instance)

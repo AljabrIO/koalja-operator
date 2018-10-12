@@ -8,7 +8,7 @@ GOMOD=github.com/AljabrIO/koalja-operator
 MANAGERIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 PIPELINEAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-pipeline-agent:$(VERSION)
 
-all: check-vars test manager
+all: check-vars build test
 
 # Check given variables
 .PHONY: check-vars
@@ -22,6 +22,9 @@ endif
 # Run tests
 test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
+
+# Build programs
+build: manager pipeline_agent
 
 # Build manager binary
 manager: generate fmt vet
@@ -63,6 +66,9 @@ vet:
 generate:
 	go generate ./pkg/... ./cmd/...
 
+# Build & push all docker images
+docker: docker-manager docker-pipeline_agent
+
 # Build the docker image for the manager (aka operator)
 docker-manager: check-vars manager
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t $(MANAGERIMG) .
@@ -74,5 +80,5 @@ docker-manager: check-vars manager
 docker-pipeline_agent: check-vars pipeline_agent
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/pipeline_agent/Dockerfile -t $(PIPELINEAGENTIMG) .
 	docker push $(PIPELINEAGENTIMG)
-	#@echo "updating kustomize image patch file for pipeline_agent resource"
-	#sed -i'' -e 's@image: .*@image: '"$(PIPELINEAGENTIMG)"'@' ./config/default/manager_image_patch.yaml
+	@echo "updating kustomize image patch file for pipeline_agent resource"
+	sed -i'' -e 's@image: .*@image: '"$(PIPELINEAGENTIMG)"'@' ./config/default/pipeline_agent_image_patch.yaml

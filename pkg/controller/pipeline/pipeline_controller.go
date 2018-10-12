@@ -20,7 +20,9 @@ import (
 	"context"
 	"log"
 	"reflect"
+	"time"
 
+	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,14 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new Pipeline Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-// USER ACTION REQUIRED: update cmd/manager/main.go to call this koalja.Add(mgr) to install this Controller
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
@@ -68,8 +64,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create
-	// Uncomment watch a Deployment created by Pipeline - change this for objects you create
+	// Watch Deployments since we're launching a Pipeline Agent Deployment
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &koaljav1alpha1.Pipeline{},
@@ -91,16 +86,16 @@ type ReconcilePipeline struct {
 
 // Reconcile reads that state of the cluster for a Pipeline object and makes changes based on the state read
 // and what is in the Pipeline.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  The scaffolding writes
-// a Deployment as an example
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	ctx := context.Background()
+
 	// Fetch the Pipeline instance
 	instance := &koaljav1alpha1.Pipeline{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Get(ctx, request.NamespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
@@ -110,26 +105,38 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// TODO(user): Change this to be the object type created by your controller
-	// Define the desired Deployment object
+	// Search for pipeline agent resource
+	var plAgentList agentsv1alpha1.PipelineList
+	if err := r.List(ctx, &client.ListOptions{}, &plAgentList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(plAgentList.Items) == 0 {
+		// No pipeline agent resource found
+		log.Println("No Pipeline Agents found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	c := *plAgentList.Items[0].Spec.Container
+	if c.Name == "" {
+		c.Name = "agent"
+	}
+
+	// Define the desired Deployment object for pipeline agent
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-deployment",
+			Name:      instance.Name + "-pl-agent",
 			Namespace: instance.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"deployment": instance.Name + "-deployment"},
+				MatchLabels: map[string]string{"deployment": instance.Name + "-pl-agent"},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": instance.Name + "-deployment"}},
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": instance.Name + "-pl-agent"}},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx",
-						},
-					},
+					Containers: []corev1.Container{c},
 				},
 			},
 		},
@@ -138,27 +145,23 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	// TODO(user): Change this for the object type created by your controller
-	// Check if the Deployment already exists
+	// Check if the pipeline agent Deployment already exists
 	found := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Printf("Creating Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		err = r.Create(context.TODO(), deploy)
-		if err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Printf("Creating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+		if err := r.Create(ctx, deploy); err != nil {
+			log.Printf("Failed to create Pipeline Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// TODO(user): Change this for the object type created by your controller
 	// Update the found object and write the result back if there are any changes
 	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
 		found.Spec = deploy.Spec
-		log.Printf("Updating Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		err = r.Update(context.TODO(), found)
-		if err != nil {
+		log.Printf("Updating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+		if err := r.Update(ctx, found); err != nil {
 			return reconcile.Result{}, err
 		}
 	}

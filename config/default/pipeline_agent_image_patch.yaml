@@ -1,0 +1,8 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: default-pipeline-agent
+  namespace: default
+spec:
+  container:
+    image: ewoutp/koalja-pipeline-agent:dev

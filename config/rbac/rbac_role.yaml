@@ -28,3 +28,11 @@ rules:
   - update
   - patch
   - delete
+- apiGroups:
+  - agents.aljabr.io
+  resources:
+  - pipelines
+  verbs:
+  - get
+  - list
+  - watch

@@ -1,12 +1,12 @@
 # Adds namespace to all resources.
-namespace: koalja-operator-system
+namespace: koalja-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: koalja-operator-
+namePrefix: koalja-
 
 # Labels to add to all resources and selectors.
 #commonLabels:
@@ -20,7 +20,9 @@ namePrefix: koalja-operator-
 resources:
 - ../rbac/rbac_role.yaml
 - ../rbac/rbac_role_binding.yaml
+- ../agents/pipeline_agent.yaml
 - ../manager/manager.yaml
 
 patches:
 - manager_image_patch.yaml
+- pipeline_agent_image_patch.yaml
