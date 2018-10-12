@@ -16,9 +16,17 @@
 
 package link
 
+//go:generate protoc -I .:../../../vendor --go_out=plugins=grpc:. agent_api.proto
+
 import (
 	"context"
+	fmt "fmt"
+	"log"
+	"net"
 
+	"github.com/AljabrIO/koalja-operator/pkg/agent"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"k8s.io/client-go/rest"
 )
 
@@ -33,6 +41,38 @@ func NewService(config *rest.Config) (*Service, error) {
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	port, err := agent.GetAgentPort()
+	if err != nil {
+		return err
+	}
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	svr := grpc.NewServer()
+	RegisterAgentServer(svr, s)
+	// Register reflection service on gRPC server.
+	reflection.Register(svr)
+	go func() {
+		if err := svr.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
 	<-ctx.Done()
+	svr.GracefulStop()
 	return nil
+}
+
+// CreateSourceSidecar returns a filled out Container that is injected
+// into a Task Execution Pod to serve as link endpoint for the source
+// of this link.
+func (s *Service) CreateSourceSidecar(context.Context, *SidecarRequest) (*SidecarResponse, error) {
+	return &SidecarResponse{}, nil
+}
+
+// CreateDestinationSidecar returns a filled out Container that is injected
+// into a Task Execution Pod to serve as link endpoint for the destination
+// of this link.
+func (s *Service) CreateDestinationSidecar(context.Context, *SidecarRequest) (*SidecarResponse, error) {
+	return &SidecarResponse{}, nil
 }
