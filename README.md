@@ -4,7 +4,7 @@
 
 ```bash
 export DOCKERNAMESPACE=<your-docker-hub-account-name>
-make docker-manager
+make docker
 ```
 
 ## Deployment
@@ -12,6 +12,8 @@ make docker-manager
 ```bash
 # Install the CRD
 make install
+# Prepare dev namespace
+kubectl create ns koalja-dev
 # Deploy operator
 make deploy
 ```

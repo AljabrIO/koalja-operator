@@ -1,0 +1,8 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: Task
+metadata:
+  name: default-task-agent
+  namespace: default
+spec:
+  container:
+    image: koalja-task-agent:latest

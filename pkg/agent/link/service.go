@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package pipeline
+package link
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// Service implements the pipeline agent.
+// Service implements the link agent.
 type Service struct {
 }
 

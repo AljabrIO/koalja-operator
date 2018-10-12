@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,7 +48,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePipeline{Client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePipeline{
+		Client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		eventRecorder: mgr.GetRecorder("controller"),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -81,7 +86,8 @@ var _ reconcile.Reconciler = &ReconcilePipeline{}
 // ReconcilePipeline reconciles a Pipeline object
 type ReconcilePipeline struct {
 	client.Client
-	scheme *runtime.Scheme
+	scheme        *runtime.Scheme
+	eventRecorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Pipeline object and makes changes based on the state read
@@ -89,7 +95,6 @@ type ReconcilePipeline struct {
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
 
@@ -105,6 +110,38 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
+	// Validate the spec
+	if err := instance.Spec.Validate(); err != nil {
+		log.Printf("Pipeline is invalid: %s\n", err)
+		r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "Pipeline is not valid: %s", err)
+		return reconcile.Result{}, nil
+	} else {
+		r.eventRecorder.Event(instance, "Norml", "PipelineValidation", "Pipeline is valid")
+	}
+
+	// Ensure pipeline agent is created
+	var result reconcile.Result
+	if lresult, err := r.ensurePipelineAgent(ctx, instance); err != nil {
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
+	// Ensure link agents are created
+	for _, l := range instance.Spec.Links {
+		if lresult, err := r.ensureLinkAgent(ctx, instance, l); err != nil {
+			return lresult, err
+		} else {
+			result = MergeReconcileResult(result, lresult)
+		}
+	}
+
+	return result, nil
+}
+
+// ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
+func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	// Search for pipeline agent resource
 	var plAgentList agentsv1alpha1.PipelineList
 	if err := r.List(ctx, &client.ListOptions{}, &plAgentList); err != nil {
@@ -124,17 +161,18 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Define the desired Deployment object for pipeline agent
+	deplName := CreatePipelineAgentDeploymentName(instance.Name)
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-pl-agent",
+			Name:      deplName,
 			Namespace: instance.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"deployment": instance.Name + "-pl-agent"},
+				MatchLabels: map[string]string{"deployment": deplName},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": instance.Name + "-pl-agent"}},
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": deplName}},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{c},
 				},
@@ -161,6 +199,79 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
 		found.Spec = deploy.Spec
 		log.Printf("Updating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+		if err := r.Update(ctx, found); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+// ensureLinkAgent ensures that a link agent is launched for the given link in given pipeline instance.
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=links,verbs=get;list;watch
+func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, link koaljav1alpha1.LinkSpec) (reconcile.Result, error) {
+	// Search for link agent resource
+	var linkAgentList agentsv1alpha1.LinkList
+	if err := r.List(ctx, &client.ListOptions{}, &linkAgentList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(linkAgentList.Items) == 0 {
+		// No link agent resource found
+		log.Println("No Link Agents found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	c := *linkAgentList.Items[0].Spec.Container
+	if c.Name == "" {
+		c.Name = "agent"
+	}
+
+	// Define the desired Deployment object for link agent
+	deplName := CreateLinkAgentDeploymentName(instance.Name, link.Name)
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deplName,
+			Namespace: instance.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"deployment": deplName,
+					"link":       link.Name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					"deployment": deplName,
+					"link":       link.Name,
+				}},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{c},
+				},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the link agent Deployment already exists
+	found := &appsv1.Deployment{}
+	if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Printf("Creating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+		if err := r.Create(ctx, deploy); err != nil {
+			log.Printf("Failed to create Link Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Update the found object and write the result back if there are any changes
+	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+		found.Spec = deploy.Spec
+		log.Printf("Updating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
 		if err := r.Update(ctx, found); err != nil {
 			return reconcile.Result{}, err
 		}

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package pipeline
+package task
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// Service implements the pipeline agent.
+// Service implements the task agent.
 type Service struct {
 }
 
@@ -31,7 +31,7 @@ func NewService(config *rest.Config) (*Service, error) {
 	return &Service{}, nil
 }
 
-// Run the pipeline agent until the given context is canceled.
+// Run the task agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
 	<-ctx.Done()
 	return nil

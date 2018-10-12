@@ -21,6 +21,8 @@ resources:
 - ../rbac/rbac_role.yaml
 - ../rbac/rbac_role_binding.yaml
 - ../agents/pipeline_agent.yaml
+- ../agents/link_agent.yaml
+- ../agents/task_agent.yaml
 - ../manager/manager.yaml
 
 patches:

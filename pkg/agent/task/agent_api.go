@@ -14,25 +14,8 @@
 // limitations under the License.
 //
 
-package pipeline
+package task
 
-import (
-	"context"
-
-	"k8s.io/client-go/rest"
-)
-
-// Service implements the pipeline agent.
-type Service struct {
-}
-
-// NewService creates a new Service instance.
-func NewService(config *rest.Config) (*Service, error) {
-	return &Service{}, nil
-}
-
-// Run the pipeline agent until the given context is canceled.
-func (s *Service) Run(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
+// Agent describes the API implemented by a task agent
+type Agent interface {
 }

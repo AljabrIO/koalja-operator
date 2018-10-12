@@ -36,3 +36,11 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - agents.aljabr.io
+  resources:
+  - links
+  verbs:
+  - get
+  - list
+  - watch
