@@ -16,6 +16,21 @@
 
 package link
 
+import (
+	"context"
+
+	corev1 "k8s.io/api/core/v1"
+)
+
 // Agent describes the API implemented by a link agent
 type Agent interface {
+	// CreateSourceSidecar returns a filled out Container that is injected
+	// into a Task Execution Pod to serve as link endpoint for the source
+	// of this link.
+	CreateSourceSidecar(ctx context.Context) (*corev1.Container, error)
+
+	// CreateDestinationSidecar returns a filled out Container that is injected
+	// into a Task Execution Pod to serve as link endpoint for the destination
+	// of this link.
+	CreateDestinationSidecar(ctx context.Context) (*corev1.Container, error)
 }
