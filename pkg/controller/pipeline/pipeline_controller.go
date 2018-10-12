@@ -19,12 +19,12 @@ package pipeline
 import (
 	"context"
 	"log"
-	"reflect"
 	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +81,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Watch StatefulSets since we're launching a various Agent StatefulSets
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &koaljav1alpha1.Pipeline{},
+	})
+	if err != nil {
+		return err
+	}
+
 	// Watch Services since we're launching a various Agent Services
 	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -106,6 +115,7 @@ type ReconcilePipeline struct {
 // and what is in the Pipeline.Spec
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=v1,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -135,6 +145,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Ensure pipeline agent is created
 	var result reconcile.Result
 	if lresult, err := r.ensurePipelineAgent(ctx, instance); err != nil {
+		log.Printf("ensurePipelineAgent failed: %s\n", err)
 		return lresult, err
 	} else {
 		result = MergeReconcileResult(result, lresult)
@@ -143,6 +154,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Ensure link agents are created
 	for _, l := range instance.Spec.Links {
 		if lresult, err := r.ensureLinkAgent(ctx, instance, l); err != nil {
+			log.Printf("ensureLinkAgent failed: %s\n", err)
 			return lresult, err
 		} else {
 			result = MergeReconcileResult(result, lresult)
@@ -152,6 +164,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Ensure task agents are created
 	for _, t := range instance.Spec.Tasks {
 		if lresult, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
+			log.Printf("ensureTaskAgent failed: %s\n", err)
 			return lresult, err
 		} else {
 			result = MergeReconcileResult(result, lresult)
@@ -186,13 +199,13 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 
 	// Define the desired Deployment object for pipeline agent
 	deplName := CreatePipelineAgentDeploymentName(instance.Name)
-	deplLabels := map[string]string{"deployment": deplName}
-	deploy := &appsv1.Deployment{
+	deplLabels := map[string]string{"statefulset": deplName}
+	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
 			Namespace: instance.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deplLabels,
 			},
@@ -210,20 +223,20 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 
 	{
 		// Check if the pipeline agent Deployment already exists
-		found := &appsv1.Deployment{}
+		found := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Printf("Creating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			log.Printf("Creating Pipeline Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 			if err := r.Create(ctx, deploy); err != nil {
-				log.Printf("Failed to create Pipeline Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				log.Printf("Failed to create Pipeline Agent StatefulSet %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
 				return reconcile.Result{}, err
 			}
 		} else if err != nil {
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
-				log.Printf("Updating Pipeline Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				log.Printf("Updating Pipeline Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
@@ -249,7 +262,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 				},
 			},
 		}
-		if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -265,7 +278,8 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !reflect.DeepEqual(service.Spec, found.Spec) {
+			if !equality.Semantic.DeepEqual(service.Spec, found.Spec) {
+				service.Spec.ClusterIP = found.Spec.ClusterIP
 				found.Spec = service.Spec
 				log.Printf("Updating Pipeline Agent Service %s/%s\n", service.Namespace, service.Name)
 				if err := r.Update(ctx, found); err != nil {
@@ -305,15 +319,15 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	// Define the desired Deployment object for link agent
 	deplName := CreateLinkAgentDeploymentName(instance.Name, link.Name)
 	deplLabels := map[string]string{
-		"deployment": deplName,
-		"link":       link.Name,
+		"statefulset": deplName,
+		"link":        link.Name,
 	}
-	deploy := &appsv1.Deployment{
+	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
 			Namespace: instance.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deplLabels,
 			},
@@ -331,20 +345,20 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 
 	{
 		// Check if the link agent Deployment already exists
-		found := &appsv1.Deployment{}
+		found := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Printf("Creating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			log.Printf("Creating Link Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 			if err := r.Create(ctx, deploy); err != nil {
-				log.Printf("Failed to create Link Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				log.Printf("Failed to create Link Agent StatefulSet %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
 				return reconcile.Result{}, err
 			}
 		} else if err != nil {
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
-				log.Printf("Updating Link Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				log.Printf("Updating Link Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
@@ -370,7 +384,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 				},
 			},
 		}
-		if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -386,7 +400,8 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !reflect.DeepEqual(service.Spec, found.Spec) {
+			if !equality.Semantic.DeepEqual(service.Spec, found.Spec) {
+				service.Spec.ClusterIP = found.Spec.ClusterIP
 				found.Spec = service.Spec
 				log.Printf("Updating Link Agent Service %s/%s\n", service.Namespace, service.Name)
 				if err := r.Update(ctx, found); err != nil {
@@ -425,15 +440,15 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	// Define the desired Deployment object for task agent
 	deplName := CreateTaskAgentDeploymentName(instance.Name, task.Name)
 	deplLabels := map[string]string{
-		"deployment": deplName,
-		"task":       task.Name,
+		"statefulset": deplName,
+		"task":        task.Name,
 	}
-	deploy := &appsv1.Deployment{
+	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
 			Namespace: instance.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: deplLabels,
 			},
@@ -451,20 +466,20 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 
 	{
 		// Check if the task agent Deployment already exists
-		found := &appsv1.Deployment{}
+		found := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Printf("Creating Task Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+			log.Printf("Creating Task Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 			if err := r.Create(ctx, deploy); err != nil {
-				log.Printf("Failed to create Task Agent Deployment %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
+				log.Printf("Failed to create Task Agent StatefulSet %s/%s: %s\n", deploy.Namespace, deploy.Name, err)
 				return reconcile.Result{}, err
 			}
 		} else if err != nil {
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
-				log.Printf("Updating Task Agent Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+				log.Printf("Updating Task Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
