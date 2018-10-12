@@ -5,4 +5,4 @@ metadata:
   namespace: default
 spec:
   container:
-    image: ewoutp/koalja-pipeline-agent:dev
+    image: koalja-pipeline-agent:latest

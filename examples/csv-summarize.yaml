@@ -2,6 +2,7 @@ apiVersion: koalja.aljabr.io/v1alpha1
 kind: Pipeline
 metadata:
   name: csv-clean-and-total
+  namespace: koalja-dev
 spec:
   tasks:
   - name: cleanCSV

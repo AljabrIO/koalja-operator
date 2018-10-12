@@ -47,8 +47,8 @@ install: manifests
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	kubectl apply -f config/crds
-	@kustomize build config/default | kubectl delete -f - || true
-	kustomize build config/default | kubectl apply -f -
+	@kustomize build config/default/$(VERSION) | kubectl delete -f - || true
+	kustomize build config/default/$(VERSION) | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
@@ -67,18 +67,21 @@ generate:
 	go generate ./pkg/... ./cmd/...
 
 # Build & push all docker images
-docker: docker-manager docker-pipeline_agent
+docker: docker-build docker-push docker-patch-config
 
-# Build the docker image for the manager (aka operator)
-docker-manager: check-vars manager
+# Build the docker image for the programs
+docker-build: check-vars manager pipeline_agent
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t $(MANAGERIMG) .
-	docker push $(MANAGERIMG)
-	@echo "updating kustomize image patch file for manager resource"
-	sed -i'' -e 's@image: .*@image: '"$(MANAGERIMG)"'@' ./config/default/manager_image_patch.yaml
-
-# Build the docker image for the pipeline agent
-docker-pipeline_agent: check-vars pipeline_agent
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/pipeline_agent/Dockerfile -t $(PIPELINEAGENTIMG) .
+
+# Push docker images
+docker-push: docker-build
+	docker push $(MANAGERIMG)
 	docker push $(PIPELINEAGENTIMG)
-	@echo "updating kustomize image patch file for pipeline_agent resource"
-	sed -i'' -e 's@image: .*@image: '"$(PIPELINEAGENTIMG)"'@' ./config/default/pipeline_agent_image_patch.yaml
+
+# Set image IDs in patch files
+docker-patch-config:
+	mkdir -p config/default/$(VERSION)
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(MANAGERIMG))"'!' ./config/default/manager_image_patch.yaml > ./config/default/$(VERSION)/manager_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(PIPELINEAGENTIMG))"'!' ./config/default/pipeline_agent_image_patch.yaml > ./config/default/$(VERSION)/pipeline_agent_image_patch.yaml
+	cd config/default/$(VERSION) && echo "namespace: koalja-$(VERSION)" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"
