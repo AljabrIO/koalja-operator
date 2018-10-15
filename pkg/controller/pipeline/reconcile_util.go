@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent"
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 )
 
 const (
@@ -73,7 +73,7 @@ func SetAgentContainerDefaults(c *corev1.Container) {
 		c.Ports = []corev1.ContainerPort{
 			corev1.ContainerPort{
 				Name:          "api",
-				ContainerPort: agent.AgentAPIPort,
+				ContainerPort: constants.AgentAPIPort,
 			},
 		}
 	}
@@ -98,6 +98,14 @@ func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 			})
 		}
 	}
+	c.Env = append(c.Env, corev1.EnvVar{
+		Name: constants.EnvNamespace,
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	})
 }
 
 // CreatePipelineAgentDeploymentName returns the name of the pipeline agent

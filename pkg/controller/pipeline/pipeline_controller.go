@@ -38,9 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent"
 	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 )
 
 // Add creates a new Pipeline Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -193,8 +193,8 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	c := *plAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
-		agent.EnvAPIPort:      strconv.Itoa(agent.AgentAPIPort),
-		agent.EnvPipelineName: instance.Name,
+		constants.EnvAPIPort:      strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName: instance.Name,
 	})
 
 	// Define the desired Deployment object for pipeline agent
@@ -257,7 +257,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
 						Name: "api",
-						Port: agent.AgentAPIPort,
+						Port: constants.AgentAPIPort,
 					},
 				},
 			},
@@ -311,9 +311,9 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	c := *linkAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
-		agent.EnvAPIPort:      strconv.Itoa(agent.AgentAPIPort),
-		agent.EnvPipelineName: instance.Name,
-		agent.EnvLinkName:     link.Name,
+		constants.EnvAPIPort:      strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName: instance.Name,
+		constants.EnvLinkName:     link.Name,
 	})
 
 	// Define the desired Deployment object for link agent
@@ -379,7 +379,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
 						Name: "api",
-						Port: agent.AgentAPIPort,
+						Port: constants.AgentAPIPort,
 					},
 				},
 			},
@@ -433,8 +433,8 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	c := *taskAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
-		agent.EnvPipelineName: instance.Name,
-		agent.EnvTaskName:     task.Name,
+		constants.EnvPipelineName: instance.Name,
+		constants.EnvTaskName:     task.Name,
 	})
 
 	// Define the desired Deployment object for task agent

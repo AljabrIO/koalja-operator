@@ -6,3 +6,15 @@ metadata:
 spec:
   container:
     image: koalja-link-agent:latest
+
+---
+
+apiVersion: agents.aljabr.io/v1alpha1
+kind: LinkSidecar
+metadata:
+  name: default-file-link-sidecar
+  namespace: default
+spec:
+  container:
+    image: koalja-link-agent:latest
+

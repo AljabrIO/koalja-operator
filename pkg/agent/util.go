@@ -17,16 +17,32 @@
 package agent
 
 import (
-	"os"
-	"strconv"
+	"context"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 )
 
-// GetAgentPort returns the port to listen on, found in the environment,
-func GetAgentPort() (int, error) {
-	portStr := os.Getenv(EnvAPIPort)
-	result, err := strconv.Atoi(portStr)
+// GetPipeline loads the pipeline identified by a name in the environment.
+func GetPipeline(ctx context.Context, kapi client.Client) (*koaljav1alpha1.Pipeline, error) {
+	name, err := constants.GetPipelineName()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result, nil
+	ns, err := constants.GetNamespace()
+	if err != nil {
+		return nil, err
+	}
+	instance := &koaljav1alpha1.Pipeline{}
+	key := types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}
+	if err := kapi.Get(ctx, key, instance); err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

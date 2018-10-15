@@ -76,7 +76,7 @@ func TestReconcileWithPipelineAgent(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	deploy := &appsv1.Deployment{}
+	deploy := &appsv1.StatefulSet{}
 	g.Eventually(func() error { return c.Get(context.TODO(), depKey, deploy) }, timeout).
 		Should(gomega.Succeed())
 

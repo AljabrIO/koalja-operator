@@ -18,6 +18,8 @@ service Agent {
 }
 
 message SidecarRequest {
+	string Protocol = 1;
+	string Format = 2;
 }
 
 message SidecarResponse {

@@ -20,7 +20,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	link "github.com/AljabrIO/koalja-operator/pkg/agent/link/default"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
