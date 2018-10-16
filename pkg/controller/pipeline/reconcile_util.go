@@ -19,6 +19,8 @@ package pipeline
 import (
 	"crypto/sha1"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -108,20 +110,38 @@ func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 	})
 }
 
-// CreatePipelineAgentDeploymentName returns the name of the pipeline agent
+// CreatePipelineAgentName returns the name of the pipeline agent
 // for the given pipeline.
-func CreatePipelineAgentDeploymentName(pipelineName string) string {
+func CreatePipelineAgentName(pipelineName string) string {
 	return FixupKubernetesName(pipelineName + "-pl-agent")
 }
 
-// CreateLinkAgentDeploymentName returns the name of the link agent
+// CreatePipelineAgentDNSName returns the DNS of the pipeline agent
+// for the given pipeline.
+func CreatePipelineAgentDNSName(pipelineName, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc", CreatePipelineAgentName(pipelineName), namespace)
+}
+
+// CreateLinkAgentName returns the name of the link agent
 // for the given pipeline + link.
-func CreateLinkAgentDeploymentName(pipelineName, linkName string) string {
+func CreateLinkAgentName(pipelineName, linkName string) string {
 	return FixupKubernetesName(pipelineName + "-link-" + linkName + "-agent")
 }
 
-// CreateTaskAgentDeploymentName returns the name of the task agent
+// CreateLinkAgentDNSName returns the DNS name of the link agent
+// for the given pipeline + link.
+func CreateLinkAgentDNSName(pipelineName, linkName, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc", CreateLinkAgentName(pipelineName, linkName), namespace)
+}
+
+// CreateTaskAgentName returns the name of the task agent
 // for the given pipeline + task.
-func CreateTaskAgentDeploymentName(pipelineName, taskName string) string {
+func CreateTaskAgentName(pipelineName, taskName string) string {
 	return FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
+}
+
+// CreateEventRegistryAddress returns the address (host:port) of the event registry
+// for the given pipeline.
+func CreateEventRegistryAddress(pipelineName, namespace string) string {
+	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.EventRegistryAPIPort))
 }

@@ -83,3 +83,26 @@ message Event {
     // Data contains a URI of the data (payload) of the message
     string Data = 6;
 }
+
+// EventRegistry is a persistent event store
+service EventRegistry {
+    // Record the given event in the registry
+    rpc RecordEvent(Event) returns (google.protobuf.Empty);
+    // GetEventByID returns the event with given ID.
+    rpc GetEventByID(GetEventByIDRequest) returns (GetEventResponse);
+    // GetEventByID returns the event with given ID.
+    rpc GetEventByTaskAndData(GetEventByTaskAndDataRequest) returns (GetEventResponse);
+}
+
+message GetEventByIDRequest {
+    string ID = 1;
+}
+
+message GetEventByTaskAndDataRequest {
+    string SourceTask = 1;
+    string Data = 2;
+}
+
+message GetEventResponse {
+    Event Event = 1;
+}

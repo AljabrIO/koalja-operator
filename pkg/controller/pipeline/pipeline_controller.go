@@ -190,15 +190,36 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			RequeueAfter: time.Second * 10,
 		}, nil
 	}
-	c := *plAgentList.Items[0].Spec.Container
-	SetAgentContainerDefaults(&c)
-	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:      strconv.Itoa(constants.AgentAPIPort),
+	agentCont := *plAgentList.Items[0].Spec.Container
+	SetAgentContainerDefaults(&agentCont)
+	SetContainerEnvVars(&agentCont, map[string]string{
+		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:         instance.Name,
+		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
+	})
+
+	// Search for event registry resource
+	var evtRegistryList agentsv1alpha1.EventRegistryList
+	if err := r.List(ctx, &client.ListOptions{}, &evtRegistryList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(evtRegistryList.Items) == 0 {
+		// No event registry resource found
+		log.Println("No Event Registries found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	evtRegistryCont := *evtRegistryList.Items[0].Spec.Container
+	SetAgentContainerDefaults(&evtRegistryCont)
+	SetContainerEnvVars(&evtRegistryCont, map[string]string{
+		constants.EnvAPIPort:      strconv.Itoa(constants.EventRegistryAPIPort),
 		constants.EnvPipelineName: instance.Name,
 	})
 
 	// Define the desired Deployment object for pipeline agent
-	deplName := CreatePipelineAgentDeploymentName(instance.Name)
+	deplName := CreatePipelineAgentName(instance.Name)
 	deplLabels := map[string]string{"statefulset": deplName}
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -212,7 +233,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{c},
+					Containers: []corev1.Container{agentCont, evtRegistryCont},
 				},
 			},
 		},
@@ -256,8 +277,12 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
-						Name: "api",
+						Name: "agent-api",
 						Port: constants.AgentAPIPort,
+					},
+					corev1.ServicePort{
+						Name: "event-registry-api",
+						Port: constants.EventRegistryAPIPort,
 					},
 				},
 			},
@@ -311,13 +336,14 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	c := *linkAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:      strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvPipelineName: instance.Name,
-		constants.EnvLinkName:     link.Name,
+		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:         instance.Name,
+		constants.EnvLinkName:             link.Name,
+		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 	})
 
-	// Define the desired Deployment object for link agent
-	deplName := CreateLinkAgentDeploymentName(instance.Name, link.Name)
+	// Define the desired StatefulSet object for link agent
+	deplName := CreateLinkAgentName(instance.Name, link.Name)
 	deplLabels := map[string]string{
 		"statefulset": deplName,
 		"link":        link.Name,
@@ -344,7 +370,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	}
 
 	{
-		// Check if the link agent Deployment already exists
+		// Check if the link agent StatefulSet already exists
 		found := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
 			log.Printf("Creating Link Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
@@ -433,12 +459,13 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	c := *taskAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvPipelineName: instance.Name,
-		constants.EnvTaskName:     task.Name,
+		constants.EnvPipelineName:         instance.Name,
+		constants.EnvTaskName:             task.Name,
+		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 	})
 
-	// Define the desired Deployment object for task agent
-	deplName := CreateTaskAgentDeploymentName(instance.Name, task.Name)
+	// Define the desired StatefulSet object for task agent
+	deplName := CreateTaskAgentName(instance.Name, task.Name)
 	deplLabels := map[string]string{
 		"statefulset": deplName,
 		"task":        task.Name,
@@ -465,7 +492,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	}
 
 	{
-		// Check if the task agent Deployment already exists
+		// Check if the task agent StatefulSet already exists
 		found := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
 			log.Printf("Creating Task Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)

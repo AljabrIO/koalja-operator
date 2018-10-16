@@ -26,8 +26,8 @@ const (
 	// AgentAPIPort is the TCP port used to serve the API of agents.
 	AgentAPIPort = 6275
 
-	// LinkSidecarAPIPort is the TCP port used to serve the API of link sidecars.
-	LinkSidecarAPIPort = 6276
+	// EventRegistryAPIPort is the TCP port used to serve the API of an event registry.
+	EventRegistryAPIPort = 6276
 
 	// EnvAPIPort is the name of the environment variable used to pass the
 	// TCP port the agent should list on for its API.
@@ -40,6 +40,10 @@ const (
 	// EnvPipelineName is the name of the environment variable used to pass the
 	// name of the pipeline to an agent/sidecar.
 	EnvPipelineName = "KOALJA_PIPELINE_NAME"
+
+	// EnvEventRegistryAddress is the name of the environment variable used to pass the
+	// address of the EventRegistry to a container.
+	EnvEventRegistryAddress = "KOALJA_EVENT_REGISTRY_ADDRESS"
 
 	// EnvLinkName is the name of the environment variable used to pass the
 	// name of the link to an agent/sidecar.
@@ -56,18 +60,6 @@ const (
 	// EnvFormat is the name of the environment variable used to pass the
 	// format of a link endpoint to a link sidecar.
 	EnvFormat = "KOALJA_FORMAT"
-
-	// EnvLinkSide is the name of the environment variable used to pass the
-	// side of a link to a link sidecar.
-	// Possible values are LinkSideSource & LinkSideDestination.
-	EnvLinkSide = "KOALJA_LINK_SIDE"
-
-	// LinkSideSource is a value for EnvLinkSide, indicating that the sidecar serves
-	// as the source of a link
-	LinkSideSource = "Source"
-	// LinkSideDestination is a value for EnvLinkSide, indicating that the sidecar serves
-	// as the destination of a link
-	LinkSideDestination = "Destination"
 )
 
 // GetAPIPort returns the port to listen on for agents/sidecars, found in the environment,

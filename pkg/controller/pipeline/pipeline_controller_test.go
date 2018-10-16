@@ -37,7 +37,7 @@ import (
 var c client.Client
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
-var depKey = types.NamespacedName{Name: CreatePipelineAgentDeploymentName("foo"), Namespace: "default"}
+var depKey = types.NamespacedName{Name: CreatePipelineAgentName("foo"), Namespace: "default"}
 
 const timeout = time.Second * 5
 
@@ -63,6 +63,15 @@ func TestReconcileWithPipelineAgent(t *testing.T) {
 		},
 	}
 	g.Expect(c.Create(context.TODO(), plAgentInstance)).Should(gomega.Succeed())
+
+	// Create Event Registry
+	evtRegistryInstance := &agentsv1alpha1.EventRegistry{
+		ObjectMeta: metav1.ObjectMeta{Name: "def-evt-registry", Namespace: "default"},
+		Spec: agentsv1alpha1.EventRegistrySpec{
+			Container: &corev1.Container{Image: "myimage"},
+		},
+	}
+	g.Expect(c.Create(context.TODO(), evtRegistryInstance)).Should(gomega.Succeed())
 
 	// Create the Pipeline object and expect the Reconcile and Deployment to be created
 	err = c.Create(context.TODO(), instance)

@@ -7,6 +7,7 @@ GOMOD=github.com/AljabrIO/koalja-operator
 # Image URL to use all building/pushing image targets
 MANAGERIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 PIPELINEAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-pipeline-agent:$(VERSION)
+STUBEVENTREGISTRYIMG ?= $(DOCKERNAMESPACE)/koalja-stub-event-registry:$(VERSION)
 STUBLINKAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-stub-link-agent:$(VERSION)
 TASKAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-task-agent:$(VERSION)
 
@@ -26,7 +27,7 @@ test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager pipeline_agent task_agent stub_link_agent
+build: manager pipeline_agent stub_event_registry task_agent stub_link_agent
 
 # Build manager binary
 manager: generate fmt vet
@@ -37,6 +38,11 @@ manager: generate fmt vet
 pipeline_agent: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/pipeline_agent $(GOMOD)/cmd/pipeline_agent
+
+# Build stub/registry binary
+stub_event_registry: generate fmt vet
+	mkdir -p bin/$(GOOS)/$(GOARCH)/stub
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/stub/registry $(GOMOD)/pkg/event/registry/stub
 
 # Build task_agent binary
 task_agent: generate fmt vet
@@ -85,6 +91,7 @@ docker: docker-build docker-push docker-patch-config
 docker-build: check-vars build
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t $(MANAGERIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/pipeline_agent/Dockerfile -t $(PIPELINEAGENTIMG) .
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./pkg/event/registry/stub/Dockerfile -t $(STUBEVENTREGISTRYIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./pkg/agent/link/stub/Dockerfile -t $(STUBLINKAGENTIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/task_agent/Dockerfile -t $(TASKAGENTIMG) .
 
@@ -100,6 +107,7 @@ docker-patch-config:
 	mkdir -p config/default/$(VERSION)
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(MANAGERIMG))"'!' ./config/default/manager_image_patch.yaml > ./config/default/$(VERSION)/manager_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(PIPELINEAGENTIMG))"'!' ./config/default/pipeline_agent_image_patch.yaml > ./config/default/$(VERSION)/pipeline_agent_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(STUBEVENTREGISTRYIMG))"'!' ./config/default/stub_event_registry_image_patch.yaml > ./config/default/$(VERSION)/stub_event_registry_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(STUBLINKAGENTIMG))"'!' ./config/default/stub_link_agent_image_patch.yaml > ./config/default/$(VERSION)/stub_link_agent_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKAGENTIMG))"'!' ./config/default/task_agent_image_patch.yaml > ./config/default/$(VERSION)/task_agent_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-$(VERSION)" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"
