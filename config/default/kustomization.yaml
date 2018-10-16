@@ -24,4 +24,5 @@ resources:
 - ../agents/event_registry.yaml
 - ../agents/link_agent.yaml
 - ../agents/task_agent.yaml
+- ../manager/local-fs.yaml
 - ../manager/manager.yaml

@@ -1,0 +1,85 @@
+// 
+// Copyright © 2018 Aljabr, Inc.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// 
+
+syntax = "proto3";
+
+package fs;
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
+
+// FileSystem is the API used to access long term file storage
+service FileSystem {
+    // CreateVolumeForWrite creates a PersistentVolume that can be used to
+    // write files to.
+    rpc CreateVolumeForWrite(CreateVolumeForWriteRequest) returns (CreateVolumeForWriteResponse);
+    // CreateFileURI creates a URI for the given file/dir 
+    rpc CreateFileURI(CreateFileURIRequest) returns (CreateFileURIResponse);
+    // CreateVolumeForRead creates a PersistentVolume for reading a given URI
+    rpc CreateVolumeForRead(CreateVolumeForReadRequest) returns (CreateVolumeForReadResponse);
+}
+
+// CreateVolumeForWriteRequest contains arguments for CreateVolumeForWrite.
+message CreateVolumeForWriteRequest {
+    // Estimated capacity (in bytes) of the data that will be written
+    int64 EstimatedCapacity = 1;
+    // Name of the Node on which the PV must reside.
+    // If not set, a random node is picked.
+    string NodeName = 2;
+}
+
+// CreateVolumeForWriteResponse contains results for CreateVolumeForWrite.
+message CreateVolumeForWriteResponse {
+    // Name of the created PersistentVolume
+    string VolumeName = 1;
+    // Name of the Node on which the volume is created
+    string NodeName = 2;
+}
+
+// CreateFileURIRequest contains arguments for CreateFileURI
+message CreateFileURIRequest {
+    // Name of the PersistentVolume that contains the file/dir
+    string VolumeName = 1;
+    // Name of the Node on which the volume resides
+    string NodeName = 2;
+    // Local path of the file/dir in the PersistentVolume
+    string LocalPath = 3;
+    // IsDir indicates if the URI is for a file (false) or a directory (true)
+    bool IsDir = 4;
+}
+
+// CreateFileURIRequest contains results for CreateFileURI
+message CreateFileURIResponse {
+    // The created URI
+    string URI = 1;
+}
+
+// CreateVolumeForReadRequest contains arguments for CreateVolumeForRead
+message CreateVolumeForReadRequest {
+    // The URI to read
+    string URI = 1;
+}
+
+// CreateVolumeForReadResponse contains results for CreateVolumeForRead
+message CreateVolumeForReadResponse {
+    // Name of the created PersistentVolume
+    string VolumeName = 1;
+    // Name of the Node on which the volume is resides
+    string NodeName = 2;
+    // Local path of the file/dir in the PersistentVolume
+    string LocalPath = 3;
+    // IsDir indicates if the URI is for a file (false) or a directory (true)
+    bool IsDir = 4;
+}

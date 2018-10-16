@@ -8,6 +8,7 @@ GOMOD=github.com/AljabrIO/koalja-operator
 MANAGERIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 PIPELINEAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-pipeline-agent:$(VERSION)
 STUBEVENTREGISTRYIMG ?= $(DOCKERNAMESPACE)/koalja-stub-event-registry:$(VERSION)
+LOCALFSIMAGE ?= $(DOCKERNAMESPACE)/koalja-local-fs-service:$(VERSION)
 STUBLINKAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-stub-link-agent:$(VERSION)
 TASKAGENTIMG ?= $(DOCKERNAMESPACE)/koalja-task-agent:$(VERSION)
 
@@ -27,7 +28,7 @@ test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager pipeline_agent stub_event_registry task_agent stub_link_agent
+build: manager pipeline_agent stub_event_registry task_agent stub_link_agent local_fs_service
 
 # Build manager binary
 manager: generate fmt vet
@@ -53,6 +54,11 @@ task_agent: generate fmt vet
 stub_link_agent: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/stub
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/stub/link_agent $(GOMOD)/pkg/agent/link/stub
+
+# Build local_fs_service binary
+local_fs_service: generate fmt vet
+	mkdir -p bin/$(GOOS)/$(GOARCH)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/local_fs_service $(GOMOD)/pkg/fs/service/local
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -92,6 +98,7 @@ docker-build: check-vars build
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/manager/Dockerfile -t $(MANAGERIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/pipeline_agent/Dockerfile -t $(PIPELINEAGENTIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./pkg/event/registry/stub/Dockerfile -t $(STUBEVENTREGISTRYIMG) .
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./pkg/fs/service/local/Dockerfile -t $(LOCALFSIMAGE) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./pkg/agent/link/stub/Dockerfile -t $(STUBLINKAGENTIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./cmd/task_agent/Dockerfile -t $(TASKAGENTIMG) .
 
@@ -99,6 +106,8 @@ docker-build: check-vars build
 docker-push: docker-build
 	docker push $(MANAGERIMG)
 	docker push $(PIPELINEAGENTIMG)
+	docker push $(STUBEVENTREGISTRYIMG)
+	docker push $(LOCALFSIMAGE)
 	docker push $(STUBLINKAGENTIMG)
 	docker push $(TASKAGENTIMG)
 
@@ -108,6 +117,7 @@ docker-patch-config:
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(MANAGERIMG))"'!' ./config/default/manager_image_patch.yaml > ./config/default/$(VERSION)/manager_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(PIPELINEAGENTIMG))"'!' ./config/default/pipeline_agent_image_patch.yaml > ./config/default/$(VERSION)/pipeline_agent_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(STUBEVENTREGISTRYIMG))"'!' ./config/default/stub_event_registry_image_patch.yaml > ./config/default/$(VERSION)/stub_event_registry_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(LOCALFSIMAGE))"'!' ./config/default/local_fs_service_image_patch.yaml > ./config/default/$(VERSION)/local_fs_service_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(STUBLINKAGENTIMG))"'!' ./config/default/stub_link_agent_image_patch.yaml > ./config/default/$(VERSION)/stub_link_agent_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKAGENTIMG))"'!' ./config/default/task_agent_image_patch.yaml > ./config/default/$(VERSION)/task_agent_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-$(VERSION)" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"

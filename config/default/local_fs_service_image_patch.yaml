@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: local-fs
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      # Change the value of image field below to your fs image URL
+      - image: koalja-local-fs-service:latest
+        name: fs-service
