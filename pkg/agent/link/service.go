@@ -31,6 +31,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 )
 
 // Service implements the link agent.
@@ -38,12 +39,14 @@ type Service struct {
 	port           int
 	eventPublisher event.EventPublisherServer
 	eventSource    event.EventSourceServer
+	eventRegistry  registry.EventRegistryClient
 }
 
 // APIDependencies provides some dependencies to API builder implementations
 type APIDependencies struct {
 	client.Client
-	Namespace string
+	Namespace     string
+	EventRegistry registry.EventRegistryClient
 }
 
 // APIBuilder is an interface provided by an Link implementation
@@ -66,7 +69,15 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	deps := APIDependencies{Client: client, Namespace: ns}
+	evtReg, err := registry.CreateEventRegistryClient()
+	if err != nil {
+		return nil, err
+	}
+	deps := APIDependencies{
+		Client:        client,
+		Namespace:     ns,
+		EventRegistry: evtReg,
+	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
 	if err != nil {
 		return nil, err
@@ -79,11 +90,13 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 		port:           port,
 		eventPublisher: eventPublisher,
 		eventSource:    eventSource,
+		eventRegistry:  evtReg,
 	}, nil
 }
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	defer s.eventRegistry.Close()
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

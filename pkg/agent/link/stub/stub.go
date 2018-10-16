@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/golang/protobuf/ptypes"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -52,6 +53,7 @@ func (s *subscription) RenewExpiresAt() {
 
 // stub is an in-memory implementation of an event queue.
 type stub struct {
+	registry           registry.EventRegistryClient
 	queue              chan *event.Event
 	retryQueue         chan *event.Event
 	subscriptions      map[int64]*subscription
@@ -76,6 +78,7 @@ func newStub() *stub {
 
 // NewEventPublisher "builds" a new publisher
 func (s *stub) NewEventPublisher(deps link.APIDependencies) (event.EventPublisherServer, error) {
+	s.registry = deps.EventRegistry
 	return s, nil
 }
 
@@ -86,6 +89,12 @@ func (s *stub) NewEventSource(deps link.APIDependencies) (event.EventSourceServe
 
 // Publish an event
 func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.PublishResponse, error) {
+	// Try to record event in registry
+	if _, err := s.registry.RecordEvent(ctx, req.GetEvent()); err != nil {
+		return nil, err
+	}
+
+	// Now put event in in-memory queue
 	select {
 	case s.queue <- req.GetEvent():
 		return &event.PublishResponse{}, nil
