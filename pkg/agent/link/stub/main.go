@@ -20,10 +20,11 @@ import (
 	"context"
 	"log"
 
-	link "github.com/AljabrIO/koalja-operator/pkg/agent/link/default"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
 )
 
 func main() {
@@ -34,7 +35,8 @@ func main() {
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := link.NewService(cfg)
+	s := newStub()
+	svc, err := link.NewService(cfg, s)
 	if err != nil {
 		log.Fatal(err)
 	}

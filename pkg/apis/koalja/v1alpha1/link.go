@@ -22,10 +22,7 @@ import "github.com/pkg/errors"
 type LinkSpec struct {
 	// Name of the link
 	Name string `json:"name"`
-	// Source of the link
-	Source *LinkSourceSpec `json:"source,omitempty"`
 	// SourceRef specifies the source of the link as `taskName/outputName`.
-	// SourceRef must be empty when Source is specified.
 	SourceRef string `json:"sourceRef,omitempty"`
 	// DestinationRef specifies the destination of the link as `taskName/inputName`
 	DestinationRef string `json:"destinationRef"`
@@ -51,14 +48,10 @@ func (ls LinkSpec) Validate(ps PipelineSpec) error {
 	if err := ValidateName(ls.Name); err != nil {
 		return maskAny(err)
 	}
-	if ls.Source == nil && ls.SourceRef == "" {
-		return errors.Wrapf(ErrValidation, "Source or SourceRef expected in link '%s'", ls.Name)
-	} else if ls.Source != nil && ls.SourceRef != "" {
-		return errors.Wrapf(ErrValidation, "Source or SourceRef expected in link '%s', not both", ls.Name)
-	} else if ls.SourceRef != "" {
-		if _, _, err := SplitTaskRef(ls.SourceRef); err != nil {
-			return maskAny(err)
-		}
+	if ls.SourceRef == "" {
+		return errors.Wrapf(ErrValidation, "SourceRef expected in link '%s'", ls.Name)
+	} else if _, _, err := SplitTaskRef(ls.SourceRef); err != nil {
+		return maskAny(err)
 	}
 	if ls.DestinationRef == "" {
 		return errors.Wrapf(ErrValidation, "DestinationRef expected in link '%s'", ls.Name)

@@ -29,13 +29,6 @@ spec:
                     type: string
                   name:
                     type: string
-                  source:
-                    properties:
-                      type:
-                        type: string
-                    required:
-                    - type
-                    type: object
                   sourceRef:
                     type: string
                 required:
@@ -47,15 +40,6 @@ spec:
               items:
                 properties:
                   executor:
-                    properties:
-                      args:
-                        items:
-                          type: string
-                        type: array
-                      container:
-                        type: string
-                    required:
-                    - container
                     type: object
                   inputs:
                     items:
@@ -76,18 +60,21 @@ spec:
                       properties:
                         name:
                           type: string
+                        ready:
+                          type: string
                         typeRef:
                           type: string
                       required:
                       - name
                       - typeRef
+                      - ready
                       type: object
                     type: array
+                  type:
+                    type: string
                 required:
                 - name
-                - inputs
                 - outputs
-                - executor
                 type: object
               type: array
             types:

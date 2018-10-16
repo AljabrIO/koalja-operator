@@ -3,5 +3,5 @@ FROM scratch
 ARG GOARCH=amd64
 
 WORKDIR /root/
-COPY bin/linux/${GOARCH}/link_agent .
+COPY bin/linux/${GOARCH}/stub/link_agent .
 ENTRYPOINT ["./link_agent"]

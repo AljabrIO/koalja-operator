@@ -6,3 +6,4 @@ metadata:
 spec:
   container:
     image: koalja-stub-link-agent:latest
+

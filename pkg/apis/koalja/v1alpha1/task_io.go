@@ -32,6 +32,32 @@ type TaskOutputSpec struct {
 	Name string `json:"name"`
 	// Reference to the type of the output
 	TypeRef string `json:"typeRef"`
+	// Ready indicates when this output is ready and available for the
+	// next task in the pipeline
+	Ready OutputReadiness `json:"ready"`
+}
+
+// OutputReadiness specifies when an output of a task is ready for the
+// next task in the pipeline.
+type OutputReadiness string
+
+const (
+	// OutputReadyAuto indicates that the output is automatically pushed
+	// into the output link by the executor.
+	OutputReadyAuto OutputReadiness = "Auto"
+	// OutputReadySucceeded indicates that the output is available to be pushed
+	// into the output link when the executor has terminated succesfully.
+	OutputReadySucceeded OutputReadiness = "Succeeded"
+)
+
+// Validate that the given readiness is a valid value.
+func (or OutputReadiness) Validate() error {
+	switch or {
+	case OutputReadyAuto, OutputReadySucceeded:
+		return nil
+	default:
+		return errors.Wrapf(ErrValidation, "Invalid OutputReadiness '%s'", string(or))
+	}
 }
 
 // Validate the task input in the context of the given pipeline spec.
@@ -60,6 +86,9 @@ func (tos TaskOutputSpec) Validate(ps PipelineSpec) error {
 	}
 	if _, found := ps.TypeByName(tos.TypeRef); !found {
 		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tos.TypeRef)
+	}
+	if err := tos.Ready.Validate(); err != nil {
+		return maskAny(err)
 	}
 	return nil
 }

@@ -16,19 +16,27 @@ limitations under the License.
 
 package v1alpha1
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	core "k8s.io/api/core/v1"
+)
 
 // TaskSpec holds the specification of a single task
 type TaskSpec struct {
 	// Name of the task
 	Name string `json:"name"`
+	// Type of task
+	Type TaskType `json:"type,omitempty"`
 	// Inputs of the task
-	Inputs []TaskInputSpec `json:"inputs"`
+	Inputs []TaskInputSpec `json:"inputs,omitempty"`
 	// Outputs of the task
 	Outputs []TaskOutputSpec `json:"outputs"`
 	// Executor holds the spec of the execution part of the task
-	Executor *TaskExecutorSpec `json:"executor"`
+	Executor *core.Container `json:"executor,omitempty"`
 }
+
+// TaskType identifies a well know type of task.
+type TaskType string
 
 // InputByName returns the input of the task that has the given name.
 // Returns false if not found.
@@ -58,11 +66,8 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 	if err := ValidateName(ts.Name); err != nil {
 		return maskAny(err)
 	}
-	if ts.Executor == nil {
-		return errors.Wrapf(ErrValidation, "Executor expected in task '%s'", ts.Name)
-	}
-	if len(ts.Inputs) == 0 {
-		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 input", ts.Name)
+	if ts.Executor == nil && ts.Type == "" {
+		return errors.Wrapf(ErrValidation, "Executor or Type expected in task '%s'", ts.Name)
 	}
 	if len(ts.Outputs) == 0 {
 		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 output", ts.Name)
@@ -87,8 +92,10 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 			return maskAny(err)
 		}
 	}
-	if err := ts.Executor.Validate(ps); err != nil {
-		return maskAny(err)
+	if ts.Executor != nil {
+		if ts.Executor.Image == "" {
+			return errors.Wrapf(ErrValidation, "Executor of task '%s' must have an image", ts.Name)
+		}
 	}
 	return nil
 }
