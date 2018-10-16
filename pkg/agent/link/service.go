@@ -26,6 +26,7 @@ import (
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -37,6 +38,7 @@ import (
 // Service implements the link agent.
 type Service struct {
 	port           int
+	uri            string
 	eventPublisher event.EventPublisherServer
 	eventSource    event.EventSourceServer
 	eventRegistry  registry.EventRegistryClient
@@ -44,8 +46,13 @@ type Service struct {
 
 // APIDependencies provides some dependencies to API builder implementations
 type APIDependencies struct {
+	// Kubernetes client
 	client.Client
-	Namespace     string
+	// Namespace in which this link is running
+	Namespace string
+	// URI of this link
+	URI string
+	// EventRegister client
 	EventRegistry registry.EventRegistryClient
 }
 
@@ -57,7 +64,7 @@ type APIBuilder interface {
 
 // NewService creates a new Service instance.
 func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
-	client, err := client.New(config, client.Options{})
+	c, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +72,15 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	podName, err := constants.GetPodName()
+	if err != nil {
+		return nil, err
+	}
 	port, err := constants.GetAPIPort()
+	if err != nil {
+		return nil, err
+	}
+	dnsName, err := constants.GetDNSName()
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +88,19 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	var p corev1.Pod
+	podKey := client.ObjectKey{
+		Name:      podName,
+		Namespace: ns,
+	}
+	if err := c.Get(context.Background(), podKey, &p); err != nil {
+		return nil, err
+	}
+	uri := newLinkURI(dnsName, port, &p)
 	deps := APIDependencies{
-		Client:        client,
+		Client:        c,
 		Namespace:     ns,
+		URI:           uri,
 		EventRegistry: evtReg,
 	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
@@ -88,6 +113,7 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	}
 	return &Service{
 		port:           port,
+		uri:            uri,
 		eventPublisher: eventPublisher,
 		eventSource:    eventSource,
 		eventRegistry:  evtReg,
@@ -112,6 +138,7 @@ func (s *Service) Run(ctx context.Context) error {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
+	log.Printf("Started link %s, listening on %s", s.uri, addr)
 	<-ctx.Done()
 	svr.GracefulStop()
 	return nil

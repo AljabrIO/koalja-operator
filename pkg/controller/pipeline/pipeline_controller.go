@@ -196,6 +196,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvDNSName:              CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
 	})
 
 	// Search for event registry resource
@@ -340,6 +341,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvLinkName:             link.Name,
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvDNSName:              CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
 	})
 
 	// Define the desired StatefulSet object for link agent

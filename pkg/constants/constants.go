@@ -37,6 +37,14 @@ const (
 	// namespace of the running agent/sidecar.
 	EnvNamespace = "KOALJA_NAMESPACE"
 
+	// EnvPodName is the name of the environment variable used to pass the
+	// name of the Pod to the running container.
+	EnvPodName = "KOALJA_POD_NAME"
+
+	// EnvDNSName is the name of the environment variable used to pass the
+	// DNS name of itself to a running agent.
+	EnvDNSName = "KOALJA_DNS_NAME"
+
 	// EnvPipelineName is the name of the environment variable used to pass the
 	// name of the pipeline to an agent/sidecar.
 	EnvPipelineName = "KOALJA_PIPELINE_NAME"
@@ -77,6 +85,24 @@ func GetNamespace() (string, error) {
 	ns := os.Getenv(EnvNamespace)
 	if ns == "" {
 		return "", fmt.Errorf("Environment variable '%s' not set", EnvNamespace)
+	}
+	return ns, nil
+}
+
+// GetPodName loads the name of the pod in which the agent is running.
+func GetPodName() (string, error) {
+	ns := os.Getenv(EnvPodName)
+	if ns == "" {
+		return "", fmt.Errorf("Environment variable '%s' not set", EnvPodName)
+	}
+	return ns, nil
+}
+
+// GetDNSName loads the DNS name of the running agent.
+func GetDNSName() (string, error) {
+	ns := os.Getenv(EnvDNSName)
+	if ns == "" {
+		return "", fmt.Errorf("Environment variable '%s' not set", EnvDNSName)
 	}
 	return ns, nil
 }

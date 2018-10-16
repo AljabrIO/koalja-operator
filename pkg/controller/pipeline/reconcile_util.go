@@ -100,14 +100,24 @@ func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 			})
 		}
 	}
-	c.Env = append(c.Env, corev1.EnvVar{
-		Name: constants.EnvNamespace,
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				FieldPath: "metadata.namespace",
+	c.Env = append(c.Env,
+		corev1.EnvVar{
+			Name: constants.EnvNamespace,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
 			},
 		},
-	})
+		corev1.EnvVar{
+			Name: constants.EnvPodName,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+	)
 }
 
 // CreatePipelineAgentName returns the name of the pipeline agent
