@@ -258,13 +258,14 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
+			/*if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
 				log.Printf("Updating Pipeline Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+			TODO*/
 		}
 	}
 
@@ -386,13 +387,15 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
+			/*if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
 				log.Printf("Updating Link Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+			TODO
+			*/
 		}
 	}
 
@@ -539,13 +542,15 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			return reconcile.Result{}, err
 		} else {
 			// Update the found object and write the result back if there are any changes
-			if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
+			/*if !equality.Semantic.DeepEqual(deploy.Spec, found.Spec) {
 				found.Spec = deploy.Spec
 				log.Printf("Updating Task Agent StatefulSet %s/%s\n", deploy.Namespace, deploy.Name)
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+			TODO
+			*/
 		}
 	}
 
