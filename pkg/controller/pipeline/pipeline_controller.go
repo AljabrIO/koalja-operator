@@ -18,8 +18,10 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -472,6 +474,34 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		"statefulset": deplName,
 		"task":        task.Name,
 	}
+	// Create annotations to pass address of input links
+	annotations := make(map[string]string)
+	for _, tis := range task.Inputs {
+		annKey := constants.CreateInputLinkAddressAnnotationName(tis.Name)
+		ref := task.Name + "/" + tis.Name
+		link, found := instance.Spec.LinkByDestinationRef(ref)
+		if !found {
+			log.Printf("No link found with DestinationRef '%s'\n", ref)
+			return reconcile.Result{}, fmt.Errorf("No link found with DestinationRef '%s'", ref)
+		}
+		annotations[annKey] = CreateLinkAgentEventSourceAddress(instance.Name, link.Name, instance.Namespace)
+	}
+	// Create annotations to pass addresses of output links
+	for _, tos := range task.Outputs {
+		annKey := constants.CreateOutputLinkAddressesAnnotationName(tos.Name)
+		ref := task.Name + "/" + tos.Name
+		links := instance.Spec.LinksBySourceRef(ref)
+		if len(links) > 0 {
+			addresses := make([]string, 0, len(links))
+			for _, link := range links {
+				addresses = append(addresses, CreateLinkAgentEventPublisherAddress(instance.Name, link.Name, instance.Namespace))
+			}
+			annotations[annKey] = strings.Join(addresses, ",")
+		} else {
+			// Task output is not connected. Connect it to the pipeline agent
+			annotations[annKey] = CreatePipelineAgentEventPublisherAddress(instance.Name, instance.Namespace)
+		}
+	}
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
@@ -482,7 +512,10 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 				MatchLabels: deplLabels,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      deplLabels,
+					Annotations: annotations,
+				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{c},
 				},

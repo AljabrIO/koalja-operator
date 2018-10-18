@@ -46,6 +46,8 @@ spec:
                       properties:
                         name:
                           type: string
+                        snapshotPolicy:
+                          type: string
                         typeRef:
                           type: string
                       required:

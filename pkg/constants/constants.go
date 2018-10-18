@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 const (
@@ -68,7 +70,31 @@ const (
 	// EnvFormat is the name of the environment variable used to pass the
 	// format of a link endpoint to a link sidecar.
 	EnvFormat = "KOALJA_FORMAT"
+
+	// AnnInputLinkAddressPrefix is the prefix of an annotation key used to pass
+	// the address of an input link to a task.
+	// Full annotation key: AnnInputLinkAddressPrefix + InputName
+	// Annotation value: <host>:<port>
+	AnnInputLinkAddressPrefix = "koalja.aljabr.io/input-link-address/"
+
+	// AnnOutputLinkAddressesPrefix is the prefix of an annotation key used to pass
+	// comma-separated list of addresses of output links to a task.
+	// Full annotation key: AnnOutputLinkAddressesPrefix + OutputName
+	// Annotation value: <host1>:<port1>[, <host1:port2> ...]
+	AnnOutputLinkAddressesPrefix = "koalja.aljabr.io/output-link-addresses/"
 )
+
+// CreateInputLinkAddressAnnotationName creates a full annotation name
+// using AnnInputLinkAddressPrefix.
+func CreateInputLinkAddressAnnotationName(inputName string) string {
+	return AnnInputLinkAddressPrefix + util.FixupKubernetesName(inputName)
+}
+
+// CreateOutputLinkAddressesAnnotationName creates a full annotation name
+// using AnnOutputLinkAddressesPrefix.
+func CreateOutputLinkAddressesAnnotationName(inputName string) string {
+	return AnnOutputLinkAddressesPrefix + util.FixupKubernetesName(inputName)
+}
 
 // GetAPIPort returns the port to listen on for agents/sidecars, found in the environment,
 func GetAPIPort() (int, error) {

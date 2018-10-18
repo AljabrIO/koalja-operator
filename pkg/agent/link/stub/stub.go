@@ -36,7 +36,7 @@ type subscription struct {
 	id        int64
 	clientID  string
 	expiresAt time.Time
-	inflight  *event.Event
+	inflight  []*event.Event
 }
 
 // AsPB creates a protobuf Subscription from this subscription.
@@ -160,14 +160,16 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 
 	id := req.GetSubscription().GetID()
 	if sub, found := s.subscriptions[id]; found {
-		if sub.inflight != nil {
-			// Put inflight event back into queue
-			select {
-			case s.retryQueue <- sub.inflight:
-				// OK
-			case <-ctx.Done():
-				// Context expired
-				return nil, ctx.Err()
+		if len(sub.inflight) != 0 {
+			// Put inflight events back into queue
+			for _, e := range sub.inflight {
+				select {
+				case s.retryQueue <- e:
+					// OK
+				case <-ctx.Done():
+					// Context expired
+					return nil, ctx.Err()
+				}
 			}
 		}
 		delete(s.subscriptions, id)
@@ -180,7 +182,7 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 // Ask for the next event on a subscription
 func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*event.NextEventResponse, error) {
 	id := req.GetSubscription().GetID()
-	inflight, err := func() (*event.Event, error) {
+	err := func() error {
 		s.subscriptionsMutex.Lock()
 		defer s.subscriptionsMutex.Unlock()
 
@@ -188,25 +190,16 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 		sub, found := s.subscriptions[id]
 		if !found {
 			// Subscription not found
-			return nil, fmt.Errorf("Subscription %d not found", id)
+			return fmt.Errorf("Subscription %d not found", id)
 		}
 
 		// Renew subscription
 		sub.RenewExpiresAt()
-
-		// Return (optional) inflight event
-		return sub.inflight, nil
+		return nil
 	}()
 	if err != nil {
 		// Subscription not found
 		return nil, err
-	}
-	if inflight != nil {
-		// Subscription has event in flight, return that
-		return &event.NextEventResponse{
-			Event:      inflight,
-			NoEventYet: false,
-		}, nil
 	}
 
 	// No event inflight, get one out of the queue(s)
@@ -224,7 +217,7 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 			return nil, fmt.Errorf("Subscription %d no longer found", id)
 		} else {
 			sub.RenewExpiresAt()
-			sub.inflight = e
+			sub.inflight = append(sub.inflight, e)
 			return &event.NextEventResponse{
 				Event:      e,
 				NoEventYet: false,
@@ -260,13 +253,13 @@ func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*googl
 		return nil, fmt.Errorf("Subscription %d not found", id)
 	} else {
 		sub.RenewExpiresAt()
-		if sub.inflight == nil {
-			return nil, fmt.Errorf("Subscription %d has no event to acknowledge", id)
-		} else if sub.inflight.GetID() != req.GetEventID() {
-			return nil, fmt.Errorf("Subscription %d has different event to acknowledge", id)
+		for i, e := range sub.inflight {
+			if e.GetID() == req.GetEventID() {
+				// Found inflight event; Remove it.
+				sub.inflight = append(sub.inflight[:i], sub.inflight[i+1:]...)
+				return &google_protobuf1.Empty{}, nil
+			}
 		}
-		// Got correct request
-		sub.inflight = nil
-		return &google_protobuf1.Empty{}, nil
+		return nil, fmt.Errorf("Subscription %d does not have inflight event with ID '%s'", id, req.GetEventID())
 	}
 }

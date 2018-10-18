@@ -97,5 +97,17 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 			return errors.Wrapf(ErrValidation, "Executor of task '%s' must have an image", ts.Name)
 		}
 	}
+	if len(ts.Inputs) > 0 {
+		hasAllPolicy := false
+		for _, ti := range ts.Inputs {
+			if ti.SnapshotPolicy.IsAll() {
+				hasAllPolicy = true
+				break
+			}
+		}
+		if !hasAllPolicy {
+			return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 input with an '%s' snapshot policy", ts.Name, InputSnapshotPolicyAll)
+		}
+	}
 	return nil
 }

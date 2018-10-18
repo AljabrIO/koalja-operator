@@ -17,21 +17,16 @@ limitations under the License.
 package pipeline
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-)
-
-const (
-	maxNameLength = 63
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // MergeReconcileResult combines the given results, taking the smaller
@@ -48,22 +43,6 @@ func MergeReconcileResult(a, b reconcile.Result) reconcile.Result {
 		Requeue:      a.Requeue || b.Requeue,
 		RequeueAfter: after,
 	}
-}
-
-// FixupKubernetesName converts the given name to a valid kubernetes
-// resource name.
-func FixupKubernetesName(name string) string {
-	result := strings.ToLower(name)
-	if result != name || len(result) > maxNameLength {
-		// Add hash
-		h := sha1.Sum([]byte(name))
-		suffix := fmt.Sprintf("-%0x", h)[:8]
-		if len(result)+len(suffix) > maxNameLength {
-			result = result[:maxNameLength-len(suffix)]
-		}
-		result = result + suffix
-	}
-	return result
 }
 
 // SetAgentContainerDefaults applies default values to a container used to run an agent
@@ -123,7 +102,7 @@ func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 // CreatePipelineAgentName returns the name of the pipeline agent
 // for the given pipeline.
 func CreatePipelineAgentName(pipelineName string) string {
-	return FixupKubernetesName(pipelineName + "-pl-agent")
+	return util.FixupKubernetesName(pipelineName + "-pl-agent")
 }
 
 // CreatePipelineAgentDNSName returns the DNS of the pipeline agent
@@ -135,7 +114,7 @@ func CreatePipelineAgentDNSName(pipelineName, namespace string) string {
 // CreateLinkAgentName returns the name of the link agent
 // for the given pipeline + link.
 func CreateLinkAgentName(pipelineName, linkName string) string {
-	return FixupKubernetesName(pipelineName + "-link-" + linkName + "-agent")
+	return util.FixupKubernetesName(pipelineName + "-link-" + linkName + "-agent")
 }
 
 // CreateLinkAgentDNSName returns the DNS name of the link agent
@@ -144,14 +123,32 @@ func CreateLinkAgentDNSName(pipelineName, linkName, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc", CreateLinkAgentName(pipelineName, linkName), namespace)
 }
 
+// CreateLinkAgentEventSourceAddress returns the address (host:port) of the event source
+// for the given link int the given pipeline.
+func CreateLinkAgentEventSourceAddress(pipelineName, linkName, namespace string) string {
+	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
+}
+
+// CreateLinkAgentEventPublisherAddress returns the address (host:port) of the event publisher
+// for the given link int the given pipeline.
+func CreateLinkAgentEventPublisherAddress(pipelineName, linkName, namespace string) string {
+	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
+}
+
 // CreateTaskAgentName returns the name of the task agent
 // for the given pipeline + task.
 func CreateTaskAgentName(pipelineName, taskName string) string {
-	return FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
+	return util.FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
 }
 
 // CreateEventRegistryAddress returns the address (host:port) of the event registry
 // for the given pipeline.
 func CreateEventRegistryAddress(pipelineName, namespace string) string {
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.EventRegistryAPIPort))
+}
+
+// CreatePipelineAgentEventPublisherAddress returns the address (host:port) of the event publisher of the pipeline agent
+// for the given pipeline.
+func CreatePipelineAgentEventPublisherAddress(pipelineName, namespace string) string {
+	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }

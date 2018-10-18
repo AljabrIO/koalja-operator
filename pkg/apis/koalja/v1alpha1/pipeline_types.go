@@ -87,6 +87,28 @@ func (ps PipelineSpec) LinkByName(name string) (LinkSpec, bool) {
 	return LinkSpec{}, false
 }
 
+// LinksBySourceRef returns all links of the pipeline that has the given source ref.
+func (ps PipelineSpec) LinksBySourceRef(ref string) []LinkSpec {
+	var result []LinkSpec
+	for _, x := range ps.Links {
+		if x.SourceRef == ref {
+			result = append(result, x)
+		}
+	}
+	return result
+}
+
+// LinkByDestinationRef returns the link of the pipeline that has the given destination ref.
+// Returns false if not found.
+func (ps PipelineSpec) LinkByDestinationRef(ref string) (LinkSpec, bool) {
+	for _, x := range ps.Links {
+		if x.DestinationRef == ref {
+			return x, true
+		}
+	}
+	return LinkSpec{}, false
+}
+
 // TypeByName returns the (data)type of the pipeline that has the given name.
 // Returns false if not found.
 func (ps PipelineSpec) TypeByName(name string) (TypeSpec, bool) {

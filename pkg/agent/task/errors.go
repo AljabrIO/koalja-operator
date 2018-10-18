@@ -16,6 +16,8 @@
 
 package task
 
-// Agent describes the API implemented by a task agent
-type Agent interface {
-}
+import "github.com/pkg/errors"
+
+var (
+	maskAny = errors.WithStack
+)

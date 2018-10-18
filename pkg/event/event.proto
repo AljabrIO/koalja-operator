@@ -84,6 +84,11 @@ message Event {
     string Data = 6;
 }
 
+// EventTuple is a tuple of N named events.
+message EventTuple {
+    map<string, Event> Members = 1;
+}
+
 // EventRegistry is a persistent event store
 service EventRegistry {
     // Record the given event in the registry

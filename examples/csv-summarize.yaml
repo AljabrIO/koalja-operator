@@ -5,6 +5,12 @@ metadata:
   namespace: koalja-dev
 spec:
   tasks:
+  - name: fileDropInput
+    outputs:
+    - name: droppedFile
+      typeRef: singleCSVFile
+      ready: Auto
+    type: FileDrop
   - name: cleanCSV
     inputs:
     - name: csvInputFile
@@ -12,9 +18,9 @@ spec:
     outputs:
     - name: csvOutputFile
       typeRef: singleCSVFile
-      ready: ContainerTerminated
+      ready: Succeeded
     executor:
-      container: ewoutp/cleanCSVConverter:latest
+      image: ewoutp/cleanCSVConverter:latest
       args: ["--input", "{{.inputs.csvInputFile.path }}", "--output", "{{.outputs.csvOutputFile.path}}"]
   - name: totalCSV
     inputs:
@@ -23,14 +29,13 @@ spec:
     outputs:
     - name: csvOutputFile
       typeRef: singleCSVFile
-      ready: ContainerTerminated
+      ready: Succeeded
     executor:
-      container: ewoutp/summarizeCSVConverter:latest
+      image: ewoutp/summarizeCSVConverter:latest
       args: ["--input", "{{.inputs.csvInputFile.path }}", "--output", "{{.outputs.csvOutputFile.path}}"]
   links:
   - name: csvInput
-    source:
-      type: FileDrop
+    sourceRef: fileDropInput/droppedFile
     destinationRef: cleanCSV/csvInputFile
   - name: fromCleanToTotal
     sourceRef: cleanCSV/csvOutputFile
