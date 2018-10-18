@@ -75,13 +75,13 @@ const (
 	// the address of an input link to a task.
 	// Full annotation key: AnnInputLinkAddressPrefix + InputName
 	// Annotation value: <host>:<port>
-	AnnInputLinkAddressPrefix = "koalja.aljabr.io/input-link-address/"
+	AnnInputLinkAddressPrefix = "koalja.aljabr.io/input-link-address-"
 
 	// AnnOutputLinkAddressesPrefix is the prefix of an annotation key used to pass
 	// comma-separated list of addresses of output links to a task.
 	// Full annotation key: AnnOutputLinkAddressesPrefix + OutputName
 	// Annotation value: <host1>:<port1>[, <host1:port2> ...]
-	AnnOutputLinkAddressesPrefix = "koalja.aljabr.io/output-link-addresses/"
+	AnnOutputLinkAddressesPrefix = "koalja.aljabr.io/output-link-addresses-"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

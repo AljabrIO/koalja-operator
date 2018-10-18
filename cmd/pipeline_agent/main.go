@@ -18,28 +18,41 @@ package main
 
 import (
 	"context"
-	"log"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	"github.com/AljabrIO/koalja-operator/pkg/apis"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
+)
+
+var (
+	cliLog = util.MustCreateLogger()
 )
 
 func main() {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal(err)
+		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
+	}
+
+	// Setup Scheme for all resources
+	scheme := scheme.Scheme
+	if err := apis.AddToScheme(scheme); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := pipeline.NewService(cfg)
+	svc, err := pipeline.NewService(cliLog, cfg, scheme)
 	if err != nil {
-		log.Fatal(err)
+		cliLog.Fatal().Err(err).Msg("Failed to create pipeline service")
 	}
 
-	log.Printf("Starting the Cmd.")
+	cliLog.Info().Msg("Starting the Cmd.")
 
 	// Start the Cmd
 	ctx, done := context.WithCancel(context.Background())
@@ -47,5 +60,7 @@ func main() {
 		<-signals.SetupSignalHandler()
 		done()
 	}()
-	log.Fatal(svc.Run(ctx))
+	if err := svc.Run(ctx); err != nil {
+		cliLog.Fatal().Err(err).Msg("Service failed")
+	}
 }

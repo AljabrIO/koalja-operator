@@ -25,6 +25,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
+)
+
+var (
+	cliLog = util.MustCreateLogger()
 )
 
 // TODO: Add cleanup of files
@@ -33,7 +38,7 @@ func main() {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal(err)
+		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -43,7 +48,7 @@ func main() {
 	builder := newLocalFileSystemBuilder(localPathPrefix, storageClassName, scheme)
 	svc, err := fssvc.NewService(cfg, builder)
 	if err != nil {
-		log.Fatal(err)
+		cliLog.Fatal().Err(err).Msg("Failed to create FileSystem service")
 	}
 
 	log.Printf("Starting the Cmd.")
@@ -54,5 +59,7 @@ func main() {
 		<-signals.SetupSignalHandler()
 		done()
 	}()
-	log.Fatal(svc.Run(ctx))
+	if err := svc.Run(ctx); err != nil {
+		cliLog.Fatal().Err(err).Msg("Service failed")
+	}
 }

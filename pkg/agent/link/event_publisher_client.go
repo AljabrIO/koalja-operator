@@ -34,7 +34,7 @@ func CreateEventPublisherClient(address string) (EventPublisherClient, error) {
 	// Create a connection
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 
 	// Create a client

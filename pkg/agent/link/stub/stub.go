@@ -26,6 +26,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/golang/protobuf/ptypes"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
+	"github.com/rs/zerolog"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
@@ -53,6 +54,7 @@ func (s *subscription) RenewExpiresAt() {
 
 // stub is an in-memory implementation of an event queue.
 type stub struct {
+	log                zerolog.Logger
 	registry           registry.EventRegistryClient
 	uri                string
 	queue              chan *event.Event
@@ -69,8 +71,9 @@ const (
 )
 
 // newStub initializes a new stub
-func newStub() *stub {
+func newStub(log zerolog.Logger) *stub {
 	return &stub{
+		log:           log,
 		queue:         make(chan *event.Event, queueSize),
 		retryQueue:    make(chan *event.Event, retryQueueSize),
 		subscriptions: make(map[int64]*subscription),
@@ -91,11 +94,12 @@ func (s *stub) NewEventSource(deps link.APIDependencies) (event.EventSourceServe
 
 // Publish an event
 func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.PublishResponse, error) {
+	s.log.Debug().Interface("event", req.Event).Msg("Publish request")
 	// Try to record event in registry
 	e := *req.GetEvent()
 	e.Link = s.uri
 	if _, err := s.registry.RecordEvent(ctx, &e); err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 
 	// Now put event in in-memory queue
@@ -103,12 +107,13 @@ func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.P
 	case s.queue <- &e:
 		return &event.PublishResponse{}, nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, maskAny(ctx.Err())
 	}
 }
 
 // Subscribe to events
 func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*event.SubscribeResponse, error) {
+	s.log.Debug().Str("clientID", req.ClientID).Msg("Subscribe request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -132,6 +137,10 @@ func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*eve
 		expiresAt: time.Now().Add(subscriptionTTL),
 	}
 
+	s.log.Debug().
+		Str("clientID", req.ClientID).
+		Int64("id", id).
+		Msg("Subscribe response")
 	return &event.SubscribeResponse{
 		Subscription: &event.Subscription{
 			ID: id,
@@ -141,6 +150,7 @@ func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*eve
 
 // Ping keeps a subscription alive
 func (s *stub) Ping(ctx context.Context, req *event.PingRequest) (*google_protobuf1.Empty, error) {
+	s.log.Debug().Int64("id", req.GetSubscription().GetID()).Msg("Ping request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -155,6 +165,7 @@ func (s *stub) Ping(ctx context.Context, req *event.PingRequest) (*google_protob
 
 // Close a subscription
 func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_protobuf1.Empty, error) {
+	s.log.Debug().Int64("id", req.GetSubscription().GetID()).Msg("Ping request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -168,7 +179,7 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 					// OK
 				case <-ctx.Done():
 					// Context expired
-					return nil, ctx.Err()
+					return nil, maskAny(ctx.Err())
 				}
 			}
 		}
@@ -199,13 +210,13 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 	}()
 	if err != nil {
 		// Subscription not found
-		return nil, err
+		return nil, maskAny(err)
 	}
 
 	// No event inflight, get one out of the queue(s)
 	waitTimeout, err := ptypes.Duration(req.GetWaitTimeout())
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	setEventInflight := func(e *event.Event) (*event.NextEventResponse, error) {
 		s.subscriptionsMutex.Lock()
@@ -237,7 +248,7 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 			NoEventYet: true,
 		}, nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, maskAny(ctx.Err())
 	}
 }
 

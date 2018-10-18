@@ -21,25 +21,27 @@ package pipeline
 import (
 	"context"
 	fmt "fmt"
-	"log"
 	"net"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Service implements the pipeline agent.
 type Service struct {
+	log zerolog.Logger
 	client.Client
 	Namespace string
 }
 
 // NewService creates a new Service instance.
-func NewService(config *rest.Config) (*Service, error) {
-	client, err := client.New(config, client.Options{})
+func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme) (*Service, error) {
+	client, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +50,7 @@ func NewService(config *rest.Config) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		log:       log,
 		Client:    client,
 		Namespace: ns,
 	}, nil
@@ -61,7 +64,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		s.log.Fatal().Err(err).Msg("Failed to listen")
 	}
 	svr := grpc.NewServer()
 	RegisterAgentServer(svr, s)
@@ -69,7 +72,7 @@ func (s *Service) Run(ctx context.Context) error {
 	reflection.Register(svr)
 	go func() {
 		if err := svr.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
+			s.log.Fatal().Err(err).Msg("Failed to serve")
 		}
 	}()
 	<-ctx.Done()

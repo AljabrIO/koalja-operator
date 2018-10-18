@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,7 +37,7 @@ type Service struct {
 }
 
 // NewService creates a new Service instance.
-func NewService(log zerolog.Logger, config *rest.Config) (*Service, error) {
+func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme) (*Service, error) {
 	// Load pipeline
 	pipelineName, err := constants.GetPipelineName()
 	if err != nil {
@@ -54,7 +55,7 @@ func NewService(log zerolog.Logger, config *rest.Config) (*Service, error) {
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	c, err := client.New(config, client.Options{})
+	c, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, maskAny(err)
 	}

@@ -19,15 +19,18 @@ package main
 import (
 	"context"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
-	"github.com/rs/zerolog"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
+	"github.com/AljabrIO/koalja-operator/pkg/apis"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 var (
-	cliLog zerolog.Logger
+	cliLog = util.MustCreateLogger()
 )
 
 func main() {
@@ -37,8 +40,14 @@ func main() {
 		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
 	}
 
+	// Setup Scheme for all resources
+	scheme := scheme.Scheme
+	if err := apis.AddToScheme(scheme); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := task.NewService(cliLog, cfg)
+	svc, err := task.NewService(cliLog, cfg, scheme)
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create task service")
 	}

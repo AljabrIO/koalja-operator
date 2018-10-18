@@ -21,7 +21,6 @@ package link
 import (
 	"context"
 	fmt "fmt"
-	"log"
 	"net"
 
 	grpc "google.golang.org/grpc"
@@ -33,10 +32,12 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/rs/zerolog"
 )
 
 // Service implements the link agent.
 type Service struct {
+	log            zerolog.Logger
 	port           int
 	uri            string
 	eventPublisher event.EventPublisherServer
@@ -63,30 +64,30 @@ type APIBuilder interface {
 }
 
 // NewService creates a new Service instance.
-func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
+func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*Service, error) {
 	c, err := client.New(config, client.Options{})
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	ns, err := constants.GetNamespace()
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	podName, err := constants.GetPodName()
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	port, err := constants.GetAPIPort()
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	dnsName, err := constants.GetDNSName()
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	evtReg, err := registry.CreateEventRegistryClient()
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	var p corev1.Pod
 	podKey := client.ObjectKey{
@@ -94,7 +95,7 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 		Namespace: ns,
 	}
 	if err := c.Get(context.Background(), podKey, &p); err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	uri := newLinkURI(dnsName, port, &p)
 	deps := APIDependencies{
@@ -105,13 +106,14 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	eventSource, err := builder.NewEventSource(deps)
 	if err != nil {
-		return nil, err
+		return nil, maskAny(err)
 	}
 	return &Service{
+		log:            log,
 		port:           port,
 		uri:            uri,
 		eventPublisher: eventPublisher,
@@ -126,7 +128,7 @@ func (s *Service) Run(ctx context.Context) error {
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		s.log.Fatal().Err(err).Msg("Failed to listen")
 	}
 	svr := grpc.NewServer()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
@@ -135,10 +137,10 @@ func (s *Service) Run(ctx context.Context) error {
 	reflection.Register(svr)
 	go func() {
 		if err := svr.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
+			s.log.Fatal().Err(err).Msg("Failed to service")
 		}
 	}()
-	log.Printf("Started link %s, listening on %s", s.uri, addr)
+	s.log.Info().Msgf("Started link %s, listening on %s", s.uri, addr)
 	<-ctx.Done()
 	svr.GracefulStop()
 	return nil
