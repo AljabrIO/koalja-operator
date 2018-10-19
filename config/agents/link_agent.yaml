@@ -7,5 +7,6 @@ spec:
   container:
     image: koalja-agents:latest
     command:
-    - /apps/link_agent
-    - -queue=stub
+    - /apps/agents
+    - link
+    - --queue=stub

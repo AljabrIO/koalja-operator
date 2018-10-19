@@ -25,32 +25,22 @@ test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager pipeline_agent stub_event_registry task_agent link_agent local_fs_service
+build: manager agents stub_event_registry local_fs_service
 
 # Build manager binary
 manager: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
 
-# Build pipeline_agent binary
-pipeline_agent: generate fmt vet
+# Build agents binary
+agents: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/pipeline_agent $(GOMOD)/cmd/pipeline_agent
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
 
 # Build stub/registry binary
 stub_event_registry: generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/stub
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/stub/registry $(GOMOD)/pkg/event/registry/stub
-
-# Build task_agent binary
-task_agent: generate fmt vet
-	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/task_agent $(GOMOD)/cmd/task_agent
-
-# Build link_agent binary
-link_agent: generate fmt vet
-	mkdir -p bin/$(GOOS)/$(GOARCH)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/link_agent $(GOMOD)/cmd/link_agent
 
 # Build local_fs_service binary
 local_fs_service: generate fmt vet

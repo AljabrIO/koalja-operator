@@ -7,4 +7,5 @@ spec:
   container:
     image: koalja-agents:latest
     command:
-    - /apps/pipeline_agent
+    - /apps/agents
+    - pipeline

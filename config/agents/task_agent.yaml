@@ -7,4 +7,5 @@ spec:
   container:
     image: koalja-agents:latest
     command:
-    - /apps/task_agent
+    - /apps/agents
+    - task

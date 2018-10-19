@@ -19,21 +19,29 @@ package main
 import (
 	"context"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 var (
-	cliLog = util.MustCreateLogger()
+	cmdPipelineAgent = &cobra.Command{
+		Use:   "pipeline",
+		Run:   cmdPipelineAgentRun,
+		Short: "Run pipeline agent",
+		Long:  "Run pipeline agent",
+	}
 )
 
-func main() {
+func init() {
+	cmdMain.AddCommand(cmdPipelineAgent)
+}
+
+func cmdPipelineAgentRun(cmd *cobra.Command, args []string) {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -47,12 +55,12 @@ func main() {
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := task.NewService(cliLog, cfg, scheme)
+	svc, err := pipeline.NewService(cliLog, cfg, scheme)
 	if err != nil {
-		cliLog.Fatal().Err(err).Msg("Failed to create task service")
+		cliLog.Fatal().Err(err).Msg("Failed to create pipeline service")
 	}
 
-	cliLog.Info().Msg("Starting the Cmd.")
+	cliLog.Info().Msg("Starting the pipeline agent.")
 
 	// Start the Cmd
 	ctx, done := context.WithCancel(context.Background())

@@ -18,48 +18,49 @@ package main
 
 import (
 	"context"
-	"flag"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
-	"github.com/AljabrIO/koalja-operator/pkg/agent/link/stub"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
+	"github.com/AljabrIO/koalja-operator/pkg/apis"
 )
 
 var (
-	cliLog    = util.MustCreateLogger()
-	queueType string
+	cmdTaskAgent = &cobra.Command{
+		Use:   "task",
+		Run:   cmdTaskAgentRun,
+		Short: "Run task agent",
+		Long:  "Run task agent",
+	}
 )
 
 func init() {
-	flag.StringVar(&queueType, "queue", "", "Set queue type: stub")
+	cmdMain.AddCommand(cmdTaskAgent)
 }
 
-func main() {
-	flag.Parse()
+func cmdTaskAgentRun(cmd *cobra.Command, args []string) {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
 	}
 
-	// Create a new Cmd to provide shared dependencies and start components
-	var apiBuilder link.APIBuilder
-	switch queueType {
-	case "stub":
-		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
-	default:
-		cliLog.Fatal().Str("queue", queueType).Msg("Unsupport queue type")
-	}
-	svc, err := link.NewService(cliLog, cfg, apiBuilder)
-	if err != nil {
-		cliLog.Fatal().Err(err).Msg("Failed to create link service")
+	// Setup Scheme for all resources
+	scheme := scheme.Scheme
+	if err := apis.AddToScheme(scheme); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
 	}
 
-	cliLog.Info().Msg("Starting the Cmd.")
+	// Create a new Cmd to provide shared dependencies and start components
+	svc, err := task.NewService(cliLog, cfg, scheme)
+	if err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to create task service")
+	}
+
+	cliLog.Info().Msg("Starting the task agent.")
 
 	// Start the Cmd
 	ctx, done := context.WithCancel(context.Background())

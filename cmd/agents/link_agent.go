@@ -19,40 +19,50 @@ package main
 import (
 	"context"
 
-	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
-	"github.com/AljabrIO/koalja-operator/pkg/apis"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
+	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/link/stub"
 )
 
 var (
-	cliLog = util.MustCreateLogger()
+	cmdLinkAgent = &cobra.Command{
+		Use:   "link",
+		Run:   cmdLinkAgentRun,
+		Short: "Run link agent",
+		Long:  "Run link agent",
+	}
+	linkAgentQueueType string
 )
 
-func main() {
+func init() {
+	cmdMain.AddCommand(cmdLinkAgent)
+	cmdLinkAgent.Flags().StringVar(&linkAgentQueueType, "queue", "", "Set queue type: stub")
+}
+
+func cmdLinkAgentRun(cmd *cobra.Command, args []string) {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
 	}
 
-	// Setup Scheme for all resources
-	scheme := scheme.Scheme
-	if err := apis.AddToScheme(scheme); err != nil {
-		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
-	}
-
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := pipeline.NewService(cliLog, cfg, scheme)
+	var apiBuilder link.APIBuilder
+	switch linkAgentQueueType {
+	case "stub":
+		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
+	default:
+		cliLog.Fatal().Str("queue", linkAgentQueueType).Msg("Unsupport queue type")
+	}
+	svc, err := link.NewService(cliLog, cfg, apiBuilder)
 	if err != nil {
-		cliLog.Fatal().Err(err).Msg("Failed to create pipeline service")
+		cliLog.Fatal().Err(err).Msg("Failed to create link service")
 	}
 
-	cliLog.Info().Msg("Starting the Cmd.")
+	cliLog.Info().Msg("Starting the link agent.")
 
 	// Start the Cmd
 	ctx, done := context.WithCancel(context.Background())
