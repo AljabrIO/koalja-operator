@@ -60,6 +60,21 @@ func SetAgentContainerDefaults(c *corev1.Container) {
 	}
 }
 
+// SetEventRegistryContainerDefaults applies default values to a container used to run an event registry
+func SetEventRegistryContainerDefaults(c *corev1.Container) {
+	if c.Name == "" {
+		c.Name = "registry"
+	}
+	if len(c.Ports) == 0 {
+		c.Ports = []corev1.ContainerPort{
+			corev1.ContainerPort{
+				Name:          "registry",
+				ContainerPort: constants.EventRegistryAPIPort,
+			},
+		}
+	}
+}
+
 // SetContainerEnvVars sets the given environment variables into the given container
 func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 	for k, v := range vars {
