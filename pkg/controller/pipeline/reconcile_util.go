@@ -167,3 +167,13 @@ func CreateEventRegistryAddress(pipelineName, namespace string) string {
 func CreatePipelineAgentEventPublisherAddress(pipelineName, namespace string) string {
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
+
+// CreateServiceDNSName returns the DNS name of the given service.
+func CreateServiceDNSName(s corev1.Service) string {
+	return fmt.Sprintf("%s.%s.svc", s.GetName(), s.GetNamespace())
+}
+
+// CreateServiceAddress returns the address of the given service.
+func CreateServiceAddress(s corev1.Service) string {
+	return net.JoinHostPort(CreateServiceDNSName(s), strconv.Itoa(int(s.Spec.Ports[0].Port)))
+}

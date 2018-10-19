@@ -20,20 +20,25 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/rs/zerolog"
+	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 )
 
 // Service implements the task agent.
 type Service struct {
 	log       zerolog.Logger
 	inputLoop *inputLoop
+	executor  Executor
+	cache     cache.Cache
 }
 
 // NewService creates a new Service instance.
@@ -59,6 +64,15 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	cache, err := cache.New(config, cache.Options{Scheme: scheme, Namespace: ns})
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	fileSystem, err := fs.CreateFileSystemClient()
+	if err != nil {
+		return nil, maskAny(err)
+	}
+
 	var pipeline koalja.Pipeline
 	ctx := context.Background()
 	if err := c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline); err != nil {
@@ -76,7 +90,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	// Create executor
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, &taskSpec, &pod)
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline.Spec, &taskSpec, &pod)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -86,12 +100,33 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 	return &Service{
 		inputLoop: il,
+		executor:  executor,
+		cache:     cache,
 	}, nil
 }
 
 // Run the task agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
-	if err := s.inputLoop.Run(ctx); err != nil {
+	g, lctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := s.cache.Start(lctx.Done()); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.inputLoop.Run(lctx); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.executor.Run(lctx); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
 		return maskAny(err)
 	}
 	return nil

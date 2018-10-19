@@ -55,6 +55,10 @@ const (
 	// address of the EventRegistry to a container.
 	EnvEventRegistryAddress = "KOALJA_EVENT_REGISTRY_ADDRESS"
 
+	// EnvFileSystemAddress is the name of the environment variable used to pass the
+	// address of the FileSystem to a container.
+	EnvFileSystemAddress = "KOALJA_FILESYSTEM_ADDRESS"
+
 	// EnvLinkName is the name of the environment variable used to pass the
 	// name of the link to an agent/sidecar.
 	EnvLinkName = "KOALJA_LINK_NAME"
@@ -82,6 +86,13 @@ const (
 	// Full annotation key: AnnOutputLinkAddressesPrefix + OutputName
 	// Annotation value: <host1>:<port1>[, <host1:port2> ...]
 	AnnOutputLinkAddressesPrefix = "koalja.aljabr.io/output-link-addresses-"
+
+	// LabelServiceType is the label key used to pass the type of service
+	// to a Service.
+	LabelServiceType = "koalja.aljabr.io/serviceType"
+
+	// ServiceTypeFilesystem is a possible value for labels with key LabelServiceType.
+	ServiceTypeFilesystem = "FileSystem"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

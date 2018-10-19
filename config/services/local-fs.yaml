@@ -6,7 +6,7 @@ metadata:
   labels:
     control-plane: local-fs
     controller-tools.k8s.io: "1.0"
-    koalja-service: FileSystem
+    koalja.aljabr.io/serviceType: FileSystem
 spec:
   selector:
     control-plane: local-fs

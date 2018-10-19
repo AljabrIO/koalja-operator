@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -126,6 +127,11 @@ type ReconcilePipeline struct {
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
+	log := r.log.With().
+		Str("name", request.Name).
+		Str("namespace", request.Namespace).
+		Logger()
+	log.Debug().Msg("reconcile")
 
 	// Fetch the Pipeline instance
 	instance := &koaljav1alpha1.Pipeline{}
@@ -141,7 +147,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Validate the spec
 	if err := instance.Spec.Validate(); err != nil {
-		r.log.Warn().Err(err).Msg("Pipeline is invalid")
+		log.Warn().Err(err).Msg("Pipeline is invalid")
 		r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "Pipeline is not valid: %s", err)
 		return reconcile.Result{}, nil
 	} else {
@@ -149,9 +155,12 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Ensure pipeline agent is created
-	var result reconcile.Result
+	result := reconcile.Result{
+		Requeue:      true,
+		RequeueAfter: time.Minute,
+	}
 	if lresult, err := r.ensurePipelineAgent(ctx, instance); err != nil {
-		r.log.Error().Err(err).Msg("ensurePipelineAgent failed")
+		log.Error().Err(err).Msg("ensurePipelineAgent failed")
 		return lresult, err
 	} else {
 		result = MergeReconcileResult(result, lresult)
@@ -160,7 +169,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Ensure link agents are created
 	for _, l := range instance.Spec.Links {
 		if lresult, err := r.ensureLinkAgent(ctx, instance, l); err != nil {
-			r.log.Error().Err(err).Msg("ensureLinkAgent failed")
+			log.Error().Err(err).Msg("ensureLinkAgent failed")
 			return lresult, err
 		} else {
 			result = MergeReconcileResult(result, lresult)
@@ -170,7 +179,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	// Ensure task agents are created
 	for _, t := range instance.Spec.Tasks {
 		if lresult, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
-			r.log.Error().Err(err).Msg("ensureTaskAgent failed")
+			log.Error().Err(err).Msg("ensureTaskAgent failed")
 			return lresult, err
 		} else {
 			result = MergeReconcileResult(result, lresult)
@@ -465,6 +474,27 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 // ensureTaskAgent ensures that a task agent is launched for the given task in given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=tasks,verbs=get;list;watch
 func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, error) {
+	// Search for FileSystem service
+	var svcList corev1.ServiceList
+	labelSel, err := labels.Parse(constants.LabelServiceType + "=" + constants.ServiceTypeFilesystem)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := r.List(ctx, &client.ListOptions{
+		LabelSelector: labelSel,
+	}, &svcList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(svcList.Items) == 0 {
+		// No task agent resource found
+		r.log.Warn().Msg("No FileSystem service found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	filesystemServiceAddress := CreateServiceAddress(svcList.Items[0])
+
 	// Search for task agent resource
 	var taskAgentList agentsv1alpha1.TaskList
 	if err := r.List(ctx, &client.ListOptions{}, &taskAgentList); err != nil {
@@ -484,6 +514,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvTaskName:             task.Name,
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvFileSystemAddress:    filesystemServiceAddress,
 	})
 
 	// Define the desired StatefulSet object for task agent

@@ -61,6 +61,14 @@ func (s *InputSnapshot) HasEvent(inputName string) bool {
 	return found
 }
 
+// Get returns the event for the input with given name.
+func (s *InputSnapshot) Get(inputName string) *event.Event {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.members[inputName].e
+}
+
 // Clone the snapshot
 func (s *InputSnapshot) Clone() *InputSnapshot {
 	s.mutex.Lock()

@@ -131,19 +131,25 @@ func ContainersEqual(prefix string, spec, actual []corev1.Container) []Diff {
 // ContainerEqual returns zero-length result when the given objects have the same image,
 // image policy.
 func ContainerEqual(prefix string, spec, actual corev1.Container) []Diff {
-	return append(append(
+	return append(append(append(
 		StringEqual(prefix+".image", spec.Image, actual.Image),
 		StringsEqual(prefix+".command", spec.Command, actual.Command)...),
-		StringsEqual(prefix+".args", spec.Args, actual.Args)...)
+		StringsEqual(prefix+".args", spec.Args, actual.Args)...),
+		EnvVarsEqual(prefix+".env", spec.Env, actual.Env)...)
 }
 
 // EnvVarsEqual returns zero-length result when the given lists are equal.
 func EnvVarsEqual(prefix string, spec, actual []corev1.EnvVar) []Diff {
 	var result []Diff
 	for i, sv := range spec {
-		if i < len(actual) {
-			result = append(result, EnvVarEqual(prefix+fmt.Sprintf(".[%d]", i), sv, actual[i])...)
-		} else {
+		found := false
+		for _, av := range actual {
+			if sv.Name == av.Name {
+				result = append(result, EnvVarEqual(prefix+fmt.Sprintf(".[%d]", i), sv, av)...)
+				found = true
+			}
+		}
+		if !found {
 			result = append(result, Diff(prefix+fmt.Sprintf(".[%d] not found", i)))
 		}
 	}
