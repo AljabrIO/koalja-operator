@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package local
 
 import (
 	"context"
@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
@@ -42,8 +41,8 @@ type localFSBuilder struct {
 	scheme           string
 }
 
-// newLocalFileSystemBuilder creates a new builder that builds a local FS.
-func newLocalFileSystemBuilder(localPathPrefix, storageClassName, scheme string) fssvc.APIBuilder {
+// NewLocalFileSystemBuilder creates a new builder that builds a local FS.
+func NewLocalFileSystemBuilder(localPathPrefix, storageClassName, scheme string) fssvc.APIBuilder {
 	return &localFSBuilder{
 		localPathPrefix:  localPathPrefix,
 		storageClassName: storageClassName,

@@ -21,8 +21,8 @@ resources:
 - ../rbac/rbac_role.yaml
 - ../rbac/rbac_role_binding.yaml
 - ../agents/pipeline_agent.yaml
-- ../agents/event_registry.yaml
 - ../agents/link_agent.yaml
 - ../agents/task_agent.yaml
-- ../manager/local-fs.yaml
 - ../manager/manager.yaml
+- ../services/event_registry.yaml
+- ../services/local-fs.yaml

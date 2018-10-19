@@ -25,23 +25,51 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/event/registry/stub"
+	"github.com/spf13/cobra"
 )
 
-func main() {
+var (
+	cmdEvent = &cobra.Command{
+		Use: "event",
+		Run: cmdUsage,
+	}
+	cmdEventRegistry = &cobra.Command{
+		Use:   "registry",
+		Run:   cmdEventRegistryRun,
+		Short: "Run event registry",
+		Long:  "Run event registry",
+	}
+	eventRegistryType string
+)
+
+func init() {
+	cmdMain.AddCommand(cmdEvent)
+	cmdEvent.AddCommand(cmdEventRegistry)
+	cmdEventRegistry.Flags().StringVar(&eventRegistryType, "registry", "", "Set registry type: stub")
+}
+
+func cmdEventRegistryRun(cmd *cobra.Command, args []string) {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal(err)
+		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	s := newStub()
-	svc, err := registry.NewService(cfg, s)
+	var apiBuilder registry.APIBuilder
+	switch eventRegistryType {
+	case "stub":
+		apiBuilder = stub.NewStub()
+	default:
+		cliLog.Fatal().Str("registry", eventRegistryType).Msg("Unknown registry type")
+	}
+	svc, err := registry.NewService(cfg, apiBuilder)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Starting the Cmd.")
+	cliLog.Info().Msg("Starting the event registry.")
 
 	// Start the Cmd
 	ctx, done := context.WithCancel(context.Background())
@@ -49,5 +77,7 @@ func main() {
 		<-signals.SetupSignalHandler()
 		done()
 	}()
-	log.Fatal(svc.Run(ctx))
+	if err := svc.Run(ctx); err != nil {
+		cliLog.Fatal().Err(err).Msg("Service failed")
+	}
 }

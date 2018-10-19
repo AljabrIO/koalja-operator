@@ -3,4 +3,4 @@ FROM scratch
 ARG GOARCH=amd64
 
 WORKDIR /apps/
-COPY bin/linux/${GOARCH}/manager .
+COPY bin/linux/${GOARCH}/services .

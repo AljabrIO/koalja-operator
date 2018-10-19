@@ -5,4 +5,9 @@ metadata:
   namespace: default
 spec:
   container:
-    image: koalja-stub-event-registry:latest
+    image: koalja-services:latest
+    command:
+    - /apps/services
+    - event
+    - registry
+    - --registry=stub

@@ -36,8 +36,10 @@ spec:
     spec:
       containers:
       - command:
-        - /apps/local_fs_service
-        image: koalja-local-fs-service:latest
+        - /apps/services
+        - filesystem
+        - --filesystem=local
+        image: koalja-services:latest
         name: fs-service
         resources:
           limits:

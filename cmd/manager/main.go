@@ -55,7 +55,7 @@ func main() {
 		cliLog.Fatal().Err(err).Msg("Failed to add controller to manager")
 	}
 
-	cliLog.Info().Msg("Starting the Cmd.")
+	cliLog.Info().Msg("Starting the manager.")
 
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {

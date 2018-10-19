@@ -14,17 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package stub
 
 import (
 	"context"
 	"fmt"
 	"sync"
 
+	"github.com/golang/protobuf/ptypes/empty"
+
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
-	"github.com/golang/protobuf/ptypes/empty"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // stub is an in-memory implementation of an event registry.
@@ -33,8 +33,8 @@ type stub struct {
 	registryMutex sync.Mutex
 }
 
-// newStub initializes a new stub
-func newStub() *stub {
+// NewStub initializes a new stub
+func NewStub() registry.APIBuilder {
 	return &stub{
 		registry: make(map[string]*event.Event),
 	}
