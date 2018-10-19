@@ -5,4 +5,7 @@ metadata:
   namespace: default
 spec:
   container:
-    image: koalja-stub-link-agent:latest
+    image: koalja-agents:latest
+    command:
+    - /apps/link_agent
+    - -queue=stub

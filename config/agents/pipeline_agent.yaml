@@ -5,4 +5,6 @@ metadata:
   namespace: default
 spec:
   container:
-    image: koalja-pipeline-agent:latest
+    image: koalja-agents:latest
+    command:
+    - /apps/pipeline_agent

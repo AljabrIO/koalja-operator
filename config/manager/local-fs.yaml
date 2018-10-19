@@ -35,7 +35,9 @@ spec:
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
-      - image: koalja-local-fs-service:latest
+      - command:
+        - /apps/local_fs_service
+        image: koalja-local-fs-service:latest
         name: fs-service
         resources:
           limits:

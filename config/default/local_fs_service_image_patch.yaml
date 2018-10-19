@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your fs image URL
-      - image: koalja-local-fs-service:latest
+      - image: koalja:latest
         name: fs-service

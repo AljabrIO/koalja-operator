@@ -5,4 +5,6 @@ metadata:
   namespace: default
 spec:
   container:
-    image: koalja-task-agent:latest
+    image: koalja-agents:latest
+    command:
+    - /apps/task_agent

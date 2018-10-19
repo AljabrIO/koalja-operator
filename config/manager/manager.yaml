@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - command:
-        - /root/manager
+        - /apps/manager
         image: controller:latest
         name: manager
         resources:

@@ -5,4 +5,4 @@ metadata:
   namespace: default
 spec:
   container:
-    image: koalja-pipeline-agent:latest
+    image: koalja:latest

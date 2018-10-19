@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package stub
 
 import (
 	"context"
@@ -70,8 +70,8 @@ const (
 	subscriptionTTL = time.Minute
 )
 
-// newStub initializes a new stub
-func newStub(log zerolog.Logger) *stub {
+// NewStub initializes a new stub API builder
+func NewStub(log zerolog.Logger) link.APIBuilder {
 	return &stub{
 		log:           log,
 		queue:         make(chan *event.Event, queueSize),
