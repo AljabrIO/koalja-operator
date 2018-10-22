@@ -28,6 +28,7 @@ import (
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	toolscache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,7 +50,7 @@ type Executor interface {
 
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
-	pipelineSpec *koalja.PipelineSpec, taskSpec *koalja.TaskSpec, pod *corev1.Pod) (Executor, error) {
+	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -67,7 +68,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		FileSystemClient:   fileSystem,
 		log:                log,
 		taskSpec:           taskSpec,
-		pipelineSpec:       pipelineSpec,
+		pipeline:           pipeline,
 		outputAddressesMap: outputAddressesMap,
 		namespace:          pod.GetNamespace(),
 		podChangeQueues:    make(map[string]chan *corev1.Pod),
@@ -81,7 +82,7 @@ type executor struct {
 	mutex              sync.Mutex
 	log                zerolog.Logger
 	taskSpec           *koalja.TaskSpec
-	pipelineSpec       *koalja.PipelineSpec
+	pipeline           *koalja.Pipeline
 	outputAddressesMap map[string][]string
 	namespace          string
 	podChangeQueues    map[string]chan *corev1.Pod
@@ -94,8 +95,7 @@ const (
 // Run the executor until the given context is canceled.
 func (e *executor) Run(ctx context.Context) error {
 	// Watch pods
-	pod := corev1.Pod{}
-	informer, err := e.Cache.GetInformerForKind(pod.GroupVersionKind())
+	informer, err := e.Cache.GetInformerForKind(corev1.SchemeGroupVersion.WithKind("Pod"))
 	if err != nil {
 		return maskAny(err)
 	}
@@ -133,7 +133,16 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 			Containers: []corev1.Container{*execCont},
 		},
 	}
-	if err := e.configureExecContainer(args, &pod.Spec.Containers[0], pod); err != nil {
+	resources, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod)
+	defer func() {
+		// Cleanup resources
+		for _, r := range resources {
+			if err := e.Client.Delete(ctx, r); err != nil {
+				e.log.Error().Err(err).Msg("Failed to delete resource")
+			}
+		}
+	}()
+	if err != nil {
 		return maskAny(err)
 	}
 
@@ -191,27 +200,37 @@ func (e *executor) createExecContainer() (*corev1.Container, error) {
 }
 
 // createExecContainer creates a container to execute
-func (e *executor) configureExecContainer(args *InputSnapshot, c *corev1.Container, pod *corev1.Pod) error {
+func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapshot, c *corev1.Container, pod *corev1.Pod) ([]runtime.Object, error) {
 	// Execute argument templates
 	inputs := make(map[string]interface{})
+	var nodeName *string
+	var resources []runtime.Object
 	for _, tis := range e.taskSpec.Inputs {
 		target := &ExecutorInputBuilderTarget{
-			Pod: pod,
+			Container: c,
+			Pod:       pod,
+			NodeName:  nodeName,
 		}
-		if err := e.buildTaskInput(tis, args.Get(tis.Name), target); err != nil {
-			return maskAny(err)
+		if err := e.buildTaskInput(ctx, tis, args.Get(tis.Name), target); err != nil {
+			return resources, maskAny(err)
 		}
 		inputs[tis.Name] = target.TemplateData
+		nodeName = target.NodeName
+		resources = append(resources, target.Resources...)
 	}
 	outputs := make(map[string]interface{})
 	for _, tos := range e.taskSpec.Outputs {
 		target := &ExecutorOutputBuilderTarget{
-			Pod: pod,
+			Container: c,
+			Pod:       pod,
+			NodeName:  nodeName,
 		}
-		if err := e.buildTaskOutput(tos, target); err != nil {
-			return maskAny(err)
+		if err := e.buildTaskOutput(ctx, tos, target); err != nil {
+			return resources, maskAny(err)
 		}
 		outputs[tos.Name] = target.TemplateData
+		nodeName = target.NodeName
+		resources = append(resources, target.Resources...)
 	}
 	data := map[string]interface{}{
 		"inputs":  inputs,
@@ -222,7 +241,7 @@ func (e *executor) configureExecContainer(args *InputSnapshot, c *corev1.Contain
 		var err error
 		c.Command[i], err = e.applyTemplate(source, data)
 		if err != nil {
-			return maskAny(err)
+			return resources, maskAny(err)
 		}
 	}
 	// Apply template on arguments
@@ -230,51 +249,55 @@ func (e *executor) configureExecContainer(args *InputSnapshot, c *corev1.Contain
 		var err error
 		c.Args[i], err = e.applyTemplate(source, data)
 		if err != nil {
-			return maskAny(err)
+			return resources, maskAny(err)
 		}
 	}
 
-	return nil
+	return resources, nil
 }
 
 // buildTaskInput creates a template data element for the given input.
-func (e *executor) buildTaskInput(tis koalja.TaskInputSpec, evt *event.Event, target *ExecutorInputBuilderTarget) error {
-	tisType, _ := e.pipelineSpec.TypeByName(tis.TypeRef)
+func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, evt *event.Event, target *ExecutorInputBuilderTarget) error {
+	tisType, _ := e.pipeline.Spec.TypeByName(tis.TypeRef)
 	builder := GetExecutorInputBuilder(tisType.Protocol)
 	if builder == nil {
 		return fmt.Errorf("No input builder found for protocol '%s'", tisType.Protocol)
 	}
 	config := ExecutorInputBuilderConfig{
-		InputSpec:    tis,
-		TaskSpec:     *e.taskSpec,
-		PipelineSpec: *e.pipelineSpec,
-		Event:        evt,
+		InputSpec: tis,
+		TaskSpec:  *e.taskSpec,
+		Pipeline:  e.pipeline,
+		Event:     evt,
 	}
 	deps := ExecutorInputBuilderDependencies{
+		Log:        e.log,
+		Client:     e.Client,
 		FileSystem: e.FileSystemClient,
 	}
-	if err := builder.Build(config, deps, target); err != nil {
+	if err := builder.Build(ctx, config, deps, target); err != nil {
 		return maskAny(err)
 	}
 	return nil
 }
 
 // buildTaskOutput creates a template data element for the given input.
-func (e *executor) buildTaskOutput(tos koalja.TaskOutputSpec, target *ExecutorOutputBuilderTarget) error {
-	tosType, _ := e.pipelineSpec.TypeByName(tos.TypeRef)
+func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpec, target *ExecutorOutputBuilderTarget) error {
+	tosType, _ := e.pipeline.Spec.TypeByName(tos.TypeRef)
 	builder := GetExecutorOutputBuilder(tosType.Protocol)
 	if builder == nil {
 		return fmt.Errorf("No output builder found for protocol '%s'", tosType.Protocol)
 	}
 	config := ExecutorOutputBuilderConfig{
-		OutputSpec:   tos,
-		TaskSpec:     *e.taskSpec,
-		PipelineSpec: *e.pipelineSpec,
+		OutputSpec: tos,
+		TaskSpec:   *e.taskSpec,
+		Pipeline:   e.pipeline,
 	}
 	deps := ExecutorOutputBuilderDependencies{
+		Log:        e.log,
+		Client:     e.Client,
 		FileSystem: e.FileSystemClient,
 	}
-	if err := builder.Build(config, deps, target); err != nil {
+	if err := builder.Build(ctx, config, deps, target); err != nil {
 		return maskAny(err)
 	}
 	return nil

@@ -90,7 +90,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	// Create executor
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline.Spec, &taskSpec, &pod)
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -107,21 +107,25 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 
 // Run the task agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	s.log.Info().Msg("Service starting...")
 	g, lctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		if err := s.cache.Start(lctx.Done()); err != nil {
+			s.log.Error().Err(err).Msg("Cache failed to start")
 			return maskAny(err)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		if err := s.inputLoop.Run(lctx); err != nil {
+			s.log.Error().Err(err).Msg("InputLoop failed to start")
 			return maskAny(err)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		if err := s.executor.Run(lctx); err != nil {
+			s.log.Error().Err(err).Msg("Executor failed to start")
 			return maskAny(err)
 		}
 		return nil

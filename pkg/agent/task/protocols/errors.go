@@ -16,18 +16,8 @@
 
 package protocols
 
-import (
-	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
-	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
+import "github.com/pkg/errors"
+
+var (
+	maskAny = errors.WithStack
 )
-
-type fileInputBuilder struct{}
-
-func init() {
-	task.RegisterExecutorInputBuilder(koalja.ProtocolFile, fileInputBuilder{})
-}
-
-// Build input settings for an input of File protocol.
-func (b fileInputBuilder) Build(cfg task.ExecutorInputBuilderConfig, deps task.ExecutorInputBuilderDependencies, target *task.ExecutorInputBuilderTarget) error {
-	return nil
-}

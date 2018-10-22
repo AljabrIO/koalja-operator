@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
+	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/protocols"
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 )
 
@@ -69,6 +70,6 @@ func cmdTaskAgentRun(cmd *cobra.Command, args []string) {
 		done()
 	}()
 	if err := svc.Run(ctx); err != nil {
-		cliLog.Fatal().Err(err).Msg("Service failed")
+		cliLog.Fatal().Err(err).Msg("Service (task) failed")
 	}
 }

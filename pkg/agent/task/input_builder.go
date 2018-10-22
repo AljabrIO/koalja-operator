@@ -17,38 +17,53 @@
 package task
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	"github.com/rs/zerolog"
 )
 
 // ExecutorInputBuilder contains all functions used to build up a single
 // task input for a task Executor.
 type ExecutorInputBuilder interface {
-	Build(ExecutorInputBuilderConfig, ExecutorInputBuilderDependencies, *ExecutorInputBuilderTarget) error
+	Build(context.Context, ExecutorInputBuilderConfig, ExecutorInputBuilderDependencies, *ExecutorInputBuilderTarget) error
 }
 
 // ExecutorInputBuilderConfig is the input for ExecutorInputBuilder.Build.
 type ExecutorInputBuilderConfig struct {
-	InputSpec    koalja.TaskInputSpec
-	TaskSpec     koalja.TaskSpec
-	PipelineSpec koalja.PipelineSpec
-	Event        *event.Event
+	InputSpec koalja.TaskInputSpec
+	TaskSpec  koalja.TaskSpec
+	Pipeline  *koalja.Pipeline
+	Event     *event.Event
 }
 
 // ExecutorInputBuilderDependencies holds dependencies that are available during
 // the invocation of ExecutorInputBuilder.Build.
 type ExecutorInputBuilderDependencies struct {
-	FileSystem client.FileSystemClient
+	Log        zerolog.Logger
+	Client     client.Client
+	FileSystem fs.FileSystemClient
 }
 
 // ExecutorInputBuilderTarget is hold the references to where ExecutorInputBuilder.Build
 // must returns its results.
 type ExecutorInputBuilderTarget struct {
-	Pod          *corev1.Pod
+	// Container that will be executed. Created by Executor
+	Container *corev1.Container
+	// Pod that contains the container that will be executed. Created by Executor
+	Pod *corev1.Pod
+	// Name of the Node on which the Pod must execute (optional). Set by input builders.
+	NodeName *string
+	// Template data used when executing argument & command templates. Set by input builders.
 	TemplateData map[string]interface{}
+	// Resources created for this input. Will be removed after execution.
+	Resources []runtime.Object
 }
 
 var (

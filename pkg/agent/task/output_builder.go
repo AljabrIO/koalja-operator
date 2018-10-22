@@ -17,36 +17,51 @@
 package task
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
-	"github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	"github.com/rs/zerolog"
 )
 
 // ExecutorOutputBuilder contains all functions used to build up a single
 // task output for a task Executor.
 type ExecutorOutputBuilder interface {
-	Build(ExecutorOutputBuilderConfig, ExecutorOutputBuilderDependencies, *ExecutorOutputBuilderTarget) error
+	Build(context.Context, ExecutorOutputBuilderConfig, ExecutorOutputBuilderDependencies, *ExecutorOutputBuilderTarget) error
 }
 
 // ExecutorOutputBuilderConfig is the input for ExecutorOutputBuilder.Build.
 type ExecutorOutputBuilderConfig struct {
-	OutputSpec   koalja.TaskOutputSpec
-	TaskSpec     koalja.TaskSpec
-	PipelineSpec koalja.PipelineSpec
+	OutputSpec koalja.TaskOutputSpec
+	TaskSpec   koalja.TaskSpec
+	Pipeline   *koalja.Pipeline
 }
 
 // ExecutorOutputBuilderDependencies holds dependencies that are available during
 // the invocation of ExecutorOutputBuilder.Build.
 type ExecutorOutputBuilderDependencies struct {
-	FileSystem client.FileSystemClient
+	Log        zerolog.Logger
+	Client     client.Client
+	FileSystem fs.FileSystemClient
 }
 
 // ExecutorOutputBuilderTarget is hold the references to where ExecutorOutputBuilder.Build
 // must returns its results.
 type ExecutorOutputBuilderTarget struct {
-	Pod          *corev1.Pod
+	// Container that will be executed. Created by Executor
+	Container *corev1.Container
+	// Pod that contains the container that will be executed. Created by Executor
+	Pod *corev1.Pod
+	// Name of the Node on which the Pod must execute (optional). Set by output builders.
+	NodeName *string
+	// Template data used when executing argument & command templates. Set by output builders.
 	TemplateData map[string]interface{}
+	// Resources created for this output. Will be removed after execution.
+	Resources []runtime.Object
 }
 
 var (
