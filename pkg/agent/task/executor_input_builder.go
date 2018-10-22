@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -37,10 +38,16 @@ type ExecutorInputBuilder interface {
 
 // ExecutorInputBuilderConfig is the input for ExecutorInputBuilder.Build.
 type ExecutorInputBuilderConfig struct {
+	// Input to build for
 	InputSpec koalja.TaskInputSpec
-	TaskSpec  koalja.TaskSpec
-	Pipeline  *koalja.Pipeline
-	Event     *event.Event
+	// Task (containing InputSpec) to build for
+	TaskSpec koalja.TaskSpec
+	// Pipeline (containing TaskSpec) to build for
+	Pipeline *koalja.Pipeline
+	// Event on input specified by InputSpec
+	Event *event.Event
+	// Owner reference for created resources
+	OwnerRef metav1.OwnerReference
 }
 
 // ExecutorInputBuilderDependencies holds dependencies that are available during

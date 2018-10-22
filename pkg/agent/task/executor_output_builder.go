@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,9 +37,14 @@ type ExecutorOutputBuilder interface {
 
 // ExecutorOutputBuilderConfig is the input for ExecutorOutputBuilder.Build.
 type ExecutorOutputBuilderConfig struct {
+	// Output to build for
 	OutputSpec koalja.TaskOutputSpec
-	TaskSpec   koalja.TaskSpec
-	Pipeline   *koalja.Pipeline
+	// Task (containing OutputSpec) to build for
+	TaskSpec koalja.TaskSpec
+	// Pipeline (containing TaskSpec) to build for
+	Pipeline *koalja.Pipeline
+	// Owner reference for created resources
+	OwnerRef metav1.OwnerReference
 }
 
 // ExecutorOutputBuilderDependencies holds dependencies that are available during

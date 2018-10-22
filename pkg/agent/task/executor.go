@@ -90,6 +90,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		pipeline:                pipeline,
 		outputAddressesMap:      outputAddressesMap,
 		taskExecContainer:       taskExecContainer,
+		myPod:                   pod,
 		dnsName:                 dnsName,
 		namespace:               pod.GetNamespace(),
 		outputReadyNotifierPort: outputReadyNotifierPort,
@@ -107,6 +108,7 @@ type executor struct {
 	pipeline                *koalja.Pipeline
 	outputAddressesMap      map[string][]string
 	taskExecContainer       *corev1.Container
+	myPod                   *corev1.Pod
 	dnsName                 string
 	namespace               string
 	outputReadyNotifierPort int
@@ -117,16 +119,34 @@ const (
 	changeQueueSize = 32
 )
 
+var (
+	gvkPod = corev1.SchemeGroupVersion.WithKind("Pod")
+)
+
 // Run the executor until the given context is canceled.
 func (e *executor) Run(ctx context.Context) error {
 	// Watch pods
-	informer, err := e.Cache.GetInformerForKind(corev1.SchemeGroupVersion.WithKind("Pod"))
+	informer, err := e.Cache.GetInformerForKind(gvkPod)
 	if err != nil {
 		return maskAny(err)
 	}
+
+	getPod := func(obj interface{}) (*corev1.Pod, bool) {
+		pod, ok := obj.(*corev1.Pod)
+		if !ok {
+			tombstone, ok := obj.(toolscache.DeletedFinalStateUnknown)
+			if !ok {
+				return nil, false
+			}
+			pod, ok = tombstone.Obj.(*corev1.Pod)
+			return pod, ok
+		}
+		return pod, true
+	}
+
 	informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			if pod, ok := newObj.(*corev1.Pod); ok {
+			if pod, ok := getPod(newObj); ok {
 				e.mutex.Lock()
 				changeQueue := e.podChangeQueues[pod.GetName()]
 				e.mutex.Unlock()
@@ -136,7 +156,7 @@ func (e *executor) Run(ctx context.Context) error {
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			if pod, ok := obj.(*corev1.Pod); ok {
+			if pod, ok := getPod(obj); ok {
 				e.mutex.Lock()
 				changeQueue := e.podChangeQueues[pod.GetName()]
 				e.mutex.Unlock()
@@ -162,16 +182,18 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	if execCont.Name == "" {
 		execCont.Name = "executor"
 	}
+	ownerRef := *metav1.NewControllerRef(e.myPod, gvkPod)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: e.namespace,
+			Name:            podName,
+			Namespace:       e.namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{*execCont},
 		},
 	}
-	resources, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod)
+	resources, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod, ownerRef)
 	defer func() {
 		// Cleanup resources
 		for _, r := range resources {
@@ -240,7 +262,7 @@ func (e *executor) createExecContainer() (*corev1.Container, error) {
 }
 
 // createExecContainer creates a container to execute
-func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapshot, c *corev1.Container, pod *corev1.Pod) ([]runtime.Object, error) {
+func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapshot, c *corev1.Container, pod *corev1.Pod, ownerRef metav1.OwnerReference) ([]runtime.Object, error) {
 	// Execute argument templates
 	inputs := make(map[string]interface{})
 	var nodeName *string
@@ -251,7 +273,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			Pod:       pod,
 			NodeName:  nodeName,
 		}
-		if err := e.buildTaskInput(ctx, tis, args.Get(tis.Name), target); err != nil {
+		if err := e.buildTaskInput(ctx, tis, args.Get(tis.Name), ownerRef, target); err != nil {
 			return resources, maskAny(err)
 		}
 		inputs[tis.Name] = target.TemplateData
@@ -265,7 +287,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			Pod:       pod,
 			NodeName:  nodeName,
 		}
-		if err := e.buildTaskOutput(ctx, tos, target); err != nil {
+		if err := e.buildTaskOutput(ctx, tos, ownerRef, target); err != nil {
 			return resources, maskAny(err)
 		}
 		outputs[tos.Name] = target.TemplateData
@@ -311,7 +333,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 }
 
 // buildTaskInput creates a template data element for the given input.
-func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, evt *event.Event, target *ExecutorInputBuilderTarget) error {
+func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, evt *event.Event, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
 	log := e.log.With().
 		Str("input", tis.Name).
 		Str("task", e.taskSpec.Name).
@@ -327,6 +349,7 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 		TaskSpec:  *e.taskSpec,
 		Pipeline:  e.pipeline,
 		Event:     evt,
+		OwnerRef:  ownerRef,
 	}
 	deps := ExecutorInputBuilderDependencies{
 		Log:        e.log,
@@ -340,7 +363,7 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 }
 
 // buildTaskOutput creates a template data element for the given input.
-func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpec, target *ExecutorOutputBuilderTarget) error {
+func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpec, ownerRef metav1.OwnerReference, target *ExecutorOutputBuilderTarget) error {
 	log := e.log.With().
 		Str("output", tos.Name).
 		Str("task", e.taskSpec.Name).
@@ -355,6 +378,7 @@ func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpe
 		OutputSpec: tos,
 		TaskSpec:   *e.taskSpec,
 		Pipeline:   e.pipeline,
+		OwnerRef:   ownerRef,
 	}
 	deps := ExecutorOutputBuilderDependencies{
 		Log:        e.log,

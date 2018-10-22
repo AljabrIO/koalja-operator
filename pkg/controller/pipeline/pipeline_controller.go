@@ -501,7 +501,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	var annTaskExecutorContainer string
 	if task.Type != "" {
 		var taskExecList agentsv1alpha1.TaskExecutorList
-		if err := r.List(ctx, &client.ListOptions{}, &taskExecList); err != nil {
+		if err := r.List(ctx, &client.ListOptions{Namespace: instance.Namespace}, &taskExecList); err != nil {
 			return reconcile.Result{}, err
 		}
 		found := false
