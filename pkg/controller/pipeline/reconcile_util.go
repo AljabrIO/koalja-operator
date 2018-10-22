@@ -156,6 +156,12 @@ func CreateTaskAgentName(pipelineName, taskName string) string {
 	return util.FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
 }
 
+// CreateTaskAgentDNSName returns the DNS name of the task agent
+// for the given pipeline + task.
+func CreateTaskAgentDNSName(pipelineName, taskName, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc", CreateTaskAgentName(pipelineName, taskName), namespace)
+}
+
 // CreateEventRegistryAddress returns the address (host:port) of the event registry
 // for the given pipeline.
 func CreateEventRegistryAddress(pipelineName, namespace string) string {

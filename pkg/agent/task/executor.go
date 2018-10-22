@@ -21,6 +21,9 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"net"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -50,7 +53,7 @@ type Executor interface {
 
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
-	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod) (Executor, error) {
+	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -61,17 +64,24 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		}
 		outputAddressesMap[tos.Name] = strings.Split(addresses, ",")
 	}
+	// Get my own DNS address
+	dnsName, err := constants.GetDNSName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
 
 	return &executor{
-		Client:             client,
-		Cache:              cache,
-		FileSystemClient:   fileSystem,
-		log:                log,
-		taskSpec:           taskSpec,
-		pipeline:           pipeline,
-		outputAddressesMap: outputAddressesMap,
-		namespace:          pod.GetNamespace(),
-		podChangeQueues:    make(map[string]chan *corev1.Pod),
+		Client:                  client,
+		Cache:                   cache,
+		FileSystemClient:        fileSystem,
+		log:                     log,
+		taskSpec:                taskSpec,
+		pipeline:                pipeline,
+		outputAddressesMap:      outputAddressesMap,
+		dnsName:                 dnsName,
+		namespace:               pod.GetNamespace(),
+		outputReadyNotifierPort: outputReadyNotifierPort,
+		podChangeQueues:         make(map[string]chan *corev1.Pod),
 	}, nil
 }
 
@@ -79,13 +89,15 @@ type executor struct {
 	client.Client
 	cache.Cache
 	fs.FileSystemClient
-	mutex              sync.Mutex
-	log                zerolog.Logger
-	taskSpec           *koalja.TaskSpec
-	pipeline           *koalja.Pipeline
-	outputAddressesMap map[string][]string
-	namespace          string
-	podChangeQueues    map[string]chan *corev1.Pod
+	mutex                   sync.Mutex
+	log                     zerolog.Logger
+	taskSpec                *koalja.TaskSpec
+	pipeline                *koalja.Pipeline
+	outputAddressesMap      map[string][]string
+	dnsName                 string
+	namespace               string
+	outputReadyNotifierPort int
+	podChangeQueues         map[string]chan *corev1.Pod
 }
 
 const (
@@ -252,6 +264,20 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			return resources, maskAny(err)
 		}
 	}
+
+	// Append container environment variables
+	c.Env = append(c.Env,
+		// Pass address of OutputReadyNotifier
+		corev1.EnvVar{
+			Name:  constants.EnvOutputReadyNotifierAddress,
+			Value: net.JoinHostPort(e.dnsName, strconv.Itoa(e.outputReadyNotifierPort)),
+		},
+		// Pass address of FileSystem service
+		corev1.EnvVar{
+			Name:  constants.EnvFileSystemAddress,
+			Value: os.Getenv(constants.EnvFileSystemAddress),
+		},
+	)
 
 	return resources, nil
 }

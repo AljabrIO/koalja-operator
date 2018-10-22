@@ -19,9 +19,12 @@ package task
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -31,14 +34,17 @@ import (
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 )
 
 // Service implements the task agent.
 type Service struct {
-	log       zerolog.Logger
-	inputLoop *inputLoop
-	executor  Executor
-	cache     cache.Cache
+	log             zerolog.Logger
+	inputLoop       *inputLoop
+	executor        Executor
+	outputPublisher *outputPublisher
+	cache           cache.Cache
+	port            int
 }
 
 // NewService creates a new Service instance.
@@ -57,6 +63,10 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		return nil, maskAny(err)
 	}
 	podName, err := constants.GetPodName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	port, err := constants.GetAPIPort()
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -90,7 +100,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	// Create executor
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod)
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod, port)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -98,10 +108,16 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod)
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	return &Service{
-		inputLoop: il,
-		executor:  executor,
-		cache:     cache,
+		inputLoop:       il,
+		executor:        executor,
+		outputPublisher: op,
+		cache:           cache,
+		port:            port,
 	}, nil
 }
 
@@ -130,8 +146,44 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 		return nil
 	})
+	g.Go(func() error {
+		if err := s.outputPublisher.Run(lctx); err != nil {
+			s.log.Error().Err(err).Msg("OutputPublisher failed to start")
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.runServer(lctx); err != nil {
+			s.log.Error().Err(err).Msg("Server failed to start")
+			return maskAny(err)
+		}
+		return nil
+	})
 	if err := g.Wait(); err != nil {
 		return maskAny(err)
 	}
+	return nil
+}
+
+// runServer runs the GRPC server of the task agent until the given context is canceled.
+func (s *Service) runServer(ctx context.Context) error {
+	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		s.log.Fatal().Err(err).Msg("Failed to listen")
+	}
+	svr := grpc.NewServer()
+	ptask.RegisterOutputReadyNotifierServer(svr, s.outputPublisher)
+	// Register reflection service on gRPC server.
+	reflection.Register(svr)
+	go func() {
+		if err := svr.Serve(lis); err != nil {
+			s.log.Fatal().Err(err).Msg("Failed to service")
+		}
+	}()
+	s.log.Info().Msgf("Started output ready notifier, listening on %s", addr)
+	<-ctx.Done()
+	svr.GracefulStop()
 	return nil
 }

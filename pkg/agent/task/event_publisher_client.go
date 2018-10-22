@@ -14,13 +14,14 @@
 // limitations under the License.
 //
 
-package link
+package task
 
 import (
 	"context"
 
-	"github.com/AljabrIO/koalja-operator/pkg/event"
 	grpc "google.golang.org/grpc"
+
+	"github.com/AljabrIO/koalja-operator/pkg/event"
 )
 
 // EventPublisherClient is a closable client interface for EventPublisher.

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/task";
+
+// OutputReadyNotifier is the API used by task executors to notify
+// a task agent of the availability of an output.
+service OutputReadyNotifier {
+    rpc OutputReady(OutputReadyRequest) returns (OutputReadyResponse);
+}
+
+message OutputReadyRequest {
+    string EventData = 1;
+    string OutputName = 2;
+}
+
+message OutputReadyResponse {
+}

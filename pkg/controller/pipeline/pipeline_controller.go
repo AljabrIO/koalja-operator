@@ -511,10 +511,12 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	c := *taskAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c)
 	SetContainerEnvVars(&c, map[string]string{
+		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvTaskName:             task.Name,
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvFileSystemAddress:    filesystemServiceAddress,
+		constants.EnvDNSName:              CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
 	})
 
 	// Define the desired StatefulSet object for task agent
@@ -595,6 +597,53 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			if diff := util.StatefulSetEqual(*deploy, *found); len(diff) > 0 {
 				found.Spec = deploy.Spec
 				log.Info().Interface("diff", diff).Msg("Updating Task Agent StatefulSet")
+				if err := r.Update(ctx, found); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		}
+	}
+
+	{
+		// Define the desired Service object for task agent
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deplName,
+				Namespace: instance.Namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: deplLabels,
+				Type:     corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					corev1.ServicePort{
+						Name:       "api",
+						Port:       constants.AgentAPIPort,
+						TargetPort: intstr.FromInt(constants.AgentAPIPort),
+						Protocol:   corev1.ProtocolTCP,
+					},
+				},
+			},
+		}
+		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Check if the task agent Service already exists
+		found := &corev1.Service{}
+		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
+			log.Info().Msg("Creating Task Agent Service")
+			if err := r.Create(ctx, service); err != nil {
+				log.Error().Err(err).Msg("Failed to create Task Agent Service")
+				return reconcile.Result{}, err
+			}
+		} else if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			// Update the found object and write the result back if there are any changes
+			if diff := util.ServiceEqual(*service, *found); len(diff) > 0 {
+				service.Spec.ClusterIP = found.Spec.ClusterIP
+				found.Spec = service.Spec
+				log.Info().Interface("diff", diff).Msg("Updating Task Agent Service")
 				if err := r.Update(ctx, found); err != nil {
 					return reconcile.Result{}, err
 				}

@@ -59,6 +59,10 @@ const (
 	// address of the FileSystem to a container.
 	EnvFileSystemAddress = "KOALJA_FILESYSTEM_ADDRESS"
 
+	// EnvOutputReadyNotifierAddress is the name of the environment variable used to pass the
+	// address of the OutputReadyNotifier to a container.
+	EnvOutputReadyNotifierAddress = "KOALJA_OUTPUT_READ_NOTIFIER_ADDRESS"
+
 	// EnvLinkName is the name of the environment variable used to pass the
 	// name of the link to an agent/sidecar.
 	EnvLinkName = "KOALJA_LINK_NAME"
