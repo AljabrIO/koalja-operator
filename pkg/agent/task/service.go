@@ -54,10 +54,12 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	log = log.With().Str("pipeline", pipelineName).Logger()
 	taskName, err := constants.GetTaskName()
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	log = log.With().Str("task", taskName).Logger()
 	ns, err := constants.GetNamespace()
 	if err != nil {
 		return nil, maskAny(err)

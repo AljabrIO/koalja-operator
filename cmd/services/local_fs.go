@@ -66,7 +66,7 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 		if fileSystemOptions.StorageClassName == "" {
 			fileSystemOptions.StorageClassName = "koalja-local-storage"
 		}
-		apiBuilder = local.NewLocalFileSystemBuilder(fileSystemOptions.LocalPathPrefix, fileSystemOptions.StorageClassName, fileSystemOptions.Scheme)
+		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, fileSystemOptions.LocalPathPrefix, fileSystemOptions.StorageClassName, fileSystemOptions.Scheme)
 	default:
 		cliLog.Fatal().Str("filesystem", fileSystemOptions.Type).Msg("Unknown filesystem type")
 	}

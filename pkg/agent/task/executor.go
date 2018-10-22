@@ -19,6 +19,7 @@ package task
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net"
@@ -69,6 +70,16 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	// Get task executor annotation (if any)
+	annTaskExecutorContainer := pod.GetAnnotations()[constants.AnnTaskExecutorContainer]
+	var taskExecContainer *corev1.Container
+	if annTaskExecutorContainer != "" {
+		var c corev1.Container
+		if err := json.Unmarshal([]byte(annTaskExecutorContainer), &c); err != nil {
+			return nil, maskAny(err)
+		}
+		taskExecContainer = &c
+	}
 
 	return &executor{
 		Client:                  client,
@@ -78,6 +89,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		taskSpec:                taskSpec,
 		pipeline:                pipeline,
 		outputAddressesMap:      outputAddressesMap,
+		taskExecContainer:       taskExecContainer,
 		dnsName:                 dnsName,
 		namespace:               pod.GetNamespace(),
 		outputReadyNotifierPort: outputReadyNotifierPort,
@@ -94,6 +106,7 @@ type executor struct {
 	taskSpec                *koalja.TaskSpec
 	pipeline                *koalja.Pipeline
 	outputAddressesMap      map[string][]string
+	taskExecContainer       *corev1.Container
 	dnsName                 string
 	namespace               string
 	outputReadyNotifierPort int
@@ -122,6 +135,16 @@ func (e *executor) Run(ctx context.Context) error {
 				}
 			}
 		},
+		DeleteFunc: func(obj interface{}) {
+			if pod, ok := obj.(*corev1.Pod); ok {
+				e.mutex.Lock()
+				changeQueue := e.podChangeQueues[pod.GetName()]
+				e.mutex.Unlock()
+				if changeQueue != nil {
+					changeQueue <- pod
+				}
+			}
+		},
 	})
 	informer.Run(ctx.Done())
 
@@ -135,6 +158,9 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	execCont, err := e.createExecContainer()
 	if err != nil {
 		return maskAny(err)
+	}
+	if execCont.Name == "" {
+		execCont.Name = "executor"
 	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -205,9 +231,11 @@ func (e *executor) createExecContainer() (*corev1.Container, error) {
 	if e.taskSpec.Executor != nil {
 		// Use specified executor container
 		return e.taskSpec.Executor.DeepCopy(), nil
+	} else if e.taskExecContainer != nil {
+		// Use container from annotation
+		return e.taskExecContainer.DeepCopy(), nil
 	} else {
-		// Find container using task type.
-		return nil, fmt.Errorf("TODO Not implemented yet")
+		return nil, fmt.Errorf("No executor container specified")
 	}
 }
 
@@ -284,6 +312,11 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 
 // buildTaskInput creates a template data element for the given input.
 func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, evt *event.Event, target *ExecutorInputBuilderTarget) error {
+	log := e.log.With().
+		Str("input", tis.Name).
+		Str("task", e.taskSpec.Name).
+		Logger()
+	log.Debug().Msg("Preparing input")
 	tisType, _ := e.pipeline.Spec.TypeByName(tis.TypeRef)
 	builder := GetExecutorInputBuilder(tisType.Protocol)
 	if builder == nil {
@@ -308,6 +341,11 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 
 // buildTaskOutput creates a template data element for the given input.
 func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpec, target *ExecutorOutputBuilderTarget) error {
+	log := e.log.With().
+		Str("output", tos.Name).
+		Str("task", e.taskSpec.Name).
+		Logger()
+	log.Debug().Msg("Preparing output")
 	tosType, _ := e.pipeline.Spec.TypeByName(tos.TypeRef)
 	builder := GetExecutorOutputBuilder(tosType.Protocol)
 	if builder == nil {

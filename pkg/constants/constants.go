@@ -91,6 +91,10 @@ const (
 	// Annotation value: <host1>:<port1>[, <host1:port2> ...]
 	AnnOutputLinkAddressesPrefix = "koalja.aljabr.io/output-link-addresses-"
 
+	// AnnTaskExecutorContainer is the annotation key used to pass
+	// the container (as JSON) of the executor of the task to the task.
+	AnnTaskExecutorContainer = "koalja.aljabr.io/task-executor-container"
+
 	// LabelServiceType is the label key used to pass the type of service
 	// to a Service.
 	LabelServiceType = "koalja.aljabr.io/serviceType"

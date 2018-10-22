@@ -1,0 +1,13 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: TaskExecutor
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: filedrop-taskexecutor
+spec:
+  type: FileDrop
+  container:
+    image: koalja-tasks:latest
+    command:
+    - /apps/tasks
+    - filedrop

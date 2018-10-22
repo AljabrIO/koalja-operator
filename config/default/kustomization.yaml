@@ -26,3 +26,4 @@ resources:
 - ../manager/manager.yaml
 - ../services/event_registry.yaml
 - ../services/local-fs.yaml
+- ../tasks/filedrop_executor.yaml

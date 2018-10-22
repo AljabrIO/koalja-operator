@@ -23,10 +23,13 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/dchest/uniuri"
+	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,14 +39,16 @@ import (
 )
 
 type localFSBuilder struct {
+	log              zerolog.Logger
 	localPathPrefix  string
 	storageClassName string
 	scheme           string
 }
 
 // NewLocalFileSystemBuilder creates a new builder that builds a local FS.
-func NewLocalFileSystemBuilder(localPathPrefix, storageClassName, scheme string) fssvc.APIBuilder {
+func NewLocalFileSystemBuilder(log zerolog.Logger, localPathPrefix, storageClassName, scheme string) fssvc.APIBuilder {
 	return &localFSBuilder{
+		log:              log,
 		localPathPrefix:  localPathPrefix,
 		storageClassName: storageClassName,
 		scheme:           scheme,
@@ -66,6 +71,7 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 	if err := deps.Client.Get(ctx, client.ObjectKey{Name: stgClass.GetName()}, &found); err != nil {
 		// Create storage class
 		if err := deps.Client.Create(ctx, stgClass); err != nil {
+			b.log.Error().Err(err).Msg("Failed to create StorageClass")
 			return nil, err
 		}
 	} else {
@@ -74,6 +80,7 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 
 	return &localFS{
 		APIDependencies:  deps,
+		log:              b.log,
 		localPathPrefix:  b.localPathPrefix,
 		storageClassName: b.storageClassName,
 		scheme:           b.scheme,
@@ -86,6 +93,7 @@ const (
 )
 
 type localFS struct {
+	log zerolog.Logger
 	fssvc.APIDependencies
 	localPathPrefix  string
 	storageClassName string
@@ -95,9 +103,16 @@ type localFS struct {
 // CreateVolumeForWrite creates a PersistentVolume that can be used to
 // write files to.
 func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolumeForWriteRequest) (*fs.CreateVolumeForWriteResponse, error) {
+	log := lfs.log.With().
+		Int64("estimatedCapacity", req.GetEstimatedCapacity()).
+		Str("nodeName", req.GetNodeName()).
+		Logger()
+	log.Debug().Msg("CreateVolumeForWrite request")
+
 	// Get all nodes
 	var nodeList corev1.NodeList
-	if err := lfs.Client.Get(ctx, client.ObjectKey{}, &nodeList); err != nil {
+	if err := lfs.Client.List(ctx, &client.ListOptions{}, &nodeList); err != nil {
+		log.Warn().Err(err).Msg("Failed to list nodes")
 		return nil, err
 	}
 	// If not set, it must exist
@@ -119,8 +134,14 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 	}
 
 	// Now create a unique local path of the node
-	uid := uniuri.New()
+	uid := strings.ToLower(uniuri.New())
 	volumePath := filepath.Join(lfs.localPathPrefix, uid)
+
+	// Prepare storage quantity
+	q, err := resource.ParseQuantity("8Gi")
+	if err != nil {
+		return nil, err
+	}
 
 	// Create a PV
 	pv := &corev1.PersistentVolume{
@@ -136,6 +157,12 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 					Path: volumePath,
 				},
 			},
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: q,
+			},
 			StorageClassName: lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
@@ -143,6 +170,7 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 		},
 	}
 	if err := lfs.Client.Create(ctx, pv); err != nil {
+		log.Warn().Err(err).Msg("Failed to create PersistentVolume")
 		return nil, err
 	}
 
@@ -154,9 +182,18 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 
 // CreateFileURI creates a URI for the given file/dir
 func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequest) (*fs.CreateFileURIResponse, error) {
+	log := lfs.log.With().
+		Str("volName", req.GetVolumeName()).
+		Str("nodeName", req.GetNodeName()).
+		Str("localPath", req.GetLocalPath()).
+		Bool("isDir", req.IsDir).
+		Logger()
+	log.Debug().Msg("CreateFileURI request")
+
 	// Read original PV
 	var originalPV corev1.PersistentVolume
 	if err := lfs.Client.Get(ctx, client.ObjectKey{Name: req.GetVolumeName()}, &originalPV); err != nil {
+		log.Warn().Msg("Failed to get PersistentVolume")
 		return nil, err
 	}
 	// Fetch UID
@@ -179,13 +216,20 @@ func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequ
 
 // CreateVolumeForRead creates a PersistentVolume for reading a given URI
 func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolumeForReadRequest) (*fs.CreateVolumeForReadResponse, error) {
+	log := lfs.log.With().
+		Str("uri", req.GetURI()).
+		Logger()
+	log.Debug().Msg("CreateVolumeForRead request")
+
 	// Parse URI
 	uri, err := url.Parse(req.GetURI())
 	if err != nil {
+		log.Debug().Err(err).Msg("Failed to parse URI")
 		return nil, err
 	}
 	// Check scheme
 	if uri.Scheme != lfs.scheme {
+		log.Debug().Str("scheme", uri.Scheme).Msg("Unknown scheme")
 		return nil, fmt.Errorf("Unknown scheme '%s'", uri.Scheme)
 	}
 	nodeName := uri.Host
@@ -193,11 +237,17 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 	localPath := uri.Fragment
 	isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
 
+	// Prepare storage quantity
+	q, err := resource.ParseQuantity("8Gi")
+	if err != nil {
+		return nil, err
+	}
+
 	// Create a PV
 	volumePath := filepath.Join(lfs.localPathPrefix, uid)
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "koalja-local-ro-" + uniuri.New(),
+			Name: "koalja-local-ro-" + strings.ToLower(uniuri.New()),
 			Labels: map[string]string{
 				uidKey: uid,
 			},
@@ -211,6 +261,9 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadOnlyMany,
 			},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: q,
+			},
 			StorageClassName: lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
@@ -218,6 +271,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 		},
 	}
 	if err := lfs.Client.Create(ctx, pv); err != nil {
+		log.Warn().Err(err).Msg("Failed to create PersistentVolume")
 		return nil, err
 	}
 

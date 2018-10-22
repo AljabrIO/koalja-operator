@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -473,6 +474,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 
 // ensureTaskAgent ensures that a task agent is launched for the given task in given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=tasks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=taskexecutors,verbs=get;list;watch
 func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, error) {
 	// Search for FileSystem service
 	var svcList corev1.ServiceList
@@ -494,6 +496,36 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		}, nil
 	}
 	filesystemServiceAddress := CreateServiceAddress(svcList.Items[0])
+
+	// Search for matching taskexecutor (if needed)
+	var annTaskExecutorContainer string
+	if task.Type != "" {
+		var taskExecList agentsv1alpha1.TaskExecutorList
+		if err := r.List(ctx, &client.ListOptions{}, &taskExecList); err != nil {
+			return reconcile.Result{}, err
+		}
+		found := false
+		for _, entry := range taskExecList.Items {
+			if string(entry.Spec.Type) == string(task.Type) {
+				// Found
+				found = true
+				encoded, err := json.Marshal(entry.Spec.Container)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				annTaskExecutorContainer = string(encoded)
+				break
+			}
+		}
+		if !found {
+			r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "No TaskExecutor of type '%s' found for task '%s'", task.Type, task.Name)
+			r.log.Warn().Msgf("No TaskExecutor of type '%s' found", task.Type)
+			return reconcile.Result{
+				Requeue:      true,
+				RequeueAfter: time.Second * 10,
+			}, nil
+		}
+	}
 
 	// Search for task agent resource
 	var taskAgentList agentsv1alpha1.TaskList
@@ -552,6 +584,10 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			// Task output is not connected. Connect it to the pipeline agent
 			annotations[annKey] = CreatePipelineAgentEventPublisherAddress(instance.Name, instance.Namespace)
 		}
+	}
+	// Create annotation containing task executor container (if any)
+	if annTaskExecutorContainer != "" {
+		annotations[constants.AnnTaskExecutorContainer] = annTaskExecutorContainer
 	}
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{

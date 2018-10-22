@@ -8,6 +8,7 @@ GOMOD=github.com/AljabrIO/koalja-operator
 OPERATORIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 AGENTSIMG ?= $(DOCKERNAMESPACE)/koalja-agents:$(VERSION)
 SERVICESIMG ?= $(DOCKERNAMESPACE)/koalja-services:$(VERSION)
+TASKSIMG ?= $(DOCKERNAMESPACE)/koalja-tasks:$(VERSION)
 
 all: check-vars build test
 
@@ -25,7 +26,7 @@ test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager agents services
+build: manager agents services tasks
 
 # Build manager binary
 manager: generate fmt vet
@@ -39,8 +40,13 @@ agents: generate fmt vet
 
 # Build services binary
 services: generate fmt vet
-	mkdir -p bin/$(GOOS)/$(GOARCH)/stub
+	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
+
+# Build tasks binary
+tasks: generate fmt vet
+	mkdir -p bin/$(GOOS)/$(GOARCH)/
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -80,12 +86,14 @@ docker-build: check-vars build
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/agents/Dockerfile -t $(AGENTSIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/operator/Dockerfile -t $(OPERATORIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/services/Dockerfile -t $(SERVICESIMG) .
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/tasks/Dockerfile -t $(TASKSIMG) .
 
 # Push docker images
 docker-push: docker-build
 	docker push $(AGENTSIMG)
 	docker push $(OPERATORIMG)
 	docker push $(SERVICESIMG)
+	docker push $(TASKSIMG)
 
 # Set image IDs in patch files
 docker-patch-config:
@@ -96,4 +104,5 @@ docker-patch-config:
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(OPERATORIMG))"'!' ./config/default/manager_image_patch.yaml > ./config/default/$(VERSION)/manager_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' ./config/default/stub_event_registry_image_patch.yaml > ./config/default/$(VERSION)/stub_event_registry_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' ./config/default/local_fs_service_image_patch.yaml > ./config/default/$(VERSION)/local_fs_service_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filedrop_executor_image_patch.yaml > ./config/default/$(VERSION)/filedrop_executor_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-$(VERSION)" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"

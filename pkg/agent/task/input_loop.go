@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eapache/go-resiliency/breaker"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -73,10 +74,18 @@ func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, ex
 func (il *inputLoop) Run(ctx context.Context) error {
 	defer close(il.execQueue)
 	g, lctx := errgroup.WithContext(ctx)
-	for _, tis := range il.spec.Inputs {
-		tis := tis // Bring in scope
+	if len(il.spec.Inputs) > 0 {
+		// Watch inputs
+		for _, tis := range il.spec.Inputs {
+			tis := tis // Bring in scope
+			g.Go(func() error {
+				return il.watchInput(lctx, tis)
+			})
+		}
+	} else {
+		// No inputs, run executor all the time
 		g.Go(func() error {
-			return il.watchInput(lctx, tis)
+			return il.runExecWithoutInputs(lctx)
 		})
 	}
 	g.Go(func() error {
@@ -96,19 +105,58 @@ func (il *inputLoop) processExecQueue(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			if err := il.executor.Execute(ctx, snapshot); ctx.Err() != nil {
+			if err := il.execOnSnapshot(ctx, snapshot); ctx.Err() != nil {
 				return ctx.Err()
 			} else if err != nil {
 				il.log.Error().Err(err).Msg("Failed to execute task")
-			} else {
-				// Acknowledge all event in the snapshot
-				if err := snapshot.AckAll(ctx); err != nil {
-					il.log.Error().Err(err).Msg("Failed to acknowledge events")
-				}
 			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+}
+
+// runExecWithoutInputs pulls snapshots from the exec queue and executes them.
+func (il *inputLoop) runExecWithoutInputs(ctx context.Context) error {
+	b := breaker.New(5, 1, time.Second*10)
+	for {
+		snapshot := &InputSnapshot{}
+		if err := b.Run(func() error {
+			if err := il.execOnSnapshot(ctx, snapshot); ctx.Err() != nil {
+				return ctx.Err()
+			} else if err != nil {
+				il.log.Error().Err(err).Msg("Failed to execute task")
+				return maskAny(err)
+			}
+			return nil
+		}); ctx.Err() != nil {
+			return ctx.Err()
+		} else if err == breaker.ErrBreakerOpen {
+			// Circuit break open
+			select {
+			case <-time.After(time.Second * 5):
+				// Retry
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+}
+
+// execOnSnapshot executes the task executor for the given snapshot.
+func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot) error {
+	if err := il.executor.Execute(ctx, snapshot); ctx.Err() != nil {
+		return ctx.Err()
+	} else if err != nil {
+		il.log.Debug().Err(err).Msg("executor.Execute failed")
+		return maskAny(err)
+	} else {
+		// Acknowledge all event in the snapshot
+		il.log.Debug().Msg("acknowledging all events in snapshot")
+		if err := snapshot.AckAll(ctx); err != nil {
+			il.log.Error().Err(err).Msg("Failed to acknowledge events")
+		}
+		return nil
 	}
 }
 

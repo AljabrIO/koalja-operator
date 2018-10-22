@@ -23,7 +23,9 @@ import (
 
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
@@ -58,15 +60,27 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		target.NodeName = &nodeName
 	}
 
+	// Prepare storage quantity
+	q, err := resource.ParseQuantity("8Gi")
+	if err != nil {
+		return maskAny(err)
+	}
+
 	// Create PVC
 	pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, uniuri.NewLen(6)))
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcName,
+			Name:      pvcName,
+			Namespace: cfg.Pipeline.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			VolumeName:  resp.GetVolumeName(),
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: q,
+				},
+			},
 		},
 	}
 	if err := deps.Client.Create(ctx, &pvc); err != nil {
@@ -118,15 +132,39 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		return maskAny(err)
 	}
 
+	// Get create PersistenVolume
+	var pv corev1.PersistentVolume
+	pvKey := client.ObjectKey{
+		Name: resp.GetVolumeName(),
+	}
+	if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
+		deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
+		return maskAny(err)
+	}
+
+	// Prepare storage quantity
+	q, err := resource.ParseQuantity("8Gi")
+	if err != nil {
+		return maskAny(err)
+	}
+
 	// Create PVC
 	pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.OutputSpec.Name, uniuri.NewLen(6)))
+	storageClassName := pv.Spec.StorageClassName
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcName,
+			Name:      pvcName,
+			Namespace: cfg.Pipeline.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			VolumeName:  resp.GetVolumeName(),
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: q,
+				},
+			},
+			StorageClassName: &storageClassName,
 		},
 	}
 	if err := deps.Client.Create(ctx, &pvc); err != nil {

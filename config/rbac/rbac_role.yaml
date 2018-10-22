@@ -76,3 +76,11 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - agents.aljabr.io
+  resources:
+  - taskexecutors
+  verbs:
+  - get
+  - list
+  - watch
