@@ -163,7 +163,8 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: q,
 			},
-			StorageClassName: lfs.storageClassName,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			StorageClassName:              lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
 			},
@@ -264,7 +265,8 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: q,
 			},
-			StorageClassName: lfs.storageClassName,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			StorageClassName:              lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
 			},
