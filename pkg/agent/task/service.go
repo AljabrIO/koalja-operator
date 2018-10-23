@@ -102,15 +102,15 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	// Create executor
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod, port)
+	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod, port, op)
 	if err != nil {
 		return nil, maskAny(err)
 	}
 	il, err := newInputLoop(log.With().Str("component", "inputLoop").Logger(), &taskSpec, &pod, executor)
-	if err != nil {
-		return nil, maskAny(err)
-	}
-	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod)
 	if err != nil {
 		return nil, maskAny(err)
 	}

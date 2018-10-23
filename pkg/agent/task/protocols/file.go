@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/AljabrIO/koalja-operator/pkg/event"
+
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,6 +201,50 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		"nodeName":   resp.GetNodeName(),
 		"path":       filepath.Join(mountPath, localPath),
 	}
+
+	// Prepare output processor
+	if cfg.OutputSpec.Ready.IsSucceeded() {
+		target.OutputProcessor = &fileOutputProcessor{
+			OutputName: cfg.OutputSpec.Name,
+			VolumeName: resp.GetVolumeName(),
+			MountPath:  mountPath,
+			NodeName:   resp.GetNodeName(),
+			LocalPath:  localPath,
+		}
+	}
+
+	return nil
+}
+
+type fileOutputProcessor struct {
+	OutputName string
+	VolumeName string
+	MountPath  string
+	NodeName   string
+	LocalPath  string
+}
+
+// Process a single file output
+func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutputProcessorConfig, deps task.ExecutorOutputProcessorDependencies) error {
+	log := deps.Log
+	log.Debug().Msg("creating URI for output")
+	resp, err := deps.FileSystem.CreateFileURI(ctx, &fs.CreateFileURIRequest{
+		VolumeName: p.VolumeName,
+		NodeName:   p.NodeName,
+		LocalPath:  p.LocalPath,
+		IsDir:      false, // TODO
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create file URI")
+		return maskAny(err)
+	}
+	// Publish event
+	evt := event.Event{Data: resp.GetURI()}
+	if err := deps.OutputPublisher.PublishEvent(ctx, p.OutputName, evt); err != nil {
+		log.Error().Err(err).Msg("Failed to create file URI")
+		return maskAny(err)
+	}
+	log.Debug().Msg("published event")
 
 	return nil
 }

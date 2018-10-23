@@ -33,6 +33,12 @@ import (
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 )
 
+// OutputPublisher specifies the API of the output publisher
+type OutputPublisher interface {
+	// PublishEvent pushes the given event onto the application output channel.
+	PublishEvent(ctx context.Context, outputName string, evt event.Event) error
+}
+
 // outputPublisher is responsible for publishing events to one or more EventPublishers.
 type outputPublisher struct {
 	log                zerolog.Logger

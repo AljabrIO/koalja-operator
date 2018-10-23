@@ -35,6 +35,12 @@ type ExecutorOutputBuilder interface {
 	Build(context.Context, ExecutorOutputBuilderConfig, ExecutorOutputBuilderDependencies, *ExecutorOutputBuilderTarget) error
 }
 
+// ExecutorOutputProcessor is called when a task executor has completed
+// to process its output.
+type ExecutorOutputProcessor interface {
+	Process(context.Context, ExecutorOutputProcessorConfig, ExecutorOutputProcessorDependencies) error
+}
+
 // ExecutorOutputBuilderConfig is the input for ExecutorOutputBuilder.Build.
 type ExecutorOutputBuilderConfig struct {
 	// Output to build for
@@ -55,6 +61,20 @@ type ExecutorOutputBuilderDependencies struct {
 	FileSystem fs.FileSystemClient
 }
 
+// ExecutorOutputProcessorConfig is the input for ExecutorOutputProcessor.Process.
+type ExecutorOutputProcessorConfig struct {
+	Snapshot *InputSnapshot
+}
+
+// ExecutorOutputProcessorDependencies holds dependencies that are available during
+// the invocation of ExecutorOutputProcessor.Process.
+type ExecutorOutputProcessorDependencies struct {
+	Log             zerolog.Logger
+	Client          client.Client
+	FileSystem      fs.FileSystemClient
+	OutputPublisher OutputPublisher
+}
+
 // ExecutorOutputBuilderTarget is hold the references to where ExecutorOutputBuilder.Build
 // must returns its results.
 type ExecutorOutputBuilderTarget struct {
@@ -68,6 +88,8 @@ type ExecutorOutputBuilderTarget struct {
 	TemplateData map[string]interface{}
 	// Resources created for this output. Will be removed after execution.
 	Resources []runtime.Object
+	// Processor to be called when executor has finished. Set by output builders.
+	OutputProcessor ExecutorOutputProcessor
 }
 
 var (

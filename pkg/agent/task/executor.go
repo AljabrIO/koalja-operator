@@ -54,7 +54,7 @@ type Executor interface {
 
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
-	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int) (Executor, error) {
+	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int, outputPublisher OutputPublisher) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -95,6 +95,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		namespace:               pod.GetNamespace(),
 		outputReadyNotifierPort: outputReadyNotifierPort,
 		podChangeQueues:         make(map[string]chan *corev1.Pod),
+		outputPublisher:         outputPublisher,
 	}, nil
 }
 
@@ -113,6 +114,7 @@ type executor struct {
 	namespace               string
 	outputReadyNotifierPort int
 	podChangeQueues         map[string]chan *corev1.Pod
+	outputPublisher         OutputPublisher
 }
 
 const (
@@ -151,6 +153,7 @@ func (e *executor) Run(ctx context.Context) error {
 				changeQueue := e.podChangeQueues[pod.GetName()]
 				e.mutex.Unlock()
 				if changeQueue != nil {
+					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod updated notification")
 					changeQueue <- pod
 				}
 			}
@@ -161,6 +164,7 @@ func (e *executor) Run(ctx context.Context) error {
 				changeQueue := e.podChangeQueues[pod.GetName()]
 				e.mutex.Unlock()
 				if changeQueue != nil {
+					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod deleted notification")
 					changeQueue <- pod
 				}
 			}
@@ -196,13 +200,17 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 			},
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{*execCont},
+			Containers:    []corev1.Container{*execCont},
+			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
-	resources, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod, ownerRef)
+	resources, outputProcessors, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod, ownerRef)
 	defer func() {
 		// Cleanup resources
 		for _, r := range resources {
+			e.log.Debug().
+				Str("kind", r.GetObjectKind().GroupVersionKind().Kind).
+				Msg("deleting resource")
 			if err := e.Client.Delete(ctx, r); err != nil {
 				e.log.Error().Err(err).Msg("Failed to delete resource")
 			}
@@ -237,14 +245,31 @@ waitLoop:
 		switch change.Status.Phase {
 		case corev1.PodSucceeded:
 			// We're done with a valid result
+			e.log.Debug().Msg("pod succeeded")
 			break waitLoop
 		case corev1.PodFailed:
 			// Pod has failed
+			e.log.Warn().Msg("Pod failed")
 			return fmt.Errorf("Pod has failed")
 		}
 	}
 
-	// TODO collect results
+	// Process results
+	cfg := ExecutorOutputProcessorConfig{
+		Snapshot: args,
+	}
+	deps := ExecutorOutputProcessorDependencies{
+		Log:             e.log,
+		Client:          e.Client,
+		FileSystem:      e.FileSystemClient,
+		OutputPublisher: e.outputPublisher,
+	}
+	for _, p := range outputProcessors {
+		if err := p.Process(ctx, cfg, deps); err != nil {
+			e.log.Error().Err(err).Msg("Failed to process output")
+			return maskAny(err)
+		}
+	}
 
 	// Remove pod
 	if err := e.Client.Delete(ctx, pod); err != nil {
@@ -268,11 +293,12 @@ func (e *executor) createExecContainer() (*corev1.Container, error) {
 }
 
 // createExecContainer creates a container to execute
-func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapshot, c *corev1.Container, pod *corev1.Pod, ownerRef metav1.OwnerReference) ([]runtime.Object, error) {
+func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapshot, c *corev1.Container, pod *corev1.Pod, ownerRef metav1.OwnerReference) ([]runtime.Object, []ExecutorOutputProcessor, error) {
 	// Execute argument templates
 	inputs := make(map[string]interface{})
 	var nodeName *string
 	var resources []runtime.Object
+	var outputProcessors []ExecutorOutputProcessor
 	for _, tis := range e.taskSpec.Inputs {
 		target := &ExecutorInputBuilderTarget{
 			Container: c,
@@ -280,7 +306,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			NodeName:  nodeName,
 		}
 		if err := e.buildTaskInput(ctx, tis, args.Get(tis.Name), ownerRef, target); err != nil {
-			return resources, maskAny(err)
+			return resources, outputProcessors, maskAny(err)
 		}
 		inputs[tis.Name] = target.TemplateData
 		nodeName = target.NodeName
@@ -294,11 +320,14 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			NodeName:  nodeName,
 		}
 		if err := e.buildTaskOutput(ctx, tos, ownerRef, target); err != nil {
-			return resources, maskAny(err)
+			return resources, outputProcessors, maskAny(err)
 		}
 		outputs[tos.Name] = target.TemplateData
 		nodeName = target.NodeName
 		resources = append(resources, target.Resources...)
+		if target.OutputProcessor != nil {
+			outputProcessors = append(outputProcessors, target.OutputProcessor)
+		}
 	}
 	data := map[string]interface{}{
 		"task":    e.taskSpec,
@@ -310,7 +339,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		var err error
 		c.Command[i], err = e.applyTemplate(source, data)
 		if err != nil {
-			return resources, maskAny(err)
+			return resources, outputProcessors, maskAny(err)
 		}
 	}
 	// Apply template on arguments
@@ -318,7 +347,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		var err error
 		c.Args[i], err = e.applyTemplate(source, data)
 		if err != nil {
-			return resources, maskAny(err)
+			return resources, outputProcessors, maskAny(err)
 		}
 	}
 
@@ -354,7 +383,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		},
 	)
 
-	return resources, nil
+	return resources, outputProcessors, nil
 }
 
 // buildTaskInput creates a template data element for the given input.
