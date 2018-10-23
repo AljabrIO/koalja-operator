@@ -26,5 +26,11 @@
             "${commentprefix} ",
             ""
         ]
+    },
+    "protoc": {
+        "options": [
+            "--proto_path=${workspaceRoot}",
+            "--proto_path=${workspaceRoot}/vendor"
+        ]
     }
 }

@@ -18,9 +18,9 @@ syntax = "proto3";
 
 package fs;
 
-option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
-
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
 
 // FileSystem is the API used to access long term file storage
 service FileSystem {
