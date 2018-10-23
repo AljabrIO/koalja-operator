@@ -101,6 +101,10 @@ const (
 
 	// ServiceTypeFilesystem is a possible value for labels with key LabelServiceType.
 	ServiceTypeFilesystem = "FileSystem"
+
+	// LabelSpecHash is the label key used to contain a hash of its
+	// entire specification. This is used for improved change detection.
+	LabelSpecHash = "koalja.aljabr.io/specHash"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

@@ -11,3 +11,5 @@ spec:
     command:
     - /apps/tasks
     - filedrop
+    - --target
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).path}}"

@@ -102,7 +102,7 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 	target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 
 	// Map volume in container fs namespace
-	mountPath := filepath.Join("koalja", "inputs", cfg.InputSpec.Name)
+	mountPath := filepath.Join("/koalja", "inputs", cfg.InputSpec.Name)
 	target.Container.VolumeMounts = append(target.Container.VolumeMounts, corev1.VolumeMount{
 		Name:      volName,
 		ReadOnly:  true,
@@ -186,7 +186,7 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 
 	// Map volume in container fs namespace
-	mountPath := filepath.Join("koalja", "outputs", cfg.OutputSpec.Name)
+	mountPath := filepath.Join("/koalja", "outputs", cfg.OutputSpec.Name)
 	target.Container.VolumeMounts = append(target.Container.VolumeMounts, corev1.VolumeMount{
 		Name:      volName,
 		ReadOnly:  false,

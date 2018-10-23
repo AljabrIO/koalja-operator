@@ -25,12 +25,13 @@ import (
 
 // Service loop of the FileDrop task.
 type Service struct {
-	fsClient  fs.FileSystemClient
-	ornClient taskclient.OutputReadyNotifierClient
+	fsClient   fs.FileSystemClient
+	ornClient  taskclient.OutputReadyNotifierClient
+	dropFolder string
 }
 
 // NewService initializes a new service.
-func NewService() (*Service, error) {
+func NewService(dropFolder string) (*Service, error) {
 	fsClient, err := fs.CreateFileSystemClient()
 	if err != nil {
 		return nil, maskAny(err)
@@ -40,8 +41,9 @@ func NewService() (*Service, error) {
 		return nil, maskAny(err)
 	}
 	return &Service{
-		fsClient:  fsClient,
-		ornClient: ornClient,
+		dropFolder: dropFolder,
+		fsClient:   fsClient,
+		ornClient:  ornClient,
 	}, nil
 }
 

@@ -33,15 +33,20 @@ var (
 		Short: "Run FileDrop task executor",
 		Long:  "Run FileDrop task executor",
 	}
+	fileDrop struct {
+		DropFolder string
+	}
 )
 
 func init() {
 	cmdMain.AddCommand(cmdFileDrop)
+
+	cmdFileDrop.Flags().StringVar(&fileDrop.DropFolder, "target", "", "Directory to drop files into")
 }
 
 func cmdFileDropRun(cmd *cobra.Command, args []string) {
 	// Create a new filedrop service
-	svc, err := filedrop.NewService()
+	svc, err := filedrop.NewService(fileDrop.DropFolder)
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create filedrop service")
 	}

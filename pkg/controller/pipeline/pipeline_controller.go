@@ -237,7 +237,11 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 
 	// Define the desired Deployment object for pipeline agent
 	deplName := CreatePipelineAgentName(instance.Name)
-	deplLabels := map[string]string{"statefulset": deplName}
+	createDeplLabels := func() map[string]string {
+		return map[string]string{
+			"statefulset": deplName,
+		}
+	}
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
@@ -245,10 +249,10 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: deplLabels,
+				MatchLabels: createDeplLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
+				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{agentCont, evtRegistryCont},
 				},
@@ -292,9 +296,10 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deplName,
 				Namespace: instance.Namespace,
+				Labels:    createDeplLabels(),
 			},
 			Spec: corev1.ServiceSpec{
-				Selector: deplLabels,
+				Selector: createDeplLabels(),
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
@@ -370,9 +375,11 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 
 	// Define the desired StatefulSet object for link agent
 	deplName := CreateLinkAgentName(instance.Name, link.Name)
-	deplLabels := map[string]string{
-		"statefulset": deplName,
-		"link":        link.Name,
+	createDeplLabels := func() map[string]string {
+		return map[string]string{
+			"statefulset": deplName,
+			"link":        link.Name,
+		}
 	}
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -381,10 +388,10 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: deplLabels,
+				MatchLabels: createDeplLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: deplLabels},
+				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{c},
 				},
@@ -428,9 +435,10 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deplName,
 				Namespace: instance.Namespace,
+				Labels:    createDeplLabels(),
 			},
 			Spec: corev1.ServiceSpec{
-				Selector: deplLabels,
+				Selector: createDeplLabels(),
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
@@ -553,9 +561,11 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 
 	// Define the desired StatefulSet object for task agent
 	deplName := CreateTaskAgentName(instance.Name, task.Name)
-	deplLabels := map[string]string{
-		"statefulset": deplName,
-		"task":        task.Name,
+	createDeplLabels := func() map[string]string {
+		return map[string]string{
+			"statefulset": deplName,
+			"task":        task.Name,
+		}
 	}
 	// Create annotations to pass address of input links
 	annotations := make(map[string]string)
@@ -596,11 +606,11 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: deplLabels,
+				MatchLabels: createDeplLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      deplLabels,
+					Labels:      createDeplLabels(),
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
@@ -646,9 +656,10 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deplName,
 				Namespace: instance.Namespace,
+				Labels:    createDeplLabels(),
 			},
 			Spec: corev1.ServiceSpec{
-				Selector: deplLabels,
+				Selector: createDeplLabels(),
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{

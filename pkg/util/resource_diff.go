@@ -66,7 +66,7 @@ func LabelsEqual(prefix string, spec, actual map[string]string) []Diff {
 	for sk, sv := range spec {
 		av := actual[sk]
 		if sv != av {
-			result = append(result, Diff(prefix+"."+sk))
+			result = append(result, Diff(fmt.Sprintf("%s.%s expected '%s' got '%s'", prefix, sk, sv, av)))
 		}
 	}
 	return result

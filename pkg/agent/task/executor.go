@@ -174,7 +174,7 @@ func (e *executor) Run(ctx context.Context) error {
 // Execute on the task with the given snapshot as input.
 func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	// Define the pod
-	podName := util.FixupKubernetesName(e.taskSpec.Name + "-" + uniuri.NewLen(6))
+	podName := util.FixupKubernetesName(fmt.Sprintf("%s-x-%s-%s", e.pipeline.GetName(), e.taskSpec.Name, uniuri.NewLen(6)))
 	execCont, err := e.createExecContainer()
 	if err != nil {
 		return maskAny(err)
@@ -295,6 +295,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		resources = append(resources, target.Resources...)
 	}
 	data := map[string]interface{}{
+		"task":    e.taskSpec,
 		"inputs":  inputs,
 		"outputs": outputs,
 	}

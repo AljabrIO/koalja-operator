@@ -117,7 +117,7 @@ func SetContainerEnvVars(c *corev1.Container, vars map[string]string) {
 // CreatePipelineAgentName returns the name of the pipeline agent
 // for the given pipeline.
 func CreatePipelineAgentName(pipelineName string) string {
-	return util.FixupKubernetesName(pipelineName + "-pl-agent")
+	return util.FixupKubernetesName(pipelineName + "-p")
 }
 
 // CreatePipelineAgentDNSName returns the DNS of the pipeline agent
@@ -129,7 +129,7 @@ func CreatePipelineAgentDNSName(pipelineName, namespace string) string {
 // CreateLinkAgentName returns the name of the link agent
 // for the given pipeline + link.
 func CreateLinkAgentName(pipelineName, linkName string) string {
-	return util.FixupKubernetesName(pipelineName + "-link-" + linkName + "-agent")
+	return util.FixupKubernetesName(pipelineName + "-l-" + linkName)
 }
 
 // CreateLinkAgentDNSName returns the DNS name of the link agent
@@ -153,7 +153,7 @@ func CreateLinkAgentEventPublisherAddress(pipelineName, linkName, namespace stri
 // CreateTaskAgentName returns the name of the task agent
 // for the given pipeline + task.
 func CreateTaskAgentName(pipelineName, taskName string) string {
-	return util.FixupKubernetesName(pipelineName + "-task-" + taskName + "-agent")
+	return util.FixupKubernetesName(pipelineName + "-t-" + taskName)
 }
 
 // CreateTaskAgentDNSName returns the DNS name of the task agent
