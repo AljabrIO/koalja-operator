@@ -170,6 +170,9 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 			},
 		},
 	}
+	if owner := req.GetOwner(); owner != nil {
+		pv.ObjectMeta.SetOwnerReferences(append(pv.ObjectMeta.GetOwnerReferences(), *owner))
+	}
 	if err := lfs.Client.Create(ctx, pv); err != nil {
 		log.Warn().Err(err).Msg("Failed to create PersistentVolume")
 		return nil, err
@@ -272,6 +275,9 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 				Required: createNodeSelector(nodeName),
 			},
 		},
+	}
+	if owner := req.GetOwner(); owner != nil {
+		pv.ObjectMeta.SetOwnerReferences(append(pv.ObjectMeta.GetOwnerReferences(), *owner))
 	}
 	if err := lfs.Client.Create(ctx, pv); err != nil {
 		log.Warn().Err(err).Msg("Failed to create PersistentVolume")

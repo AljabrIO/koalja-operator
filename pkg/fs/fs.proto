@@ -20,6 +20,8 @@ package fs;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
 
+import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
+
 // FileSystem is the API used to access long term file storage
 service FileSystem {
     // CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -38,6 +40,8 @@ message CreateVolumeForWriteRequest {
     // Name of the Node on which the PV must reside.
     // If not set, a random node is picked.
     string NodeName = 2;
+    // If set and allow, this the PersistentVolume will be owned by this owner reference.
+    k8s.io.apimachinery.pkg.apis.meta.v1.OwnerReference Owner = 3;
 }
 
 // CreateVolumeForWriteResponse contains results for CreateVolumeForWrite.
@@ -72,6 +76,8 @@ message CreateFileURIResponse {
 message CreateVolumeForReadRequest {
     // The URI to read
     string URI = 1;
+    // If set and allow, this the PersistentVolume will be owned by this owner reference.
+    k8s.io.apimachinery.pkg.apis.meta.v1.OwnerReference Owner = 2;
 }
 
 // CreateVolumeForReadResponse contains results for CreateVolumeForRead

@@ -52,7 +52,10 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		Msg("Preparing file input")
 
 	// Prepare readonly volume for URI
-	resp, err := deps.FileSystem.CreateVolumeForRead(ctx, &fs.CreateVolumeForReadRequest{URI: uri})
+	resp, err := deps.FileSystem.CreateVolumeForRead(ctx, &fs.CreateVolumeForReadRequest{
+		URI:   uri,
+		Owner: &cfg.OwnerRef,
+	})
 	if err != nil {
 		return maskAny(err)
 	}
@@ -81,8 +84,9 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 	storageClassName := pv.Spec.StorageClassName
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: cfg.Pipeline.GetNamespace(),
+			Name:            pvcName,
+			Namespace:       cfg.Pipeline.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{cfg.OwnerRef},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: pv.Spec.AccessModes,
@@ -140,6 +144,7 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	resp, err := deps.FileSystem.CreateVolumeForWrite(ctx, &fs.CreateVolumeForWriteRequest{
 		EstimatedCapacity: 0,
 		NodeName:          nodeName,
+		Owner:             &cfg.OwnerRef,
 	})
 	if err != nil {
 		return maskAny(err)
@@ -165,8 +170,9 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	storageClassName := pv.Spec.StorageClassName
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: cfg.Pipeline.GetNamespace(),
+			Name:            pvcName,
+			Namespace:       cfg.Pipeline.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{cfg.OwnerRef},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: pv.Spec.AccessModes,
