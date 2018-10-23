@@ -20,6 +20,8 @@ import (
 	"context"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/protocols"
@@ -33,20 +35,31 @@ var (
 		Short: "Run FileDrop task executor",
 		Long:  "Run FileDrop task executor",
 	}
-	fileDrop struct {
-		DropFolder string
-	}
+	fileDrop filedrop.Config
 )
 
 func init() {
 	cmdMain.AddCommand(cmdFileDrop)
 
 	cmdFileDrop.Flags().StringVar(&fileDrop.DropFolder, "target", "", "Directory to drop files into")
+	cmdFileDrop.Flags().StringVar(&fileDrop.VolumeName, "volume-name", "", "Name of volume containing target")
+	cmdFileDrop.Flags().StringVar(&fileDrop.MountPath, "mount-path", "", "Mount path of volume containing target")
+	cmdFileDrop.Flags().StringVar(&fileDrop.NodeName, "node-name", "", "Name of node we're running on")
+	cmdFileDrop.Flags().StringVar(&fileDrop.OutputName, "output-name", "", "Name of output of the task we're serving")
 }
 
 func cmdFileDropRun(cmd *cobra.Command, args []string) {
+	// Get a config to talk to the apiserver
+	cfg, err := config.GetConfig()
+	if err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to get kubernetes API server config")
+	}
+
+	// Setup Scheme for all resources
+	scheme := scheme.Scheme
+
 	// Create a new filedrop service
-	svc, err := filedrop.NewService(fileDrop.DropFolder)
+	svc, err := filedrop.NewService(fileDrop, cliLog, cfg, scheme)
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create filedrop service")
 	}

@@ -13,3 +13,11 @@ spec:
     - filedrop
     - --target
     - "{{(index .outputs ((index .task.Outputs 0).Name)).path}}"
+    - --volume-name
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).volumeName}}"
+    - --mount-path
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).mountPath}}"
+    - --node-name
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).nodeName}}"
+    - --output-name
+    - "{{(index .task.Outputs 0).Name}}"

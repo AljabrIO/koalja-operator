@@ -23,7 +23,6 @@ import (
 
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -60,27 +59,31 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		target.NodeName = &nodeName
 	}
 
-	// Prepare storage quantity
-	q, err := resource.ParseQuantity("8Gi")
-	if err != nil {
+	// Get created PersistentVolume
+	var pv corev1.PersistentVolume
+	pvKey := client.ObjectKey{
+		Name: resp.GetVolumeName(),
+	}
+	if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
+		deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
 		return maskAny(err)
 	}
 
 	// Create PVC
 	pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, uniuri.NewLen(6)))
+	storageClassName := pv.Spec.StorageClassName
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
 			Namespace: cfg.Pipeline.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			AccessModes: pv.Spec.AccessModes,
 			VolumeName:  resp.GetVolumeName(),
 			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: q,
-				},
+				Requests: pv.Spec.Capacity,
 			},
+			StorageClassName: &storageClassName,
 		},
 	}
 	if err := deps.Client.Create(ctx, &pvc); err != nil {
@@ -111,7 +114,10 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 
 	// Create template data
 	target.TemplateData = map[string]interface{}{
-		"path": filepath.Join(mountPath, resp.GetLocalPath()),
+		"volumeName": resp.GetVolumeName(),
+		"mountPath":  mountPath,
+		"nodeName":   resp.GetNodeName(),
+		"path":       filepath.Join(mountPath, resp.GetLocalPath()),
 	}
 
 	return nil
@@ -132,19 +138,13 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		return maskAny(err)
 	}
 
-	// Get create PersistenVolume
+	// Get created PersistentVolume
 	var pv corev1.PersistentVolume
 	pvKey := client.ObjectKey{
 		Name: resp.GetVolumeName(),
 	}
 	if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
 		deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
-		return maskAny(err)
-	}
-
-	// Prepare storage quantity
-	q, err := resource.ParseQuantity("8Gi")
-	if err != nil {
 		return maskAny(err)
 	}
 
@@ -157,12 +157,10 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 			Namespace: cfg.Pipeline.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			AccessModes: pv.Spec.AccessModes,
 			VolumeName:  resp.GetVolumeName(),
 			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: q,
-				},
+				Requests: pv.Spec.Capacity,
 			},
 			StorageClassName: &storageClassName,
 		},
@@ -196,7 +194,10 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	// Create template data
 	localPath := "output"
 	target.TemplateData = map[string]interface{}{
-		"path": filepath.Join(mountPath, localPath),
+		"volumeName": resp.GetVolumeName(),
+		"mountPath":  mountPath,
+		"nodeName":   resp.GetNodeName(),
+		"path":       filepath.Join(mountPath, localPath),
 	}
 
 	return nil

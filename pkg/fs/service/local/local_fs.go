@@ -233,7 +233,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 		return nil, fmt.Errorf("Unknown scheme '%s'", uri.Scheme)
 	}
 	nodeName := uri.Host
-	uid := uri.Path
+	uid := strings.TrimPrefix(uri.Path, "/")
 	localPath := uri.Fragment
 	isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
 
@@ -259,7 +259,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 				},
 			},
 			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadOnlyMany,
+				corev1.ReadWriteOnce,
 			},
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: q,

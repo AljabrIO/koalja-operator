@@ -174,7 +174,8 @@ func (e *executor) Run(ctx context.Context) error {
 // Execute on the task with the given snapshot as input.
 func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	// Define the pod
-	podName := util.FixupKubernetesName(fmt.Sprintf("%s-x-%s-%s", e.pipeline.GetName(), e.taskSpec.Name, uniuri.NewLen(6)))
+	uid := uniuri.NewLen(6)
+	podName := util.FixupKubernetesName(fmt.Sprintf("%s-x-%s-%s", e.pipeline.GetName(), e.taskSpec.Name, uid))
 	execCont, err := e.createExecContainer()
 	if err != nil {
 		return maskAny(err)
@@ -188,6 +189,11 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 			Name:            podName,
 			Namespace:       e.namespace,
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
+			Labels: map[string]string{
+				"pipeline": e.pipeline.GetName(),
+				"task":     e.taskSpec.Name,
+				"uid":      uid,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{*execCont},
@@ -327,6 +333,24 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		corev1.EnvVar{
 			Name:  constants.EnvFileSystemAddress,
 			Value: os.Getenv(constants.EnvFileSystemAddress),
+		},
+		// Pass kubernetes namespace
+		corev1.EnvVar{
+			Name: constants.EnvNamespace,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+		// Pass name of pod the executor is running in
+		corev1.EnvVar{
+			Name: constants.EnvPodName,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
 		},
 	)
 
