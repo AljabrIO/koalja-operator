@@ -163,7 +163,7 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: q,
 			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 			StorageClassName:              lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
@@ -176,8 +176,9 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 	}
 
 	return &fs.CreateVolumeForWriteResponse{
-		VolumeName: pv.GetName(),
-		NodeName:   nodeName,
+		VolumeName:     pv.GetName(),
+		NodeName:       nodeName,
+		DeleteAfterUse: true,
 	}, nil
 }
 
@@ -265,7 +266,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: q,
 			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 			StorageClassName:              lfs.storageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
@@ -278,10 +279,11 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 	}
 
 	return &fs.CreateVolumeForReadResponse{
-		VolumeName: pv.GetName(),
-		NodeName:   nodeName,
-		LocalPath:  localPath,
-		IsDir:      isDir,
+		VolumeName:     pv.GetName(),
+		NodeName:       nodeName,
+		LocalPath:      localPath,
+		IsDir:          isDir,
+		DeleteAfterUse: true,
 	}, nil
 }
 

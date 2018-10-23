@@ -46,6 +46,8 @@ message CreateVolumeForWriteResponse {
     string VolumeName = 1;
     // Name of the Node on which the volume is created
     string NodeName = 2;
+    // If set, the caller must delete the PersistentVolume after use
+    bool DeleteAfterUse = 3;
 }
 
 // CreateFileURIRequest contains arguments for CreateFileURI
@@ -82,4 +84,6 @@ message CreateVolumeForReadResponse {
     string LocalPath = 3;
     // IsDir indicates if the URI is for a file (false) or a directory (true)
     bool IsDir = 4;
+    // If set, the caller must delete the PersistentVolume after use
+    bool DeleteAfterUse = 5;
 }

@@ -71,6 +71,11 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		return maskAny(err)
 	}
 
+	// Add PV to resources for deletion list (if needed)
+	if resp.DeleteAfterUse {
+		target.Resources = append(target.Resources, &pv)
+	}
+
 	// Create PVC
 	pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, uniuri.NewLen(6)))
 	storageClassName := pv.Spec.StorageClassName
@@ -148,6 +153,11 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
 		deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
 		return maskAny(err)
+	}
+
+	// Add PV to resources for deletion list (if needed)
+	if resp.DeleteAfterUse {
+		target.Resources = append(target.Resources, &pv)
 	}
 
 	// Create PVC
