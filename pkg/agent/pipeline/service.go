@@ -24,6 +24,8 @@ import (
 	"net"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -36,11 +38,28 @@ import (
 type Service struct {
 	log zerolog.Logger
 	client.Client
+	Namespace      string
+	eventPublisher event.EventPublisherServer
+	eventRegistry  registry.EventRegistryClient
+}
+
+// APIDependencies provides some dependencies to API builder implementations
+type APIDependencies struct {
+	// Kubernetes client
+	client.Client
+	// Namespace in which this link is running
 	Namespace string
+	// EventRegister client
+	EventRegistry registry.EventRegistryClient
+}
+
+// APIBuilder is an interface provided by an Link implementation
+type APIBuilder interface {
+	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
 }
 
 // NewService creates a new Service instance.
-func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme) (*Service, error) {
+func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme, builder APIBuilder) (*Service, error) {
 	client, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
@@ -49,10 +68,26 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, err
 	}
+	evtReg, err := registry.CreateEventRegistryClient()
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	deps := APIDependencies{
+		Client:        client,
+		Namespace:     ns,
+		EventRegistry: evtReg,
+	}
+	eventPublisher, err := builder.NewEventPublisher(deps)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+
 	return &Service{
-		log:       log,
-		Client:    client,
-		Namespace: ns,
+		log:            log,
+		Client:         client,
+		Namespace:      ns,
+		eventPublisher: eventPublisher,
+		eventRegistry:  evtReg,
 	}, nil
 }
 
@@ -62,11 +97,13 @@ func (s *Service) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	addr := fmt.Sprintf("0.0.0.0:%d", port)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		s.log.Fatal().Err(err).Msg("Failed to listen")
 	}
 	svr := grpc.NewServer()
+	event.RegisterEventPublisherServer(svr, s.eventPublisher)
 	RegisterAgentServer(svr, s)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
@@ -75,6 +112,7 @@ func (s *Service) Run(ctx context.Context) error {
 			s.log.Fatal().Err(err).Msg("Failed to serve")
 		}
 	}()
+	s.log.Info().Msgf("Started pipeline agent, listening on %s", addr)
 	<-ctx.Done()
 	svr.GracefulStop()
 	return nil

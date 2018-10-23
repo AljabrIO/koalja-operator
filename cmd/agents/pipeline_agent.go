@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/stub"
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 )
 
@@ -35,10 +36,12 @@ var (
 		Short: "Run pipeline agent",
 		Long:  "Run pipeline agent",
 	}
+	pipelineAgentQueueType string
 )
 
 func init() {
 	cmdMain.AddCommand(cmdPipelineAgent)
+	cmdPipelineAgent.Flags().StringVar(&pipelineAgentQueueType, "queue", "", "Set queue type: stub")
 }
 
 func cmdPipelineAgentRun(cmd *cobra.Command, args []string) {
@@ -55,7 +58,14 @@ func cmdPipelineAgentRun(cmd *cobra.Command, args []string) {
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	svc, err := pipeline.NewService(cliLog, cfg, scheme)
+	var apiBuilder pipeline.APIBuilder
+	switch pipelineAgentQueueType {
+	case "stub":
+		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
+	default:
+		cliLog.Fatal().Str("queue", pipelineAgentQueueType).Msg("Unsupport pipeline agent type")
+	}
+	svc, err := pipeline.NewService(cliLog, cfg, scheme, apiBuilder)
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create pipeline service")
 	}

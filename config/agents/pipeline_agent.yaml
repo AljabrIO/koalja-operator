@@ -9,3 +9,4 @@ spec:
     command:
     - /apps/agents
     - pipeline
+    - --queue=stub
