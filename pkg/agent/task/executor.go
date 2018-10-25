@@ -252,6 +252,21 @@ waitLoop:
 			e.log.Warn().Msg("Pod failed")
 			return fmt.Errorf("Pod has failed")
 		}
+		// Check executor container status
+		for _, cs := range change.Status.ContainerStatuses {
+			if cs.Name == execCont.Name {
+				if cs.State.Terminated != nil {
+					switch cs.State.Terminated.ExitCode {
+					case 0:
+						e.log.Debug().Msg("executor container succeeded")
+						break waitLoop
+					default:
+						e.log.Warn().Int32("exitCode", cs.State.Terminated.ExitCode).Msg("Executor container failed")
+						return fmt.Errorf("Executor container has failed")
+					}
+				}
+			}
+		}
 	}
 
 	// Process results

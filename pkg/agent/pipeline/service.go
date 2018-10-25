@@ -22,10 +22,12 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
+	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -60,8 +62,14 @@ type APIBuilder interface {
 
 // NewService creates a new Service instance.
 func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme, builder APIBuilder) (*Service, error) {
-	client, err := client.New(config, client.Options{Scheme: scheme})
-	if err != nil {
+	var c client.Client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		c, err = client.New(config, client.Options{Scheme: scheme})
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	ns, err := constants.GetNamespace()
@@ -73,7 +81,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		return nil, maskAny(err)
 	}
 	deps := APIDependencies{
-		Client:        client,
+		Client:        c,
 		Namespace:     ns,
 		EventRegistry: evtReg,
 	}
@@ -84,7 +92,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 
 	return &Service{
 		log:            log,
-		Client:         client,
+		Client:         c,
 		Namespace:      ns,
 		eventPublisher: eventPublisher,
 		eventRegistry:  evtReg,

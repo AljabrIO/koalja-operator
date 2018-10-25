@@ -12,7 +12,8 @@ spec:
     control-plane: local-fs
     controller-tools.k8s.io: "1.0"
   ports:
-  - port: 7212
+  - name: grpc-api
+    port: 7212
 ---
 apiVersion: apps/v1
 kind: StatefulSet

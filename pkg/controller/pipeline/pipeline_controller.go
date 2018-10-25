@@ -303,13 +303,13 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
-						Name:       "agent-api",
+						Name:       "grpc-agent-api",
 						Port:       constants.AgentAPIPort,
 						TargetPort: intstr.FromInt(constants.AgentAPIPort),
 						Protocol:   corev1.ProtocolTCP,
 					},
 					corev1.ServicePort{
-						Name:       "event-registry-api",
+						Name:       "grpc-event-registry-api",
 						Port:       constants.EventRegistryAPIPort,
 						TargetPort: intstr.FromInt(constants.EventRegistryAPIPort),
 						Protocol:   corev1.ProtocolTCP,
@@ -442,7 +442,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
-						Name:       "api",
+						Name:       "grpc-api",
 						Port:       constants.AgentAPIPort,
 						TargetPort: intstr.FromInt(constants.AgentAPIPort),
 						Protocol:   corev1.ProtocolTCP,
@@ -663,7 +663,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 				Type:     corev1.ServiceTypeClusterIP,
 				Ports: []corev1.ServicePort{
 					corev1.ServicePort{
-						Name:       "api",
+						Name:       "grpc-api",
 						Port:       constants.AgentAPIPort,
 						TargetPort: intstr.FromInt(constants.AgentAPIPort),
 						Protocol:   corev1.ProtocolTCP,

@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -30,6 +31,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -56,8 +58,14 @@ type APIBuilder interface {
 
 // NewService creates a new Service instance.
 func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
-	c, err := client.New(config, client.Options{})
-	if err != nil {
+	var c client.Client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		c, err = client.New(config, client.Options{})
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	ns, err := constants.GetNamespace()

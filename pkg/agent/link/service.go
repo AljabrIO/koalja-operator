@@ -22,6 +22,7 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
+	"time"
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -32,6 +33,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/rs/zerolog"
 )
 
@@ -65,9 +67,15 @@ type APIBuilder interface {
 
 // NewService creates a new Service instance.
 func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*Service, error) {
-	c, err := client.New(config, client.Options{})
-	if err != nil {
-		return nil, maskAny(err)
+	var c client.Client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		c, err = client.New(config, client.Options{})
+		return err
+	}); err != nil {
+		return nil, err
 	}
 	ns, err := constants.GetNamespace()
 	if err != nil {
@@ -94,7 +102,9 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		Name:      podName,
 		Namespace: ns,
 	}
-	if err := c.Get(context.Background(), podKey, &p); err != nil {
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		return c.Get(ctx, podKey, &p)
+	}); err != nil {
 		return nil, maskAny(err)
 	}
 	uri := newLinkURI(dnsName, port, &p)

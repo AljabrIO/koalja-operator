@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -35,6 +36,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // Service implements the task agent.
@@ -72,9 +74,15 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	c, err := client.New(config, client.Options{Scheme: scheme})
-	if err != nil {
-		return nil, maskAny(err)
+	var c client.Client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		c, err = client.New(config, client.Options{Scheme: scheme})
+		return err
+	}); err != nil {
+		return nil, err
 	}
 	cache, err := cache.New(config, cache.Options{Scheme: scheme, Namespace: ns})
 	if err != nil {
@@ -86,8 +94,9 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	var pipeline koalja.Pipeline
-	ctx := context.Background()
-	if err := c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline); err != nil {
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		return c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline)
+	}); err != nil {
 		return nil, maskAny(err)
 	}
 	taskSpec, found := pipeline.Spec.TaskByName(taskName)
@@ -97,7 +106,9 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 
 	// Load pod
 	var pod core.Pod
-	if err := c.Get(ctx, client.ObjectKey{Name: podName, Namespace: ns}, &pod); err != nil {
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		return c.Get(ctx, client.ObjectKey{Name: podName, Namespace: ns}, &pod)
+	}); err != nil {
 		return nil, maskAny(err)
 	}
 

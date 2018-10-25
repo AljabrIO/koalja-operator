@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"time"
+
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 	"github.com/AljabrIO/koalja-operator/pkg/controller"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -38,8 +41,14 @@ func main() {
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{})
-	if err != nil {
+	var mgr manager.Manager
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		mgr, err = manager.New(cfg, manager.Options{})
+		return err
+	}); err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create manager")
 	}
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // Config holds the configuration arguments of the service.
@@ -80,29 +82,40 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	}
 
 	// Create k8s client
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme})
-	if err != nil {
+	var k8sClient client.Client
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		var err error
+		k8sClient, err = client.New(config, client.Options{Scheme: scheme})
+		return err
+	}); err != nil {
+		log.Error().Err(err).Msg("Failed to create k8s client")
 		return nil, maskAny(err)
 	}
 
 	// Load my own pod
 	var pod corev1.Pod
-	ctx := context.Background()
 	podKey := client.ObjectKey{
 		Name:      os.Getenv(constants.EnvPodName),
 		Namespace: os.Getenv(constants.EnvNamespace),
 	}
-	if err := k8sClient.Get(ctx, podKey, &pod); err != nil {
+	if err := util.Retry(ctx, func(ctx context.Context) error {
+		return k8sClient.Get(ctx, podKey, &pod)
+	}); err != nil {
+		log.Error().Err(err).Msg("Failed to get my own pod")
 		return nil, maskAny(err)
 	}
 
 	// Create service clients
 	fsClient, err := fs.CreateFileSystemClient()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create filesystem client")
 		return nil, maskAny(err)
 	}
 	ornClient, err := taskclient.CreateOutputReadyNotifierClient()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create output ready notifier client")
 		return nil, maskAny(err)
 	}
 	return &Service{
@@ -141,7 +154,7 @@ func (s *Service) createService(ctx context.Context, pod *corev1.Pod) error {
 			Type:     corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{
-					Name:       "http",
+					Name:       "http-upload",
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 					Protocol:   corev1.ProtocolTCP,

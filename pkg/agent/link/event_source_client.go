@@ -18,10 +18,13 @@ package link
 
 import (
 	"context"
+	fmt "fmt"
+	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // EventSourceClient is a closable client interface for EventSource.
@@ -66,6 +69,19 @@ func (c *eventSourceClient) Close(ctx context.Context, in *event.CloseRequest, o
 
 // Ask for the next event on a subscription
 func (c *eventSourceClient) NextEvent(ctx context.Context, in *event.NextEventRequest, opts ...grpc.CallOption) (*event.NextEventResponse, error) {
+	if deadline, ok := ctx.Deadline(); ok {
+		ms := int64(time.Until(deadline).Seconds() * 1000.0 * 1.5)
+		ctx = metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{
+			"x-envoy-upstream-rq-timeout-ms":         fmt.Sprintf("%d", ms),
+			"x-envoy-upstream-rq-per-try-timeout-ms": fmt.Sprintf("%d", ms),
+			"x-envoy-expected-rq-timeout-ms":         fmt.Sprintf("%d", ms),
+		}))
+		ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{
+			"x-envoy-upstream-rq-timeout-ms":         fmt.Sprintf("%d", ms),
+			"x-envoy-upstream-rq-per-try-timeout-ms": fmt.Sprintf("%d", ms),
+			"x-envoy-expected-rq-timeout-ms":         fmt.Sprintf("%d", ms),
+		}))
+	}
 	return c.c.NextEvent(ctx, in, opts...)
 }
 

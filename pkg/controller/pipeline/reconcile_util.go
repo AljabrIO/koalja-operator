@@ -53,7 +53,7 @@ func SetAgentContainerDefaults(c *corev1.Container) {
 	if len(c.Ports) == 0 {
 		c.Ports = []corev1.ContainerPort{
 			corev1.ContainerPort{
-				Name:          "api",
+				Name:          "grpc-api",
 				ContainerPort: constants.AgentAPIPort,
 			},
 		}
@@ -68,7 +68,7 @@ func SetEventRegistryContainerDefaults(c *corev1.Container) {
 	if len(c.Ports) == 0 {
 		c.Ports = []corev1.ContainerPort{
 			corev1.ContainerPort{
-				Name:          "registry",
+				Name:          "grcp-registry",
 				ContainerPort: constants.EventRegistryAPIPort,
 			},
 		}
