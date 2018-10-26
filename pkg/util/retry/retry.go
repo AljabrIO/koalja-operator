@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package util
+package retry
 
 import (
 	"context"
@@ -32,24 +32,55 @@ type causer interface {
 	Cause() error
 }
 
-// Retry the given operation until:
+// Option configures a Retry operation.
+type Option interface {
+	prepare(b *backoff.ExponentialBackOff)
+}
+
+// MinAttempts creates an option that sets the minimum number of
+// retry attempts.
+func MinAttempts(minAttempts int) Option {
+	return minAttemptsOption(minAttempts)
+}
+
+type minAttemptsOption int
+
+func (o minAttemptsOption) prepare(b *backoff.ExponentialBackOff) {
+	b.MaxInterval = b.MaxElapsedTime / time.Duration(o)
+	b.InitialInterval = b.MaxInterval / 10
+}
+
+// Timeout sets a custom timeout for the entire retry.
+// This is the same as using context.WithTimeout.
+func Timeout(timeout time.Duration) Option {
+	return timeoutOption(timeout)
+}
+
+type timeoutOption time.Duration
+
+func (o timeoutOption) prepare(b *backoff.ExponentialBackOff) {
+	b.MaxElapsedTime = time.Duration(o)
+	b.MaxInterval = b.MaxElapsedTime / 3
+	b.InitialInterval = b.MaxInterval / 10
+}
+
+// Do retry the given operation until:
 // - Success or
 // - Given context is canceled or
 // - A permanent error is returns from the given operation
-func Retry(ctx context.Context, op func(context.Context) error, minAttempts ...int) error {
+func Do(ctx context.Context, op func(context.Context) error, opts ...Option) error {
 	if ctx == nil {
 		ctx = context.Background()
-	}
-	divider := 1
-	if len(minAttempts) > 0 {
-		divider = minAttempts[0]
 	}
 	b := backoff.NewExponentialBackOff()
 	if deadline, ok := ctx.Deadline(); ok {
 		b.MaxElapsedTime = time.Until(deadline)
 	}
-	b.InitialInterval = b.MaxElapsedTime / time.Duration(divider*10)
-	b.MaxInterval = b.MaxElapsedTime / time.Duration(divider)
+	b.MaxInterval = b.MaxElapsedTime / 3
+	b.InitialInterval = b.MaxInterval / 10
+	for _, o := range opts {
+		o.prepare(b)
+	}
 
 	if err := backoff.Retry(func() error {
 		lctx, cancel := context.WithTimeout(ctx, b.MaxInterval)

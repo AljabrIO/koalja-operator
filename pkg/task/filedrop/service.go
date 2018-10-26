@@ -20,7 +20,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
+
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +35,6 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // Config holds the configuration arguments of the service.
@@ -83,13 +83,12 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 
 	// Create k8s client
 	var k8sClient client.Client
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	ctx := context.Background()
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		var err error
 		k8sClient, err = client.New(config, client.Options{Scheme: scheme})
 		return err
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		log.Error().Err(err).Msg("Failed to create k8s client")
 		return nil, maskAny(err)
 	}
@@ -100,9 +99,9 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 		Name:      os.Getenv(constants.EnvPodName),
 		Namespace: os.Getenv(constants.EnvNamespace),
 	}
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		return k8sClient.Get(ctx, podKey, &pod)
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
 		log.Error().Err(err).Msg("Failed to get my own pod")
 		return nil, maskAny(err)
 	}

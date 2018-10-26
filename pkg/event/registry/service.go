@@ -21,7 +21,6 @@ import (
 	fmt "fmt"
 	"log"
 	"net"
-	"time"
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -30,7 +29,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
 // Service implements an event registry.
@@ -53,13 +52,12 @@ type APIBuilder interface {
 // NewService creates a new Service instance.
 func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	var c client.Client
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	ctx := context.Background()
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		var err error
 		c, err = client.New(config, client.Options{})
 		return err
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		return nil, err
 	}
 	ns, err := constants.GetNamespace()

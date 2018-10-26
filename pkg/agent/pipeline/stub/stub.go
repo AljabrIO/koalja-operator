@@ -22,6 +22,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
@@ -33,18 +34,28 @@ type stub struct {
 	registry    registry.EventRegistryClient
 	events      []event.Event
 	eventsMutex sync.Mutex
+	linkAgents  map[string][]string // map[link-name][]uri
+	taskAgents  map[string][]string // map[task-name][]uri
+	agentsMutex sync.Mutex
 }
 
 // NewStub initializes a new stub API builder
 func NewStub(log zerolog.Logger) pipeline.APIBuilder {
 	return &stub{
-		log: log,
+		log:        log,
+		linkAgents: make(map[string][]string),
+		taskAgents: make(map[string][]string),
 	}
 }
 
 // NewEventPublisher "builds" a new publisher
 func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPublisherServer, error) {
 	s.registry = deps.EventRegistry
+	return s, nil
+}
+
+// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
+func (s *stub) NewAgentRegistry(deps pipeline.APIDependencies) (pipeline.AgentRegistryServer, error) {
 	return s, nil
 }
 
@@ -63,4 +74,47 @@ func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.P
 	defer s.eventsMutex.Unlock()
 	s.events = append(s.events, e)
 	return &event.PublishResponse{}, nil
+}
+
+// Register an instance of a link agent
+func (s *stub) RegisterLink(ctx context.Context, req *pipeline.RegisterLinkRequest) (*empty.Empty, error) {
+	s.log.Debug().
+		Str("link", req.GetLinkName()).
+		Str("uri", req.GetURI()).
+		Msg("Register link")
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	current := s.linkAgents[req.GetLinkName()]
+	if !contains(current, req.GetURI()) {
+		s.linkAgents[req.GetLinkName()] = append(current, req.GetURI())
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// Register an instance of a task agent
+func (s *stub) RegisterTask(ctx context.Context, req *pipeline.RegisterTaskRequest) (*empty.Empty, error) {
+	s.log.Debug().
+		Str("task", req.GetTaskName()).
+		Str("uri", req.GetURI()).
+		Msg("Register task")
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	current := s.taskAgents[req.GetTaskName()]
+	if !contains(current, req.GetURI()) {
+		s.taskAgents[req.GetTaskName()] = append(current, req.GetURI())
+	}
+
+	return &empty.Empty{}, nil
+}
+
+func contains(list []string, value string) bool {
+	for _, x := range list {
+		if x == value {
+			return true
+		}
+	}
+	return false
 }

@@ -6,9 +6,10 @@ package pipeline
 import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/duration"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	_ "k8s.io/api/core/v1"
 	math "math"
 )
 
@@ -23,16 +24,128 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type RegisterLinkRequest struct {
+	// Name of the link
+	LinkName string `protobuf:"bytes,1,opt,name=LinkName,proto3" json:"LinkName,omitempty"`
+	// URI of the link
+	URI                  string   `protobuf:"bytes,2,opt,name=URI,proto3" json:"URI,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RegisterLinkRequest) Reset()         { *m = RegisterLinkRequest{} }
+func (m *RegisterLinkRequest) String() string { return proto.CompactTextString(m) }
+func (*RegisterLinkRequest) ProtoMessage()    {}
+func (*RegisterLinkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_011b677ced0569e6, []int{0}
+}
+
+func (m *RegisterLinkRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RegisterLinkRequest.Unmarshal(m, b)
+}
+func (m *RegisterLinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RegisterLinkRequest.Marshal(b, m, deterministic)
+}
+func (m *RegisterLinkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegisterLinkRequest.Merge(m, src)
+}
+func (m *RegisterLinkRequest) XXX_Size() int {
+	return xxx_messageInfo_RegisterLinkRequest.Size(m)
+}
+func (m *RegisterLinkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RegisterLinkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RegisterLinkRequest proto.InternalMessageInfo
+
+func (m *RegisterLinkRequest) GetLinkName() string {
+	if m != nil {
+		return m.LinkName
+	}
+	return ""
+}
+
+func (m *RegisterLinkRequest) GetURI() string {
+	if m != nil {
+		return m.URI
+	}
+	return ""
+}
+
+type RegisterTaskRequest struct {
+	// Name of the task
+	TaskName string `protobuf:"bytes,1,opt,name=TaskName,proto3" json:"TaskName,omitempty"`
+	// URI of the task
+	URI                  string   `protobuf:"bytes,2,opt,name=URI,proto3" json:"URI,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RegisterTaskRequest) Reset()         { *m = RegisterTaskRequest{} }
+func (m *RegisterTaskRequest) String() string { return proto.CompactTextString(m) }
+func (*RegisterTaskRequest) ProtoMessage()    {}
+func (*RegisterTaskRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_011b677ced0569e6, []int{1}
+}
+
+func (m *RegisterTaskRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RegisterTaskRequest.Unmarshal(m, b)
+}
+func (m *RegisterTaskRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RegisterTaskRequest.Marshal(b, m, deterministic)
+}
+func (m *RegisterTaskRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegisterTaskRequest.Merge(m, src)
+}
+func (m *RegisterTaskRequest) XXX_Size() int {
+	return xxx_messageInfo_RegisterTaskRequest.Size(m)
+}
+func (m *RegisterTaskRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RegisterTaskRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RegisterTaskRequest proto.InternalMessageInfo
+
+func (m *RegisterTaskRequest) GetTaskName() string {
+	if m != nil {
+		return m.TaskName
+	}
+	return ""
+}
+
+func (m *RegisterTaskRequest) GetURI() string {
+	if m != nil {
+		return m.URI
+	}
+	return ""
+}
+
+func init() {
+	proto.RegisterType((*RegisterLinkRequest)(nil), "pipeline.RegisterLinkRequest")
+	proto.RegisterType((*RegisterTaskRequest)(nil), "pipeline.RegisterTaskRequest")
+}
+
 func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_011b677ced0569e6) }
 
 var fileDescriptor_011b677ced0569e6 = []byte{
-	// 95 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4c, 0x4f, 0xcd,
-	0x2b, 0x89, 0x4f, 0x2c, 0xc8, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x28, 0xc8, 0x2c,
-	0x48, 0xcd, 0xc9, 0xcc, 0x4b, 0x95, 0x52, 0xca, 0xb6, 0x28, 0xd6, 0xcb, 0xcc, 0xd7, 0x4f, 0x2c,
-	0xc8, 0xd4, 0x4f, 0xce, 0x2f, 0x4a, 0xd5, 0x2f, 0x33, 0xd4, 0x4f, 0x4f, 0xcd, 0x4b, 0x2d, 0x4a,
-	0x2c, 0x49, 0x4d, 0x81, 0xa8, 0x36, 0x62, 0xe7, 0x62, 0x75, 0x04, 0x19, 0x90, 0xc4, 0x06, 0xe6,
-	0x1b, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x9d, 0x98, 0x4a, 0xc1, 0x50, 0x00, 0x00, 0x00,
+	// 237 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x90, 0x41, 0x4b, 0x05, 0x21,
+	0x10, 0xc7, 0xd9, 0x82, 0x78, 0x49, 0x51, 0x18, 0xc4, 0x43, 0x08, 0xa2, 0x53, 0x27, 0x85, 0xde,
+	0xa9, 0x63, 0xc4, 0x3b, 0x04, 0xd1, 0x41, 0xea, 0x1c, 0x6e, 0x4d, 0x26, 0xed, 0xaa, 0xe9, 0x78,
+	0xd8, 0x0f, 0xd3, 0x77, 0x0d, 0x57, 0x76, 0x11, 0xda, 0x78, 0x17, 0x99, 0x9f, 0x38, 0x3f, 0xff,
+	0x33, 0xe4, 0x44, 0x69, 0xb0, 0xf8, 0xaa, 0xbc, 0xe1, 0x3e, 0x38, 0x74, 0x74, 0xe5, 0x8d, 0x87,
+	0xce, 0x58, 0x60, 0xb7, 0xda, 0xe0, 0x67, 0x6a, 0xf9, 0x9b, 0xeb, 0x85, 0x76, 0x9d, 0xb2, 0x5a,
+	0x8c, 0x4f, 0xda, 0xf4, 0x21, 0x3c, 0x0e, 0x1e, 0xa2, 0x78, 0x4f, 0x41, 0xa1, 0x71, 0x76, 0x2e,
+	0x8a, 0x84, 0x6d, 0x76, 0xb7, 0x42, 0xef, 0x71, 0x28, 0x67, 0x69, 0xba, 0xba, 0x27, 0x67, 0x12,
+	0xb4, 0x89, 0x08, 0xe1, 0xd1, 0xd8, 0x2f, 0x09, 0xdf, 0x09, 0x22, 0x52, 0x46, 0x56, 0x19, 0x9f,
+	0x54, 0x0f, 0xeb, 0xe6, 0xb2, 0xb9, 0x3e, 0x94, 0x33, 0xd3, 0x53, 0xb2, 0xff, 0x22, 0x1f, 0xd6,
+	0x7b, 0xe3, 0x75, 0x2e, 0x6b, 0xc9, 0xb3, 0x8a, 0xb5, 0x24, 0x63, 0x2d, 0x99, 0xf8, 0xaf, 0xe4,
+	0xe6, 0xa7, 0x21, 0xc7, 0x77, 0x79, 0x2f, 0x45, 0x15, 0x06, 0xba, 0x25, 0x47, 0x75, 0x36, 0x7a,
+	0xc1, 0xa7, 0x35, 0xf1, 0x85, 0xcc, 0xec, 0x9c, 0x6b, 0xe7, 0x74, 0x07, 0x7c, 0x9a, 0x9a, 0x6f,
+	0xf3, 0xa0, 0xb5, 0x26, 0x7f, 0xbf, 0xa4, 0xa9, 0x52, 0xff, 0xa7, 0x69, 0x0f, 0x46, 0xde, 0xfc,
+	0x06, 0x00, 0x00, 0xff, 0xff, 0x46, 0x93, 0x4a, 0x62, 0xbd, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -43,32 +156,103 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// AgentClient is the client API for Agent service.
+// AgentRegistryClient is the client API for AgentRegistry service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type AgentClient interface {
+type AgentRegistryClient interface {
+	// Register an instance of a link agent
+	RegisterLink(ctx context.Context, in *RegisterLinkRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Register an instance of a task agent
+	RegisterTask(ctx context.Context, in *RegisterTaskRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
-type agentClient struct {
+type agentRegistryClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewAgentClient(cc *grpc.ClientConn) AgentClient {
-	return &agentClient{cc}
+func NewAgentRegistryClient(cc *grpc.ClientConn) AgentRegistryClient {
+	return &agentRegistryClient{cc}
 }
 
-// AgentServer is the server API for Agent service.
-type AgentServer interface {
+func (c *agentRegistryClient) RegisterLink(ctx context.Context, in *RegisterLinkRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pipeline.AgentRegistry/RegisterLink", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
-	s.RegisterService(&_Agent_serviceDesc, srv)
+func (c *agentRegistryClient) RegisterTask(ctx context.Context, in *RegisterTaskRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pipeline.AgentRegistry/RegisterTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-var _Agent_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pipeline.Agent",
-	HandlerType: (*AgentServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams:     []grpc.StreamDesc{},
-	Metadata:    "agent_api.proto",
+// AgentRegistryServer is the server API for AgentRegistry service.
+type AgentRegistryServer interface {
+	// Register an instance of a link agent
+	RegisterLink(context.Context, *RegisterLinkRequest) (*empty.Empty, error)
+	// Register an instance of a task agent
+	RegisterTask(context.Context, *RegisterTaskRequest) (*empty.Empty, error)
+}
+
+func RegisterAgentRegistryServer(s *grpc.Server, srv AgentRegistryServer) {
+	s.RegisterService(&_AgentRegistry_serviceDesc, srv)
+}
+
+func _AgentRegistry_RegisterLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterLinkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentRegistryServer).RegisterLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pipeline.AgentRegistry/RegisterLink",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentRegistryServer).RegisterLink(ctx, req.(*RegisterLinkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentRegistry_RegisterTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentRegistryServer).RegisterTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pipeline.AgentRegistry/RegisterTask",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentRegistryServer).RegisterTask(ctx, req.(*RegisterTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _AgentRegistry_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pipeline.AgentRegistry",
+	HandlerType: (*AgentRegistryServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RegisterLink",
+			Handler:    _AgentRegistry_RegisterLink_Handler,
+		},
+		{
+			MethodName: "RegisterTask",
+			Handler:    _AgentRegistry_RegisterTask_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "agent_api.proto",
 }

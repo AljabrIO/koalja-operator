@@ -18,11 +18,13 @@ package main
 
 import (
 	"context"
-	"time"
+
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 	"github.com/AljabrIO/koalja-operator/pkg/controller"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -42,13 +44,12 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	var mgr manager.Manager
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	ctx := context.Background()
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		var err error
 		mgr, err = manager.New(cfg, manager.Options{})
 		return err
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create manager")
 	}
 

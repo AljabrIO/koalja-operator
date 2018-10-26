@@ -162,6 +162,12 @@ func CreateTaskAgentDNSName(pipelineName, taskName, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc", CreateTaskAgentName(pipelineName, taskName), namespace)
 }
 
+// CreateAgentRegistryAddress returns the address (host:port) of the agent registry
+// for the given pipeline.
+func CreateAgentRegistryAddress(pipelineName, namespace string) string {
+	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
+}
+
 // CreateEventRegistryAddress returns the address (host:port) of the event registry
 // for the given pipeline.
 func CreateEventRegistryAddress(pipelineName, namespace string) string {

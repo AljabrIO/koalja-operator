@@ -22,12 +22,11 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
-	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -42,6 +41,7 @@ type Service struct {
 	client.Client
 	Namespace      string
 	eventPublisher event.EventPublisherServer
+	agentRegistry  AgentRegistryServer
 	eventRegistry  registry.EventRegistryClient
 }
 
@@ -57,19 +57,21 @@ type APIDependencies struct {
 
 // APIBuilder is an interface provided by an Link implementation
 type APIBuilder interface {
+	// NewEventPublisher creates an implementation of an EventPublisher used to capture output events.
 	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
+	// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
+	NewAgentRegistry(deps APIDependencies) (AgentRegistryServer, error)
 }
 
 // NewService creates a new Service instance.
 func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme, builder APIBuilder) (*Service, error) {
 	var c client.Client
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	ctx := context.Background()
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		var err error
 		c, err = client.New(config, client.Options{Scheme: scheme})
 		return err
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		return nil, err
 	}
 	ns, err := constants.GetNamespace()
@@ -89,6 +91,10 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	agentRegistry, err := builder.NewAgentRegistry(deps)
+	if err != nil {
+		return nil, maskAny(err)
+	}
 
 	return &Service{
 		log:            log,
@@ -96,6 +102,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		Namespace:      ns,
 		eventPublisher: eventPublisher,
 		eventRegistry:  evtReg,
+		agentRegistry:  agentRegistry,
 	}, nil
 }
 
@@ -112,7 +119,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 	svr := grpc.NewServer()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
-	RegisterAgentServer(svr, s)
+	RegisterAgentRegistryServer(svr, s.agentRegistry)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {

@@ -20,7 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
+
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -32,11 +33,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	pipelinecl "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // Service implements the task agent.
@@ -47,6 +49,8 @@ type Service struct {
 	outputPublisher *outputPublisher
 	cache           cache.Cache
 	port            int
+	taskName        string
+	uri             string
 }
 
 // NewService creates a new Service instance.
@@ -74,14 +78,17 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	dnsName, err := constants.GetDNSName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	var c client.Client
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	ctx := context.Background()
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		var err error
 		c, err = client.New(config, client.Options{Scheme: scheme})
 		return err
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		return nil, err
 	}
 	cache, err := cache.New(config, cache.Options{Scheme: scheme, Namespace: ns})
@@ -94,9 +101,9 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	var pipeline koalja.Pipeline
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		return c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline)
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
 		return nil, maskAny(err)
 	}
 	taskSpec, found := pipeline.Spec.TaskByName(taskName)
@@ -106,13 +113,14 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 
 	// Load pod
 	var pod core.Pod
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		return c.Get(ctx, client.ObjectKey{Name: podName, Namespace: ns}, &pod)
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
 		return nil, maskAny(err)
 	}
 
 	// Create executor
+	uri := newTaskURI(dnsName, port, &pod)
 	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod)
 	if err != nil {
 		return nil, maskAny(err)
@@ -131,12 +139,36 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		outputPublisher: op,
 		cache:           cache,
 		port:            port,
+		taskName:        taskName,
+		uri:             uri,
 	}, nil
 }
 
 // Run the task agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
 	s.log.Info().Msg("Service starting...")
+
+	// Register agent
+	agentReg, err := pipelinecl.CreateAgentRegistryClient()
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to create agent registry client")
+		return maskAny(err)
+	}
+	if err := retry.Do(ctx, func(ctx context.Context) error {
+		if _, err := agentReg.RegisterTask(ctx, &pipeline.RegisterTaskRequest{
+			TaskName: s.taskName,
+			URI:      s.uri,
+		}); err != nil {
+			s.log.Debug().Err(err).Msg("register task agent attempt failed")
+			return err
+		}
+		return nil
+	}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
+		s.log.Error().Err(err).Msg("Failed to register task agent")
+		return maskAny(err)
+	}
+	s.log.Info().Msgf("Registered task %s as %s", s.taskName, s.uri)
+
 	g, lctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		if err := s.cache.Start(lctx.Done()); err != nil {
@@ -181,6 +213,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 // runServer runs the GRPC server of the task agent until the given context is canceled.
 func (s *Service) runServer(ctx context.Context) error {
+	// Serve API
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

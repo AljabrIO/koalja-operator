@@ -211,6 +211,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	SetContainerEnvVars(&agentCont, map[string]string{
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
+		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvDNSName:              CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
 	})
@@ -369,6 +370,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvLinkName:             link.Name,
+		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvDNSName:              CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
 	})
@@ -554,6 +556,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvTaskName:             task.Name,
+		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvFileSystemAddress:    filesystemServiceAddress,
 		constants.EnvDNSName:              CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),

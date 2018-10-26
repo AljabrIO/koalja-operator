@@ -24,7 +24,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
@@ -37,7 +38,7 @@ import (
 	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
 type localFSBuilder struct {
@@ -68,10 +69,9 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 		VolumeBindingMode: &bindingMode,
 		Provisioner:       agentsv1alpha1.SchemeGroupVersion.Group + "/local-fs",
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
+	ctx := context.Background()
 	var found storagev1.StorageClass
-	if err := util.Retry(ctx, func(ctx context.Context) error {
+	if err := retry.Do(ctx, func(ctx context.Context) error {
 		if err := deps.Client.Get(ctx, client.ObjectKey{Name: stgClass.GetName()}, &found); err != nil {
 			// Create storage class
 			if err := deps.Client.Create(ctx, stgClass); err != nil {
@@ -81,7 +81,7 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 			// TODO compare StorageClass and update if needed
 		}
 		return nil
-	}); err != nil {
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
 		b.log.Error().Err(err).Msg("Failed to get/create StorageClass")
 		return nil, err
 	}
