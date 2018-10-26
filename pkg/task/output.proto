@@ -11,9 +11,13 @@ service OutputReadyNotifier {
 }
 
 message OutputReadyRequest {
+    // Data (content) of the event.
     string EventData = 1;
+    // Name of the task output that is data belongs to.
     string OutputName = 2;
 }
 
 message OutputReadyResponse {
+    // ID of the published event
+    string EventID = 1;
 }

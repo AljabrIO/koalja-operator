@@ -36,7 +36,7 @@ import (
 // OutputPublisher specifies the API of the output publisher
 type OutputPublisher interface {
 	// PublishEvent pushes the given event onto the application output channel.
-	PublishEvent(ctx context.Context, outputName string, evt event.Event) error
+	PublishEvent(ctx context.Context, outputName string, evt event.Event, snapshot *InputSnapshot) (*event.Event, error)
 }
 
 // outputPublisher is responsible for publishing events to one or more EventPublishers.
@@ -98,14 +98,24 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 }
 
 // PublishEvent pushes the given event onto the application output channel.
-func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, evt event.Event) error {
+func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, evt event.Event, snapshot *InputSnapshot) (*event.Event, error) {
 	evt.ID = uniuri.New()
 	evt.SourceTask = op.spec.Name
 	evt.SourceTaskOutput = outputName
+	if snapshot != nil {
+		for _, inp := range op.spec.Inputs {
+			if inpEvt := snapshot.Get(inp.Name); inpEvt != nil {
+				evt.SourceInputs = append(evt.SourceInputs, &event.EventSourceInput{
+					ID:        inpEvt.GetID(),
+					InputName: inp.Name,
+				})
+			}
+		}
+	}
 
 	eventChans, found := op.eventChannels[outputName]
 	if !found {
-		return fmt.Errorf("No channels found for output '%s'", outputName)
+		return nil, fmt.Errorf("No channels found for output '%s'", outputName)
 	}
 
 	g, lctx := errgroup.WithContext(ctx)
@@ -123,9 +133,9 @@ func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, 
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return maskAny(err)
+		return nil, maskAny(err)
 	}
-	return nil
+	return &evt, nil
 }
 
 // OutputReady implements the notification endpoint for tasks with an "Auto" ready setting.
@@ -139,10 +149,13 @@ func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputRea
 	evt := event.Event{
 		Data: req.GetEventData(),
 	}
-	if err := op.PublishEvent(ctx, req.GetOutputName(), evt); err != nil {
+	publishedEvt, err := op.PublishEvent(ctx, req.GetOutputName(), evt, nil)
+	if err != nil {
 		return nil, maskAny(err)
 	}
-	return &ptask.OutputReadyResponse{}, nil
+	return &ptask.OutputReadyResponse{
+		EventID: publishedEvt.GetID(),
+	}, nil
 }
 
 // runForOutput keeps publishing events for the given output until the given context is canceled.

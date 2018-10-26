@@ -79,9 +79,16 @@ message Event {
     // Link contains the URI of the Link that published the event
     string Link = 4;
     // SourceInputs contains zero or more URI's of events that resulted in this event
-    repeated string SourceInputs = 5;
+    repeated EventSourceInput SourceInputs = 5;
     // Data contains a URI of the data (payload) of the message
     string Data = 6;
+}
+
+message EventSourceInput {
+    // ID of the source event
+    string ID = 1; 
+    // Name of the task input on which this event came in
+    string InputName = 2;
 }
 
 // EventTuple is a tuple of N named events.

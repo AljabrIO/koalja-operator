@@ -18,6 +18,7 @@ package filedrop
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -99,12 +100,17 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Signal task with file
 	log.Debug().Str("uri", resp.GetURI()).Msg("signaling output ready")
-	if _, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
+	result := make(map[string]interface{})
+	if resp, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
 		EventData:  resp.GetURI(),
 		OutputName: s.OutputName,
 	}); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	} else {
+		result["event-id"] = resp.GetEventID()
 	}
+	encodedResult, _ := json.Marshal(result)
 	w.WriteHeader(http.StatusOK)
+	w.Write(encodedResult)
 }

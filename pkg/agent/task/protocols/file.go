@@ -256,11 +256,14 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 	}
 	// Publish event
 	evt := event.Event{Data: resp.GetURI()}
-	if err := deps.OutputPublisher.PublishEvent(ctx, p.OutputName, evt); err != nil {
+	publishedEvt, err := deps.OutputPublisher.PublishEvent(ctx, p.OutputName, evt, cfg.Snapshot)
+	if err != nil {
 		log.Error().Err(err).Msg("Failed to create file URI")
 		return maskAny(err)
 	}
-	log.Debug().Msg("published event")
+	log.Debug().
+		Str("event-id", publishedEvt.GetID()).
+		Msg("published event")
 
 	return nil
 }
