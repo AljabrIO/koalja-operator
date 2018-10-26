@@ -28,12 +28,19 @@ const (
 	// AgentAPIPort is the TCP port used to serve the API of agents.
 	AgentAPIPort = 6275
 
+	// AgentAPIHTTPPort is the TCP port used to serve the HTTP API of agents.
+	AgentAPIHTTPPort = 8080
+
 	// EventRegistryAPIPort is the TCP port used to serve the API of an event registry.
 	EventRegistryAPIPort = 6276
 
 	// EnvAPIPort is the name of the environment variable used to pass the
 	// TCP port the agent should list on for its API.
 	EnvAPIPort = "KOALJA_API_PORT"
+
+	// EnvAPIHTTPPort is the name of the environment variable used to pass the
+	// TCP port the agent should list on for its HTTP API.
+	EnvAPIHTTPPort = "KOALJA_API_HTTP_PORT"
 
 	// EnvNamespace is the name of the environment variable used to pass the
 	// namespace of the running agent/sidecar.
@@ -126,6 +133,16 @@ func CreateOutputLinkAddressesAnnotationName(inputName string) string {
 // GetAPIPort returns the port to listen on for agents/sidecars, found in the environment,
 func GetAPIPort() (int, error) {
 	portStr := os.Getenv(EnvAPIPort)
+	result, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
+// GetAPIHTTPPort returns the port to listen on for agents/sidecars, found in the environment,
+func GetAPIHTTPPort() (int, error) {
+	portStr := os.Getenv(EnvAPIHTTPPort)
 	result, err := strconv.Atoi(portStr)
 	if err != nil {
 		return 0, err

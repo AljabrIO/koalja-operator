@@ -23,6 +23,7 @@ option go_package = "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline";
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
 import "pkg/event/event.proto";
+import "google/api/annotations.proto";
 
 // AgentRegistry is the API covering registration of agents.
 service AgentRegistry {
@@ -50,7 +51,12 @@ message RegisterTaskRequest {
 service OutputRegistry {
     // GetOutputEvents returns all events (resulting from task outputs that
     // are not connected to inputs of other tasks) that match the given filter.
-    rpc GetOutputEvents(OutputEventsRequest) returns (OutputEvents);
+    rpc GetOutputEvents(OutputEventsRequest) returns (OutputEvents) {
+        option (google.api.http) = {
+            post: "/v1/output/events"
+            body: "*"
+        };
+    }
 }
 
 message OutputEventsRequest {

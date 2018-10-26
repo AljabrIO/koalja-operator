@@ -20,17 +20,21 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
+	"net/http"
+	"strconv"
 
-	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
-	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
 // Service implements the pipeline agent.
@@ -114,16 +118,25 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	// Get config
 	port, err := constants.GetAPIPort()
 	if err != nil {
-		return err
+		return maskAny(err)
 	}
+	httpPort, err := constants.GetAPIHTTPPort()
+	if err != nil {
+		return maskAny(err)
+	}
+
+	// Server GRPC api
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		s.log.Fatal().Err(err).Msg("Failed to listen")
+		s.log.Error().Err(err).Msg("Failed to listen")
+		return maskAny(err)
 	}
 	svr := grpc.NewServer()
+	defer svr.GracefulStop()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
 	RegisterAgentRegistryServer(svr, s.agentRegistry)
 	RegisterOutputRegistryServer(svr, s.outputRegistry)
@@ -135,7 +148,23 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 	s.log.Info().Msgf("Started pipeline agent, listening on %s", addr)
+
+	// Server HTTP API
+	mux := gwruntime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	if err := RegisterOutputRegistryHandlerFromEndpoint(ctx, mux, net.JoinHostPort("localhost", strconv.Itoa(port)), opts); err != nil {
+		s.log.Error().Err(err).Msg("Failed to register HTTP gateway")
+		return maskAny(err)
+	}
+	httpAddr := fmt.Sprintf("0.0.0.0:%d", httpPort)
+	go func() {
+		if err := http.ListenAndServe(httpAddr, mux); err != nil {
+			s.log.Fatal().Err(err).Msg("Failed to serve HTTP gateway")
+		}
+	}()
+	s.log.Info().Msgf("Started pipeline agent HTTP gateway, listening on %s", httpAddr)
+
+	// Wait until context canceled
 	<-ctx.Done()
-	svr.GracefulStop()
 	return nil
 }

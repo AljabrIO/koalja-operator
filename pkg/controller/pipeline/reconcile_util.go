@@ -46,7 +46,7 @@ func MergeReconcileResult(a, b reconcile.Result) reconcile.Result {
 }
 
 // SetAgentContainerDefaults applies default values to a container used to run an agent
-func SetAgentContainerDefaults(c *corev1.Container) {
+func SetAgentContainerDefaults(c *corev1.Container, addHTTPPort bool) {
 	if c.Name == "" {
 		c.Name = "agent"
 	}
@@ -56,6 +56,14 @@ func SetAgentContainerDefaults(c *corev1.Container) {
 				Name:          "grpc-api",
 				ContainerPort: constants.AgentAPIPort,
 			},
+		}
+		if addHTTPPort {
+			c.Ports = []corev1.ContainerPort{
+				corev1.ContainerPort{
+					Name:          "http-api",
+					ContainerPort: constants.AgentAPIHTTPPort,
+				},
+			}
 		}
 	}
 }

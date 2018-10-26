@@ -1295,7 +1295,7 @@ func (g *Generator) makeComments(path string) (string, bool) {
 	w := new(bytes.Buffer)
 	nl := ""
 	for _, line := range strings.Split(strings.TrimSuffix(loc.GetLeadingComments(), "\n"), "\n") {
-		fmt.Fprintf(w, "%s// %s", nl, strings.TrimPrefix(line, " "))
+		fmt.Fprintf(w, "%s//%s", nl, line)
 		nl = "\n"
 	}
 	return w.String(), true
@@ -1536,6 +1536,18 @@ func (g *Generator) goTag(message *Descriptor, field *descriptor.FieldDescriptor
 				g.Fail("unknown enum type", CamelCaseSlice(obj.TypeName()))
 			}
 			defaultValue = enum.integerValueAsString(defaultValue)
+		case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+			if def := defaultValue; def != "inf" && def != "-inf" && def != "nan" {
+				if f, err := strconv.ParseFloat(defaultValue, 32); err == nil {
+					defaultValue = fmt.Sprint(float32(f))
+				}
+			}
+		case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+			if def := defaultValue; def != "inf" && def != "-inf" && def != "nan" {
+				if f, err := strconv.ParseFloat(defaultValue, 64); err == nil {
+					defaultValue = fmt.Sprint(f)
+				}
+			}
 		}
 		defaultValue = ",def=" + defaultValue
 	}
@@ -1781,7 +1793,7 @@ func (g *Generator) defaultConstantName(goMessageType, protoFieldName string) st
 // oneofField - field containing list of subfields:
 // - oneofSubField - a field within the oneof
 
-// msgCtx contais the context for the generator functions.
+// msgCtx contains the context for the generator functions.
 type msgCtx struct {
 	goName  string      // Go struct name of the message, e.g. MessageName
 	message *Descriptor // The descriptor for the message
@@ -1885,6 +1897,7 @@ type oneofSubField struct {
 	fieldNumber   int                                  // Actual field number, as defined in proto, e.g. 12
 	getterDef     string                               // Default for getters, e.g. "nil", `""` or "Default_MessageType_FieldName"
 	protoDef      string                               // Default value as defined in the proto file, e.g "yoshi" or "5"
+	deprecated    string                               // Deprecation comment, if any.
 }
 
 // wireTypeName returns a textual wire type, needed for oneof sub fields in generated code.
@@ -2154,6 +2167,9 @@ func (f *oneofField) getter(g *Generator, mc *msgCtx) {
 	g.P()
 	// Getters for each oneof
 	for _, sf := range f.subFields {
+		if sf.deprecated != "" {
+			g.P(sf.deprecated)
+		}
 		g.P("func (m *", mc.goName, ") ", Annotate(mc.message.file, sf.fullPath, sf.getterName), "() "+sf.goType+" {")
 		g.P("if x, ok := m.", f.getterName, "().(*", sf.oneofTypeName, "); ok {")
 		g.P("return x.", sf.goName)
@@ -2231,6 +2247,14 @@ func (g *Generator) generateDefaultConstants(mc *msgCtx, topLevelFields []topLev
 				def = "float32(" + def + ")"
 			}
 			kind = "var "
+		case df.getProtoType() == descriptor.FieldDescriptorProto_TYPE_FLOAT:
+			if f, err := strconv.ParseFloat(def, 32); err == nil {
+				def = fmt.Sprint(float32(f))
+			}
+		case df.getProtoType() == descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+			if f, err := strconv.ParseFloat(def, 64); err == nil {
+				def = fmt.Sprint(f)
+			}
 		case df.getProtoType() == descriptor.FieldDescriptorProto_TYPE_ENUM:
 			// Must be an enum.  Need to construct the prefixed name.
 			obj := g.ObjectNamed(df.getProtoTypeName())
@@ -2583,6 +2607,11 @@ func (g *Generator) generateMessage(message *Descriptor) {
 			}
 		}
 
+		fieldDeprecated := ""
+		if field.GetOptions().GetDeprecated() {
+			fieldDeprecated = deprecationComment
+		}
+
 		dvalue := g.getterDefault(field, goTypeName)
 		if oneof {
 			tname := goTypeName + "_" + fieldName
@@ -2626,15 +2655,11 @@ func (g *Generator) generateMessage(message *Descriptor) {
 				getterDef:     dvalue,
 				protoDef:      field.GetDefaultValue(),
 				oneofTypeName: tname,
+				deprecated:    fieldDeprecated,
 			}
 			oneofField.subFields = append(oneofField.subFields, &sf)
 			g.RecordTypeUse(field.GetTypeName())
 			continue
-		}
-
-		fieldDeprecated := ""
-		if field.GetOptions().GetDeprecated() {
-			fieldDeprecated = deprecationComment
 		}
 
 		fieldFullPath := fmt.Sprintf("%s,%d,%d", message.path, messageFieldPath, i)

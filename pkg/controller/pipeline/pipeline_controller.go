@@ -208,9 +208,10 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		}, nil
 	}
 	agentCont := *plAgentList.Items[0].Spec.Container
-	SetAgentContainerDefaults(&agentCont)
+	SetAgentContainerDefaults(&agentCont, true)
 	SetContainerEnvVars(&agentCont, map[string]string{
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvAPIHTTPPort:          strconv.Itoa(constants.AgentAPIHTTPPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvEventRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.EventRegistryAPIPort)),
@@ -311,6 +312,12 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 						Protocol:   corev1.ProtocolTCP,
 					},
 					corev1.ServicePort{
+						Name:       "http-agent-api",
+						Port:       constants.AgentAPIHTTPPort,
+						TargetPort: intstr.FromInt(constants.AgentAPIHTTPPort),
+						Protocol:   corev1.ProtocolTCP,
+					},
+					corev1.ServicePort{
 						Name:       "grpc-event-registry-api",
 						Port:       constants.EventRegistryAPIPort,
 						TargetPort: intstr.FromInt(constants.EventRegistryAPIPort),
@@ -366,7 +373,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		}, nil
 	}
 	c := *linkAgentList.Items[0].Spec.Container
-	SetAgentContainerDefaults(&c)
+	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
@@ -552,7 +559,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		}, nil
 	}
 	c := *taskAgentList.Items[0].Spec.Container
-	SetAgentContainerDefaults(&c)
+	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
