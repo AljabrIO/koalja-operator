@@ -54,6 +54,23 @@ func TestRetryTimeoutOpt(t *testing.T) {
 	g.Expect(called).To(gomega.Equal(2))
 }
 
+func TestRetryTimeoutOptOk(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	ctx := context.Background()
+	g.Expect(Do(ctx, func(ctx context.Context) error { time.Sleep(time.Millisecond * 80); return nil }, Timeout(time.Millisecond*300))).To(gomega.Succeed())
+	g.Expect(Do(ctx, func(ctx context.Context) error { time.Sleep(time.Millisecond * 220); return nil }, Timeout(time.Millisecond*250), MinAttempts(1))).To(gomega.Succeed())
+	g.Expect(Do(ctx, func(ctx context.Context) error { time.Sleep(time.Millisecond * 80); return nil }, Timeout(time.Millisecond*100), MinAttempts(2))).ToNot(gomega.Succeed())
+	attempt := 1
+	g.Expect(Do(ctx, func(ctx context.Context) error {
+		if attempt < 3 {
+			time.Sleep(time.Millisecond * 220)
+			attempt++
+		}
+		return nil
+	}, Timeout(time.Millisecond*300), MinAttempts(3))).ToNot(gomega.Succeed())
+	g.Expect(attempt).To(gomega.Equal(3))
+}
+
 func TestRetryTimeout3(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)

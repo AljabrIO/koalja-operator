@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -31,6 +33,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
 // OutputPublisher specifies the API of the output publisher
@@ -99,10 +102,20 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 
 // PublishEvent pushes the given event onto the application output channel.
 func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, evt event.Event, snapshot *InputSnapshot) (*event.Event, error) {
-	evt.ID = uniuri.New()
-	evt.SourceTask = op.spec.Name
-	evt.SourceTaskOutput = outputName
-	if snapshot != nil {
+	// Fill in the blanks of the event
+	if evt.GetID() == "" {
+		evt.ID = uniuri.New()
+	}
+	if evt.GetCreatedAt() == nil {
+		evt.CreatedAt = ptypes.TimestampNow()
+	}
+	if evt.GetSourceTask() == "" {
+		evt.SourceTask = op.spec.Name
+	}
+	if evt.GetSourceTaskOutput() == "" {
+		evt.SourceTaskOutput = outputName
+	}
+	if snapshot != nil && len(evt.SourceInputs) == 0 {
 		for _, inp := range op.spec.Inputs {
 			if inpEvt := snapshot.Get(inp.Name); inpEvt != nil {
 				evt.SourceInputs = append(evt.SourceInputs, &event.EventSourceInput{
@@ -174,7 +187,14 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 			select {
 			case evt := <-eventChan:
 				// Publish event
-				if _, err := epClient.Publish(ctx, &event.PublishRequest{Event: evt}); err != nil {
+				if err := retry.Do(ctx, func(ctx context.Context) error {
+					if _, err := epClient.Publish(ctx, &event.PublishRequest{Event: evt}); err != nil {
+						log.Debug().Err(err).Str("id", evt.ID).Msg("published event attempt failed")
+						return maskAny(err)
+					}
+					return nil
+				}, retry.Timeout(constants.TimeoutPublishEvent)); err != nil {
+					log.Error().Err(err).Str("id", evt.ID).Msg("Failed to publish event")
 					return maskAny(err)
 				}
 				log.Debug().Str("id", evt.ID).Msg("published event")

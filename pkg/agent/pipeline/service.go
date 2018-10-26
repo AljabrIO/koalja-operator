@@ -16,8 +16,6 @@
 
 package pipeline
 
-//go:generate protoc -I .:../../../vendor --go_out=plugins=grpc:. agent_api.proto
-
 import (
 	"context"
 	fmt "fmt"
@@ -43,6 +41,7 @@ type Service struct {
 	eventPublisher event.EventPublisherServer
 	agentRegistry  AgentRegistryServer
 	eventRegistry  registry.EventRegistryClient
+	outputRegistry OutputRegistryServer
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -61,6 +60,8 @@ type APIBuilder interface {
 	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
 	// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 	NewAgentRegistry(deps APIDependencies) (AgentRegistryServer, error)
+	// NewOutputRegistry creates an implementation of an OutputRegistry, used to query results of the pipeline.
+	NewOutputRegistry(deps APIDependencies) (OutputRegistryServer, error)
 }
 
 // NewService creates a new Service instance.
@@ -95,6 +96,10 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	outputRegistry, err := builder.NewOutputRegistry(deps)
+	if err != nil {
+		return nil, maskAny(err)
+	}
 
 	return &Service{
 		log:            log,
@@ -103,6 +108,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		eventPublisher: eventPublisher,
 		eventRegistry:  evtReg,
 		agentRegistry:  agentRegistry,
+		outputRegistry: outputRegistry,
 	}, nil
 }
 
@@ -120,6 +126,7 @@ func (s *Service) Run(ctx context.Context) error {
 	svr := grpc.NewServer()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
 	RegisterAgentRegistryServer(svr, s.agentRegistry)
+	RegisterOutputRegistryServer(svr, s.outputRegistry)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {

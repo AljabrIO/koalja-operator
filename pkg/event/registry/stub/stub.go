@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/rs/zerolog"
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
@@ -29,13 +30,15 @@ import (
 
 // stub is an in-memory implementation of an event registry.
 type stub struct {
+	log           zerolog.Logger
 	registry      map[string]*event.Event
 	registryMutex sync.Mutex
 }
 
 // NewStub initializes a new stub
-func NewStub() registry.APIBuilder {
+func NewStub(log zerolog.Logger) registry.APIBuilder {
 	return &stub{
+		log:      log,
 		registry: make(map[string]*event.Event),
 	}
 }
@@ -47,6 +50,7 @@ func (s *stub) NewEventRegistry(deps registry.APIDependencies) (event.EventRegis
 
 // Record the given event in the registry
 func (s *stub) RecordEvent(ctx context.Context, e *event.Event) (*empty.Empty, error) {
+	s.log.Debug().Str("event", e.GetID()).Msg("RecordEvent request")
 	s.registryMutex.Lock()
 	defer s.registryMutex.Unlock()
 
@@ -56,6 +60,7 @@ func (s *stub) RecordEvent(ctx context.Context, e *event.Event) (*empty.Empty, e
 
 // GetEventByID returns the event with given ID.
 func (s *stub) GetEventByID(ctx context.Context, req *event.GetEventByIDRequest) (*event.GetEventResponse, error) {
+	s.log.Debug().Str("event", req.GetID()).Msg("GetEventByID request")
 	s.registryMutex.Lock()
 	defer s.registryMutex.Unlock()
 
@@ -67,6 +72,10 @@ func (s *stub) GetEventByID(ctx context.Context, req *event.GetEventByIDRequest)
 
 // GetEventByID returns the event with given ID.
 func (s *stub) GetEventByTaskAndData(ctx context.Context, req *event.GetEventByTaskAndDataRequest) (*event.GetEventResponse, error) {
+	s.log.Debug().
+		Str("task", req.GetSourceTask()).
+		Str("data", req.GetData()).
+		Msg("GetEventByTaskAndData request")
 	s.registryMutex.Lock()
 	defer s.registryMutex.Unlock()
 

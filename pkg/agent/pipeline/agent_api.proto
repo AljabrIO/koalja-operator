@@ -18,8 +18,11 @@ syntax = "proto3";
 
 package pipeline;
 
-import "github.com/golang/protobuf/ptypes/duration/duration.proto";
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline";
+
+import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+import "pkg/event/event.proto";
 
 // AgentRegistry is the API covering registration of agents.
 service AgentRegistry {
@@ -41,4 +44,30 @@ message RegisterTaskRequest {
     string TaskName = 1;
     // URI of the task
     string URI = 2;
+}
+
+// OutputRegistry is the API that provides access to all outputs of the pipeline.
+service OutputRegistry {
+    // GetOutputEvents returns all events (resulting from task outputs that
+    // are not connected to inputs of other tasks) that match the given filter.
+    rpc GetOutputEvents(OutputEventsRequest) returns (OutputEvents);
+}
+
+message OutputEventsRequest {
+    // EventIDs is a list of event IDs.
+    // The response will include only events that are (indirectly) related
+    // to any of these event IDs. 
+    repeated string EventIDs = 1;
+    // TaskNames is a list of names of tasks.
+    // The response will include only events that are created by one of these tasks.
+    repeated string TaskNames = 2;
+    // If set, only events created after this timestamp are returned.
+    google.protobuf.Timestamp CreatedAfter = 3;
+    // If set, only events created before this timestamp are returned.
+    google.protobuf.Timestamp CreatedBefore = 4;
+}
+
+message OutputEvents {
+    // The selected events
+    repeated event.Event Events = 1;
 }

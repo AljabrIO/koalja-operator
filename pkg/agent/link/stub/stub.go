@@ -254,6 +254,7 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 
 // Acknowledge the processing of an event
 func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*google_protobuf1.Empty, error) {
+	s.log.Debug().Str("event", req.GetEventID()).Msg("AckEvent request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 

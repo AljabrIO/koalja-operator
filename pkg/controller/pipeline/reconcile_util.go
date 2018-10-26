@@ -68,7 +68,7 @@ func SetEventRegistryContainerDefaults(c *corev1.Container) {
 	if len(c.Ports) == 0 {
 		c.Ports = []corev1.ContainerPort{
 			corev1.ContainerPort{
-				Name:          "grcp-registry",
+				Name:          "grpc-registry",
 				ContainerPort: constants.EventRegistryAPIPort,
 			},
 		}

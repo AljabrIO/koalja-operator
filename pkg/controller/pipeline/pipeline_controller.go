@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -212,7 +213,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:         instance.Name,
 		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvEventRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.EventRegistryAPIPort)),
 		constants.EnvDNSName:              CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
 	})
 

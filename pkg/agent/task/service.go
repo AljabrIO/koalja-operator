@@ -134,6 +134,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		return nil, maskAny(err)
 	}
 	return &Service{
+		log:             log,
 		inputLoop:       il,
 		executor:        executor,
 		outputPublisher: op,

@@ -20,6 +20,7 @@ import (
 	"context"
 	fmt "fmt"
 	"os"
+	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -42,7 +43,7 @@ func CreateEventRegistryClient() (EventRegistryClient, error) {
 	}
 
 	// Create a connection
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBackoffMaxDelay(time.Second*5))
 	if err != nil {
 		return nil, err
 	}

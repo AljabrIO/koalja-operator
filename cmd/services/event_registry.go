@@ -60,7 +60,7 @@ func cmdEventRegistryRun(cmd *cobra.Command, args []string) {
 	var apiBuilder registry.APIBuilder
 	switch eventRegistryType {
 	case "stub":
-		apiBuilder = stub.NewStub()
+		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
 	default:
 		cliLog.Fatal().Str("registry", eventRegistryType).Msg("Unknown registry type")
 	}

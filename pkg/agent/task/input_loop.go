@@ -32,6 +32,7 @@ import (
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/dchest/uniuri"
 )
 
@@ -237,12 +238,18 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec) e
 		subscr := *resp.GetSubscription()
 
 		ack := func(ctx context.Context, e *event.Event) error {
-			if _, err := c.AckEvent(ctx, &event.AckEventRequest{
-				Subscription: &subscr,
-				EventID:      e.GetID(),
-			}); err != nil {
+			if err := retry.Do(ctx, func(ctx context.Context) error {
+				if _, err := c.AckEvent(ctx, &event.AckEventRequest{
+					Subscription: &subscr,
+					EventID:      e.GetID(),
+				}); err != nil {
+					il.log.Debug().Err(err).Msg("Ack event attempt failed")
+					return err
+				}
+				return nil
+			}, retry.Timeout(constants.TimeoutAckEvent)); err != nil {
 				il.log.Error().Err(err).Msg("Failed to ack event")
-				return err
+				return maskAny(err)
 			}
 			return nil
 		}

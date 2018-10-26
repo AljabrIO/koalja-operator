@@ -85,13 +85,6 @@ func Do(ctx context.Context, op func(context.Context) error, opts ...Option) err
 	if err := backoff.Retry(func() error {
 		lctx, cancel := context.WithTimeout(ctx, b.MaxInterval)
 		defer cancel()
-		go func() {
-			select {
-			case <-time.After(b.MaxInterval):
-				cancel()
-			case <-lctx.Done():
-			}
-		}()
 		err := op(lctx)
 		if err == nil {
 			if lctx.Err() != nil {
