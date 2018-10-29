@@ -20,9 +20,11 @@ import (
 	"context"
 	"sync"
 
+	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 
-	"github.com/golang/protobuf/ptypes"
+	ptypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -36,15 +38,17 @@ import (
 type outputStore struct {
 	log         zerolog.Logger
 	registry    registry.EventRegistryClient
+	pipeline    *koalja.Pipeline
 	events      []*tree.EventTree
 	eventsMutex sync.Mutex
 }
 
 // newOutputStore creates a new output store
-func newOutputStore(log zerolog.Logger, r registry.EventRegistryClient) *outputStore {
+func newOutputStore(log zerolog.Logger, r registry.EventRegistryClient, pipeline *koalja.Pipeline) *outputStore {
 	return &outputStore{
 		log:      log,
 		registry: r,
+		pipeline: pipeline,
 	}
 }
 
@@ -97,17 +101,22 @@ func (s *outputStore) GetOutputEvents(ctx context.Context, req *pipeline.OutputE
 	return resp, nil
 }
 
+// GetPipeline returns the pipeline resource.
+func (s *outputStore) GetPipeline(context.Context, *empty.Empty) (*koalja.PipelineSpec, error) {
+	return &s.pipeline.Spec, nil
+}
+
 // isMatch returns true when the given event tree matches the given request.
 func isMatch(e *tree.EventTree, req *pipeline.OutputEventsRequest) bool {
-	createdAt, _ := ptypes.Timestamp(e.Event.GetCreatedAt())
+	createdAt, _ := ptypes.TimestampFromProto(e.Event.GetCreatedAt())
 	if tsPB := req.GetCreatedAfter(); tsPB != nil {
-		ts, _ := ptypes.Timestamp(tsPB)
+		ts, _ := ptypes.TimestampFromProto(tsPB)
 		if createdAt.Before(ts) {
 			return false
 		}
 	}
 	if tsPB := req.GetCreatedBefore(); tsPB != nil {
-		ts, _ := ptypes.Timestamp(tsPB)
+		ts, _ := ptypes.TimestampFromProto(tsPB)
 		if createdAt.After(ts) {
 			return false
 		}

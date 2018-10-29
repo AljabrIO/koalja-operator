@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
@@ -45,7 +46,7 @@ type Service struct {
 	eventPublisher event.EventPublisherServer
 	agentRegistry  AgentRegistryServer
 	eventRegistry  registry.EventRegistryClient
-	outputRegistry OutputRegistryServer
+	frontend       FrontendServer
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -56,6 +57,8 @@ type APIDependencies struct {
 	Namespace string
 	// EventRegister client
 	EventRegistry registry.EventRegistryClient
+	// The pipeline
+	Pipeline *koalja.Pipeline
 }
 
 // APIBuilder is an interface provided by an Link implementation
@@ -64,8 +67,8 @@ type APIBuilder interface {
 	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
 	// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 	NewAgentRegistry(deps APIDependencies) (AgentRegistryServer, error)
-	// NewOutputRegistry creates an implementation of an OutputRegistry, used to query results of the pipeline.
-	NewOutputRegistry(deps APIDependencies) (OutputRegistryServer, error)
+	// NewFrontend creates an implementation of an FrontendServer, used to query results of the pipeline.
+	NewFrontend(deps APIDependencies) (FrontendServer, error)
 }
 
 // NewService creates a new Service instance.
@@ -83,6 +86,17 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, err
 	}
+	pipelineName, err := constants.GetPipelineName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	var pipeline koalja.Pipeline
+	if err := retry.Do(ctx, func(ctx context.Context) error {
+		return c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline)
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
+		return nil, maskAny(err)
+	}
+
 	evtReg, err := registry.CreateEventRegistryClient()
 	if err != nil {
 		return nil, maskAny(err)
@@ -91,6 +105,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		Client:        c,
 		Namespace:     ns,
 		EventRegistry: evtReg,
+		Pipeline:      &pipeline,
 	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
 	if err != nil {
@@ -100,7 +115,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	outputRegistry, err := builder.NewOutputRegistry(deps)
+	frontend, err := builder.NewFrontend(deps)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -112,7 +127,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		eventPublisher: eventPublisher,
 		eventRegistry:  evtReg,
 		agentRegistry:  agentRegistry,
-		outputRegistry: outputRegistry,
+		frontend:       frontend,
 	}, nil
 }
 
@@ -139,7 +154,7 @@ func (s *Service) Run(ctx context.Context) error {
 	defer svr.GracefulStop()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
 	RegisterAgentRegistryServer(svr, s.agentRegistry)
-	RegisterOutputRegistryServer(svr, s.outputRegistry)
+	RegisterFrontendServer(svr, s.frontend)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {
@@ -152,7 +167,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// Server HTTP API
 	mux := gwruntime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	if err := RegisterOutputRegistryHandlerFromEndpoint(ctx, mux, net.JoinHostPort("localhost", strconv.Itoa(port)), opts); err != nil {
+	if err := RegisterFrontendHandlerFromEndpoint(ctx, mux, net.JoinHostPort("localhost", strconv.Itoa(port)), opts); err != nil {
 		s.log.Error().Err(err).Msg("Failed to register HTTP gateway")
 		return maskAny(err)
 	}

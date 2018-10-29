@@ -19,6 +19,7 @@ package stub
 import (
 	"sync"
 
+	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/rs/zerolog"
@@ -41,18 +42,18 @@ func NewStub(log zerolog.Logger) pipeline.APIBuilder {
 }
 
 // getOrCreateOutputStore returns the output store, creating one if needed.
-func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient) *outputStore {
+func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *koalja.Pipeline) *outputStore {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.outputStore == nil {
-		s.outputStore = newOutputStore(s.log, r)
+		s.outputStore = newOutputStore(s.log, r, pipeline)
 	}
 	return s.outputStore
 }
 
 // NewEventPublisher "builds" a new publisher
 func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPublisherServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry), nil
+	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline), nil
 }
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
@@ -60,7 +61,7 @@ func (s *stub) NewAgentRegistry(deps pipeline.APIDependencies) (pipeline.AgentRe
 	return newAgentRegistry(s.log), nil
 }
 
-// NewOutputRegistry creates an implementation of an OutputRegistry, used to query results of the pipeline.
-func (s *stub) NewOutputRegistry(deps pipeline.APIDependencies) (pipeline.OutputRegistryServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry), nil
+// NewFrontend creates an implementation of an Frontend, used to query results of the pipeline.
+func (s *stub) NewFrontend(deps pipeline.APIDependencies) (pipeline.FrontendServer, error) {
+	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline), nil
 }

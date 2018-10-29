@@ -20,9 +20,10 @@ package pipeline;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline";
 
+import "pkg/apis/koalja/v1alpha1/generated.proto";
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
-import "pkg/event/event.proto";
+import "github.com/AljabrIO/koalja-operator/pkg/event/event.proto";
 import "google/api/annotations.proto";
 
 // AgentRegistry is the API covering registration of agents.
@@ -47,8 +48,14 @@ message RegisterTaskRequest {
     string URI = 2;
 }
 
-// OutputRegistry is the API that provides access to all outputs of the pipeline.
-service OutputRegistry {
+// Frontend is the API provided to the pipeline frontend.
+service Frontend {
+    // GetPipeline returns the pipeline resource.
+    rpc GetPipeline(google.protobuf.Empty) returns (github.com.AljabrIO.koalja_operator.pkg.apis.koalja.v1alpha1.PipelineSpec) {
+        option (google.api.http) = {
+            get: "/v1/pipeline"
+        };
+    }
     // GetOutputEvents returns all events (resulting from task outputs that
     // are not connected to inputs of other tasks) that match the given filter.
     rpc GetOutputEvents(OutputEventsRequest) returns (OutputEvents) {

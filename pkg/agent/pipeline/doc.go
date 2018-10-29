@@ -16,4 +16,4 @@
 
 package pipeline
 
-//go:generate protoc -I .:../../../:../../../vendor:../../../third_party/googleapis/ --go_out=plugins=grpc,paths=source_relative:. --grpc-gateway_out=paths=source_relative,logtostderr=true:. agent_api.proto
+//go:generate protoc -I .:../../../:../../../vendor:../../../third_party/googleapis/:../../../../../../ --gogofaster_out=Mgoogle/protobuf/field_mask.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/duration/duration.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/timestamp/timestamp.proto=github.com/gogo/protobuf/types,plugins=grpc,paths=source_relative:. --grpc-gateway_out=paths=source_relative,logtostderr=true:. agent_api.proto

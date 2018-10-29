@@ -22,9 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/dchest/uniuri"
+	ptypes "github.com/gogo/protobuf/types"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"

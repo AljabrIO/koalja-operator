@@ -26,11 +26,11 @@ import (
 // PipelineSpec defines the desired state of Pipeline
 type PipelineSpec struct {
 	// Tasks of the pipeline
-	Tasks []TaskSpec `json:"tasks,omitempty"`
+	Tasks []TaskSpec `json:"tasks,omitempty" protobuf:"bytes,1,rep"`
 	// Links between tasks of the pipeline
-	Links []LinkSpec `json:"links,omitempty"`
+	Links []LinkSpec `json:"links,omitempty" protobuf:"bytes,2,rep"`
 	// Types of input/output data of tasks
-	Types []TypeSpec `json:"types,omitempty"`
+	Types []TypeSpec `json:"types,omitempty" protobuf:"bytes,3,rep"`
 }
 
 // PipelineStatus defines the observed state of Pipeline
@@ -45,7 +45,7 @@ type PipelineStatus struct {
 // Pipeline is the Schema for the pipelines API
 // +k8s:openapi-gen=true
 type Pipeline struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta   `json:",inline" protobuf:"-"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   PipelineSpec   `json:"spec,omitempty"`
@@ -56,7 +56,7 @@ type Pipeline struct {
 
 // PipelineList contains a list of Pipeline
 type PipelineList struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:",inline" protobuf:"-"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Pipeline `json:"items"`
 }
