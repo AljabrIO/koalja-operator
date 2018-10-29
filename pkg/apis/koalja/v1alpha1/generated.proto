@@ -21,683 +21,59 @@ syntax = 'proto2';
 
 package github.com.AljabrIO.koalja_operator.pkg.apis.koalja.v1alpha1;
 
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "k8s.io/api/core/v1/generated.proto";
-import "k8s.io/apimachinery/pkg/api/resource/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
-import "k8s.io/apimachinery/pkg/util/intstr/generated.proto";
-
+import "sigs.k8s.io/controller-runtime/pkg/runtime/scheme/generated.proto";
 
 // Package-wide variables from generator "generated".
-option (gogoproto.marshaler_all) = true;
-option (gogoproto.stable_marshaler_all) = true;
-option (gogoproto.sizer_all) = true;
-option (gogoproto.goproto_stringer_all) = false;
-option (gogoproto.stringer_all) = true;
-option (gogoproto.unmarshaler_all) = true;
-option (gogoproto.goproto_unrecognized_all) = false;
-option (gogoproto.goproto_enum_prefix_all) = false;
-option (gogoproto.goproto_getters_all) = false;
-option go_package = "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1";
-
-// Adds and removes POSIX capabilities from running containers.
-message Capabilities {
-  // Added capabilities
-  // +optional
-  repeated string add = 1 [(gogoproto.casttype) = "k8s.io/api/core/v1.Capability", (gogoproto.customname) = "Add"];
-
-  // Removed capabilities
-  // +optional
-  repeated string drop = 2 [(gogoproto.casttype) = "k8s.io/api/core/v1.Capability", (gogoproto.customname) = "Drop"];
-}
-
-// ConfigMapEnvSource selects a ConfigMap to populate the environment
-// variables with.
-//
-// The contents of the target ConfigMap's Data field will represent the
-// key-value pairs as environment variables.
-message ConfigMapEnvSource {
-  // The ConfigMap to select from.
-  optional k8s.io.api.core.v1.LocalObjectReference localObjectReference = 1 [(gogoproto.customname) = "LocalObjectReference", (gogoproto.nullable) = false];
-
-  // Specify whether the ConfigMap must be defined
-  // +optional
-  optional bool optional = 2 [(gogoproto.customname) = "Optional"];
-}
-
-// Selects a key from a ConfigMap.
-message ConfigMapKeySelector {
-  // The ConfigMap to select from.
-  optional k8s.io.api.core.v1.LocalObjectReference localObjectReference = 1 [(gogoproto.customname) = "LocalObjectReference", (gogoproto.nullable) = false];
-
-  // The key to select.
-  optional string key = 2 [(gogoproto.customname) = "Key", (gogoproto.nullable) = false];
-
-  // Specify whether the ConfigMap or it's key must be defined
-  // +optional
-  optional bool optional = 3 [(gogoproto.customname) = "Optional"];
-}
-
-// A single application container that you want to run within a pod.
-message Container {
-  // Name of the container specified as a DNS_LABEL.
-  // Each container in a pod must have a unique name (DNS_LABEL).
-  // Cannot be updated.
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // Docker image name.
-  // More info: https://kubernetes.io/docs/concepts/containers/images
-  // This field is optional to allow higher level config management to default or override
-  // container images in workload controllers like Deployments and StatefulSets.
-  // +optional
-  optional string image = 2 [(gogoproto.customname) = "Image", (gogoproto.nullable) = false];
-
-  // Entrypoint array. Not executed within a shell.
-  // The docker image's ENTRYPOINT is used if this is not provided.
-  // Variable references $(VAR_NAME) are expanded using the container's environment. If a variable
-  // cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax
-  // can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded,
-  // regardless of whether the variable exists or not.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell
-  // +optional
-  repeated string command = 3 [(gogoproto.customname) = "Command"];
-
-  // Arguments to the entrypoint.
-  // The docker image's CMD is used if this is not provided.
-  // Variable references $(VAR_NAME) are expanded using the container's environment. If a variable
-  // cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax
-  // can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded,
-  // regardless of whether the variable exists or not.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell
-  // +optional
-  repeated string args = 4 [(gogoproto.customname) = "Args"];
-
-  // Container's working directory.
-  // If not specified, the container runtime's default will be used, which
-  // might be configured in the container image.
-  // Cannot be updated.
-  // +optional
-  optional string workingDir = 5 [(gogoproto.customname) = "WorkingDir", (gogoproto.nullable) = false];
-
-  // List of ports to expose from the container. Exposing a port here gives
-  // the system additional information about the network connections a
-  // container uses, but is primarily informational. Not specifying a port here
-  // DOES NOT prevent that port from being exposed. Any port which is
-  // listening on the default "0.0.0.0" address inside a container will be
-  // accessible from the network.
-  // Cannot be updated.
-  // +optional
-  // +patchMergeKey=containerPort
-  // +patchStrategy=merge
-  repeated k8s.io.api.core.v1.ContainerPort ports = 6 [(gogoproto.customname) = "Ports", (gogoproto.nullable) = false];
-
-  // List of sources to populate environment variables in the container.
-  // The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-  // will be reported as an event when the container is starting. When a key exists in multiple
-  // sources, the value associated with the last source will take precedence.
-  // Values defined by an Env with a duplicate key will take precedence.
-  // Cannot be updated.
-  // +optional
-  repeated k8s.io.api.core.v1.EnvFromSource envFrom = 19 [(gogoproto.customname) = "EnvFrom", (gogoproto.nullable) = false];
-
-  // List of environment variables to set in the container.
-  // Cannot be updated.
-  // +optional
-  // +patchMergeKey=name
-  // +patchStrategy=merge
-  repeated k8s.io.api.core.v1.EnvVar env = 7 [(gogoproto.customname) = "Env", (gogoproto.nullable) = false];
-
-  // Compute Resources required by this container.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
-  // +optional
-  optional k8s.io.api.core.v1.ResourceRequirements resources = 8 [(gogoproto.customname) = "Resources", (gogoproto.nullable) = false];
-
-  // Pod volumes to mount into the container's filesystem.
-  // Cannot be updated.
-  // +optional
-  // +patchMergeKey=mountPath
-  // +patchStrategy=merge
-  repeated k8s.io.api.core.v1.VolumeMount volumeMounts = 9 [(gogoproto.customname) = "VolumeMounts", (gogoproto.nullable) = false];
-
-  // volumeDevices is the list of block devices to be used by the container.
-  // This is an alpha feature and may change in the future.
-  // +patchMergeKey=devicePath
-  // +patchStrategy=merge
-  // +optional
-  repeated k8s.io.api.core.v1.VolumeDevice volumeDevices = 21 [(gogoproto.customname) = "VolumeDevices", (gogoproto.nullable) = false];
-
-  // Periodic probe of container liveness.
-  // Container will be restarted if the probe fails.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  // +optional
-  optional k8s.io.api.core.v1.Probe livenessProbe = 10 [(gogoproto.customname) = "LivenessProbe"];
-
-  // Periodic probe of container service readiness.
-  // Container will be removed from service endpoints if the probe fails.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  // +optional
-  optional k8s.io.api.core.v1.Probe readinessProbe = 11 [(gogoproto.customname) = "ReadinessProbe"];
-
-  // Actions that the management system should take in response to container lifecycle events.
-  // Cannot be updated.
-  // +optional
-  optional k8s.io.api.core.v1.Lifecycle lifecycle = 12 [(gogoproto.customname) = "Lifecycle"];
-
-  // Optional: Path at which the file to which the container's termination message
-  // will be written is mounted into the container's filesystem.
-  // Message written is intended to be brief final status, such as an assertion failure message.
-  // Will be truncated by the node if greater than 4096 bytes. The total message length across
-  // all containers will be limited to 12kb.
-  // Defaults to /dev/termination-log.
-  // Cannot be updated.
-  // +optional
-  optional string terminationMessagePath = 13 [(gogoproto.customname) = "TerminationMessagePath", (gogoproto.nullable) = false];
-
-  // Indicate how the termination message should be populated. File will use the contents of
-  // terminationMessagePath to populate the container status message on both success and failure.
-  // FallbackToLogsOnError will use the last chunk of container log output if the termination
-  // message file is empty and the container exited with an error.
-  // The log output is limited to 2048 bytes or 80 lines, whichever is smaller.
-  // Defaults to File.
-  // Cannot be updated.
-  // +optional
-  optional string terminationMessagePolicy = 20 [(gogoproto.casttype) = "k8s.io/api/core/v1.TerminationMessagePolicy", (gogoproto.customname) = "TerminationMessagePolicy", (gogoproto.nullable) = false];
-
-  // Image pull policy.
-  // One of Always, Never, IfNotPresent.
-  // Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-  // Cannot be updated.
-  // More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
-  // +optional
-  optional string imagePullPolicy = 14 [(gogoproto.casttype) = "k8s.io/api/core/v1.PullPolicy", (gogoproto.customname) = "ImagePullPolicy", (gogoproto.nullable) = false];
-
-  // Security options the pod should run with.
-  // More info: https://kubernetes.io/docs/concepts/policy/security-context/
-  // More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-  // +optional
-  optional k8s.io.api.core.v1.SecurityContext securityContext = 15 [(gogoproto.customname) = "SecurityContext"];
-
-  // Whether this container should allocate a buffer for stdin in the container runtime. If this
-  // is not set, reads from stdin in the container will always result in EOF.
-  // Default is false.
-  // +optional
-  optional bool stdin = 16 [(gogoproto.customname) = "Stdin", (gogoproto.nullable) = false];
-
-  // Whether the container runtime should close the stdin channel after it has been opened by
-  // a single attach. When stdin is true the stdin stream will remain open across multiple attach
-  // sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the
-  // first client attaches to stdin, and then remains open and accepts data until the client disconnects,
-  // at which time stdin is closed and remains closed until the container is restarted. If this
-  // flag is false, a container processes that reads from stdin will never receive an EOF.
-  // Default is false
-  // +optional
-  optional bool stdinOnce = 17 [(gogoproto.customname) = "StdinOnce", (gogoproto.nullable) = false];
-
-  // Whether this container should allocate a TTY for itself, also requires 'stdin' to be true.
-  // Default is false.
-  // +optional
-  optional bool tty = 18 [(gogoproto.customname) = "TTY", (gogoproto.nullable) = false];
-}
-
-// ContainerPort represents a network port in a single container.
-message ContainerPort {
-  // If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
-  // named port in a pod must have a unique name. Name for the port that can be
-  // referred to by services.
-  // +optional
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // Number of port to expose on the host.
-  // If specified, this must be a valid port number, 0 < x < 65536.
-  // If HostNetwork is specified, this must match ContainerPort.
-  // Most containers do not need this.
-  // +optional
-  optional int32 hostPort = 2 [(gogoproto.customname) = "HostPort", (gogoproto.nullable) = false];
-
-  // Number of port to expose on the pod's IP address.
-  // This must be a valid port number, 0 < x < 65536.
-  optional int32 containerPort = 3 [(gogoproto.customname) = "ContainerPort", (gogoproto.nullable) = false];
-
-  // Protocol for port. Must be UDP or TCP.
-  // Defaults to "TCP".
-  // +optional
-  optional string protocol = 4 [(gogoproto.casttype) = "k8s.io/api/core/v1.Protocol", (gogoproto.customname) = "Protocol", (gogoproto.nullable) = false];
-
-  // What host IP to bind the external port to.
-  // +optional
-  optional string hostIP = 5 [(gogoproto.customname) = "HostIP", (gogoproto.nullable) = false];
-}
-
-// EnvFromSource represents the source of a set of ConfigMaps
-message EnvFromSource {
-  // An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.
-  // +optional
-  optional string prefix = 1 [(gogoproto.customname) = "Prefix", (gogoproto.nullable) = false];
-
-  // The ConfigMap to select from
-  // +optional
-  optional k8s.io.api.core.v1.ConfigMapEnvSource configMapRef = 2 [(gogoproto.customname) = "ConfigMapRef"];
-
-  // The Secret to select from
-  // +optional
-  optional k8s.io.api.core.v1.SecretEnvSource secretRef = 3 [(gogoproto.customname) = "SecretRef"];
-}
-
-// EnvVar represents an environment variable present in a Container.
-message EnvVar {
-  // Name of the environment variable. Must be a C_IDENTIFIER.
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // Variable references $(VAR_NAME) are expanded
-  // using the previous defined environment variables in the container and
-  // any service environment variables. If a variable cannot be resolved,
-  // the reference in the input string will be unchanged. The $(VAR_NAME)
-  // syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped
-  // references will never be expanded, regardless of whether the variable
-  // exists or not.
-  // Defaults to "".
-  // +optional
-  optional string value = 2 [(gogoproto.customname) = "Value", (gogoproto.nullable) = false];
-
-  // Source for the environment variable's value. Cannot be used if value is not empty.
-  // +optional
-  optional k8s.io.api.core.v1.EnvVarSource valueFrom = 3 [(gogoproto.customname) = "ValueFrom"];
-}
-
-// EnvVarSource represents a source for the value of an EnvVar.
-message EnvVarSource {
-  // Selects a field of the pod: supports metadata.name, metadata.namespace, metadata.labels, metadata.annotations,
-  // spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP.
-  // +optional
-  optional k8s.io.api.core.v1.ObjectFieldSelector fieldRef = 1 [(gogoproto.customname) = "FieldRef"];
-
-  // Selects a resource of the container: only resources limits and requests
-  // (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
-  // +optional
-  optional k8s.io.api.core.v1.ResourceFieldSelector resourceFieldRef = 2 [(gogoproto.customname) = "ResourceFieldRef"];
-
-  // Selects a key of a ConfigMap.
-  // +optional
-  optional k8s.io.api.core.v1.ConfigMapKeySelector configMapKeyRef = 3 [(gogoproto.customname) = "ConfigMapKeyRef"];
-
-  // Selects a key of a secret in the pod's namespace
-  // +optional
-  optional k8s.io.api.core.v1.SecretKeySelector secretKeyRef = 4 [(gogoproto.customname) = "SecretKeyRef"];
-}
-
-// ExecAction describes a "run in container" action.
-message ExecAction {
-  // Command is the command line to execute inside the container, the working directory for the
-  // command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
-  // not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
-  // a shell, you need to explicitly call out to that shell.
-  // Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
-  // +optional
-  repeated string command = 1 [(gogoproto.customname) = "Command"];
-}
-
-// HTTPGetAction describes an action based on HTTP Get requests.
-message HTTPGetAction {
-  // Path to access on the HTTP server.
-  // +optional
-  optional string path = 1 [(gogoproto.customname) = "Path", (gogoproto.nullable) = false];
-
-  // Name or number of the port to access on the container.
-  // Number must be in the range 1 to 65535.
-  // Name must be an IANA_SVC_NAME.
-  optional k8s.io.apimachinery.pkg.util.intstr.IntOrString port = 2 [(gogoproto.customname) = "Port", (gogoproto.nullable) = false];
-
-  // Host name to connect to, defaults to the pod IP. You probably want to set
-  // "Host" in httpHeaders instead.
-  // +optional
-  optional string host = 3 [(gogoproto.customname) = "Host", (gogoproto.nullable) = false];
-
-  // Scheme to use for connecting to the host.
-  // Defaults to HTTP.
-  // +optional
-  optional string scheme = 4 [(gogoproto.casttype) = "k8s.io/api/core/v1.URIScheme", (gogoproto.customname) = "Scheme", (gogoproto.nullable) = false];
-
-  // Custom headers to set in the request. HTTP allows repeated headers.
-  // +optional
-  repeated k8s.io.api.core.v1.HTTPHeader httpHeaders = 5 [(gogoproto.customname) = "HTTPHeaders", (gogoproto.nullable) = false];
-}
-
-// HTTPHeader describes a custom header to be used in HTTP probes
-message HTTPHeader {
-  // The header field name
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // The header field value
-  optional string value = 2 [(gogoproto.customname) = "Value", (gogoproto.nullable) = false];
-}
-
-// Handler defines a specific action that should be taken
-// TODO: pass structured data to these actions, and document that data here.
-message Handler {
-  // One and only one of the following should be specified.
-  // Exec specifies the action to take.
-  // +optional
-  optional k8s.io.api.core.v1.ExecAction exec = 1 [(gogoproto.customname) = "Exec"];
-
-  // HTTPGet specifies the http request to perform.
-  // +optional
-  optional k8s.io.api.core.v1.HTTPGetAction httpGet = 2 [(gogoproto.customname) = "HTTPGet"];
-
-  // TCPSocket specifies an action involving a TCP port.
-  // TCP hooks not yet supported
-  // TODO: implement a realistic TCP lifecycle hook
-  // +optional
-  optional k8s.io.api.core.v1.TCPSocketAction tcpSocket = 3 [(gogoproto.customname) = "TCPSocket"];
-}
-
-// Lifecycle describes actions that the management system should take in response to container lifecycle
-// events. For the PostStart and PreStop lifecycle handlers, management of the container blocks
-// until the action is complete, unless the container process fails, in which case the handler is aborted.
-message Lifecycle {
-  // PostStart is called immediately after a container is created. If the handler fails,
-  // the container is terminated and restarted according to its restart policy.
-  // Other management of the container blocks until the hook completes.
-  // More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
-  // +optional
-  optional k8s.io.api.core.v1.Handler postStart = 1 [(gogoproto.customname) = "PostStart"];
-
-  // PreStop is called immediately before a container is terminated.
-  // The container is terminated after the handler completes.
-  // The reason for termination is passed to the handler.
-  // Regardless of the outcome of the handler, the container is eventually terminated.
-  // Other management of the container blocks until the hook completes.
-  // More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
-  // +optional
-  optional k8s.io.api.core.v1.Handler preStop = 2 [(gogoproto.customname) = "PreStop"];
-}
-
-// LocalObjectReference contains enough information to let you locate the
-// referenced object inside the same namespace.
-message LocalObjectReference {
-  // Name of the referent.
-  // More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-  // TODO: Add other useful fields. apiVersion, kind, uid?
-  // +optional
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-}
-
-// ObjectFieldSelector selects an APIVersioned field of an object.
-message ObjectFieldSelector {
-  // Version of the schema the FieldPath is written in terms of, defaults to "v1".
-  // +optional
-  optional string apiVersion = 1 [(gogoproto.customname) = "APIVersion", (gogoproto.nullable) = false];
-
-  // Path of the field to select in the specified API version.
-  optional string fieldPath = 2 [(gogoproto.customname) = "FieldPath", (gogoproto.nullable) = false];
-}
-
-// Probe describes a health check to be performed against a container to determine whether it is
-// alive or ready to receive traffic.
-message Probe {
-  // The action taken to determine the health of a container
-  optional k8s.io.api.core.v1.Handler handler = 1 [(gogoproto.customname) = "Handler", (gogoproto.nullable) = false];
-
-  // Number of seconds after the container has started before liveness probes are initiated.
-  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  // +optional
-  optional int32 initialDelaySeconds = 2 [(gogoproto.customname) = "InitialDelaySeconds", (gogoproto.nullable) = false];
-
-  // Number of seconds after which the probe times out.
-  // Defaults to 1 second. Minimum value is 1.
-  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  // +optional
-  optional int32 timeoutSeconds = 3 [(gogoproto.customname) = "TimeoutSeconds", (gogoproto.nullable) = false];
-
-  // How often (in seconds) to perform the probe.
-  // Default to 10 seconds. Minimum value is 1.
-  // +optional
-  optional int32 periodSeconds = 4 [(gogoproto.customname) = "PeriodSeconds", (gogoproto.nullable) = false];
-
-  // Minimum consecutive successes for the probe to be considered successful after having failed.
-  // Defaults to 1. Must be 1 for liveness. Minimum value is 1.
-  // +optional
-  optional int32 successThreshold = 5 [(gogoproto.customname) = "SuccessThreshold", (gogoproto.nullable) = false];
-
-  // Minimum consecutive failures for the probe to be considered failed after having succeeded.
-  // Defaults to 3. Minimum value is 1.
-  // +optional
-  optional int32 failureThreshold = 6 [(gogoproto.customname) = "FailureThreshold", (gogoproto.nullable) = false];
-}
-
-// ResourceFieldSelector represents container resources (cpu, memory) and their output format
-message ResourceFieldSelector {
-  // Container name: required for volumes, optional for env vars
-  // +optional
-  optional string containerName = 1 [(gogoproto.customname) = "ContainerName", (gogoproto.nullable) = false];
-
-  // Required: resource to select
-  optional string resource = 2 [(gogoproto.customname) = "Resource", (gogoproto.nullable) = false];
-
-  // Specifies the output format of the exposed resources, defaults to "1"
-  // +optional
-  optional k8s.io.apimachinery.pkg.api.resource.Quantity divisor = 3 [(gogoproto.customname) = "Divisor", (gogoproto.nullable) = false];
-}
-
-// ResourceRequirements describes the compute resource requirements.
-message ResourceRequirements {
-  // Limits describes the maximum amount of compute resources allowed.
-  // More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-  // +optional
-  map<string, k8s.io.apimachinery.pkg.api.resource.Quantity> limits = 1 [(gogoproto.castkey) = "k8s.io/api/core/v1.ResourceName", (gogoproto.casttype) = "k8s.io/api/core/v1.ResourceList", (gogoproto.customname) = "Limits", (gogoproto.nullable) = false];
-
-  // Requests describes the minimum amount of compute resources required.
-  // If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
-  // otherwise to an implementation-defined value.
-  // More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-  // +optional
-  map<string, k8s.io.apimachinery.pkg.api.resource.Quantity> requests = 2 [(gogoproto.castkey) = "k8s.io/api/core/v1.ResourceName", (gogoproto.casttype) = "k8s.io/api/core/v1.ResourceList", (gogoproto.customname) = "Requests", (gogoproto.nullable) = false];
-}
-
-// SELinuxOptions are the labels to be applied to the container
-message SELinuxOptions {
-  // User is a SELinux user label that applies to the container.
-  // +optional
-  optional string user = 1 [(gogoproto.customname) = "User", (gogoproto.nullable) = false];
-
-  // Role is a SELinux role label that applies to the container.
-  // +optional
-  optional string role = 2 [(gogoproto.customname) = "Role", (gogoproto.nullable) = false];
-
-  // Type is a SELinux type label that applies to the container.
-  // +optional
-  optional string type = 3 [(gogoproto.customname) = "Type", (gogoproto.nullable) = false];
-
-  // Level is SELinux level label that applies to the container.
-  // +optional
-  optional string level = 4 [(gogoproto.customname) = "Level", (gogoproto.nullable) = false];
-}
-
-// SecretEnvSource selects a Secret to populate the environment
-// variables with.
-//
-// The contents of the target Secret's Data field will represent the
-// key-value pairs as environment variables.
-message SecretEnvSource {
-  // The Secret to select from.
-  optional k8s.io.api.core.v1.LocalObjectReference localObjectReference = 1 [(gogoproto.customname) = "LocalObjectReference", (gogoproto.nullable) = false];
-
-  // Specify whether the Secret must be defined
-  // +optional
-  optional bool optional = 2 [(gogoproto.customname) = "Optional"];
-}
-
-// SecretKeySelector selects a key of a Secret.
-message SecretKeySelector {
-  // The name of the secret in the pod's namespace to select from.
-  optional k8s.io.api.core.v1.LocalObjectReference localObjectReference = 1 [(gogoproto.customname) = "LocalObjectReference", (gogoproto.nullable) = false];
-
-  // The key of the secret to select from.  Must be a valid secret key.
-  optional string key = 2 [(gogoproto.customname) = "Key", (gogoproto.nullable) = false];
-
-  // Specify whether the Secret or it's key must be defined
-  // +optional
-  optional bool optional = 3 [(gogoproto.customname) = "Optional"];
-}
-
-// SecurityContext holds security configuration that will be applied to a container.
-// Some fields are present in both SecurityContext and PodSecurityContext.  When both
-// are set, the values in SecurityContext take precedence.
-message SecurityContext {
-  // The capabilities to add/drop when running containers.
-  // Defaults to the default set of capabilities granted by the container runtime.
-  // +optional
-  optional k8s.io.api.core.v1.Capabilities capabilities = 1 [(gogoproto.customname) = "Capabilities"];
-
-  // Run container in privileged mode.
-  // Processes in privileged containers are essentially equivalent to root on the host.
-  // Defaults to false.
-  // +optional
-  optional bool privileged = 2 [(gogoproto.customname) = "Privileged"];
-
-  // The SELinux context to be applied to the container.
-  // If unspecified, the container runtime will allocate a random SELinux context for each
-  // container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
-  // PodSecurityContext, the value specified in SecurityContext takes precedence.
-  // +optional
-  optional k8s.io.api.core.v1.SELinuxOptions seLinuxOptions = 3 [(gogoproto.customname) = "SELinuxOptions"];
-
-  // The UID to run the entrypoint of the container process.
-  // Defaults to user specified in image metadata if unspecified.
-  // May also be set in PodSecurityContext.  If set in both SecurityContext and
-  // PodSecurityContext, the value specified in SecurityContext takes precedence.
-  // +optional
-  optional int64 runAsUser = 4 [(gogoproto.customname) = "RunAsUser"];
-
-  // The GID to run the entrypoint of the container process.
-  // Uses runtime default if unset.
-  // May also be set in PodSecurityContext.  If set in both SecurityContext and
-  // PodSecurityContext, the value specified in SecurityContext takes precedence.
-  // +optional
-  optional int64 runAsGroup = 8 [(gogoproto.customname) = "RunAsGroup"];
-
-  // Indicates that the container must run as a non-root user.
-  // If true, the Kubelet will validate the image at runtime to ensure that it
-  // does not run as UID 0 (root) and fail to start the container if it does.
-  // If unset or false, no such validation will be performed.
-  // May also be set in PodSecurityContext.  If set in both SecurityContext and
-  // PodSecurityContext, the value specified in SecurityContext takes precedence.
-  // +optional
-  optional bool runAsNonRoot = 5 [(gogoproto.customname) = "RunAsNonRoot"];
-
-  // Whether this container has a read-only root filesystem.
-  // Default is false.
-  // +optional
-  optional bool readOnlyRootFilesystem = 6 [(gogoproto.customname) = "ReadOnlyRootFilesystem"];
-
-  // AllowPrivilegeEscalation controls whether a process can gain more
-  // privileges than its parent process. This bool directly controls if
-  // the no_new_privs flag will be set on the container process.
-  // AllowPrivilegeEscalation is true always when the container is:
-  // 1) run as Privileged
-  // 2) has CAP_SYS_ADMIN
-  // +optional
-  optional bool allowPrivilegeEscalation = 7 [(gogoproto.customname) = "AllowPrivilegeEscalation"];
-}
-
-// TCPSocketAction describes an action based on opening a socket
-message TCPSocketAction {
-  // Number or name of the port to access on the container.
-  // Number must be in the range 1 to 65535.
-  // Name must be an IANA_SVC_NAME.
-  optional k8s.io.apimachinery.pkg.util.intstr.IntOrString port = 1 [(gogoproto.customname) = "Port", (gogoproto.nullable) = false];
-
-  // Optional: Host name to connect to, defaults to the pod IP.
-  // +optional
-  optional string host = 2 [(gogoproto.customname) = "Host", (gogoproto.nullable) = false];
-}
-
-// volumeDevice describes a mapping of a raw block device within a container.
-message VolumeDevice {
-  // name must match the name of a persistentVolumeClaim in the pod
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // devicePath is the path inside of the container that the device will be mapped to.
-  optional string devicePath = 2 [(gogoproto.customname) = "DevicePath", (gogoproto.nullable) = false];
-}
-
-// VolumeMount describes a mounting of a Volume within a container.
-message VolumeMount {
-  // This must match the Name of a Volume.
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
-
-  // Mounted read-only if true, read-write otherwise (false or unspecified).
-  // Defaults to false.
-  // +optional
-  optional bool readOnly = 2 [(gogoproto.customname) = "ReadOnly", (gogoproto.nullable) = false];
-
-  // Path within the container at which the volume should be mounted.  Must
-  // not contain ':'.
-  optional string mountPath = 3 [(gogoproto.customname) = "MountPath", (gogoproto.nullable) = false];
-
-  // Path within the volume from which the container's volume should be mounted.
-  // Defaults to "" (volume's root).
-  // +optional
-  optional string subPath = 4 [(gogoproto.customname) = "SubPath", (gogoproto.nullable) = false];
-
-  // mountPropagation determines how mounts are propagated from the host
-  // to container and the other way around.
-  // When not set, MountPropagationNone is used.
-  // This field is beta in 1.10.
-  // +optional
-  optional string mountPropagation = 5 [(gogoproto.casttype) = "k8s.io/api/core/v1.MountPropagationMode", (gogoproto.customname) = "MountPropagation"];
-}
+option go_package = "v1alpha1";
 
 // LinkSourceSpec holds the specification
 message LinkSourceSpec {
   // Type of source
-  optional string type = 1 [(gogoproto.casttype) = "LinkSourceType", (gogoproto.customname) = "Type", (gogoproto.nullable) = false];
+  optional string type = 1;
 }
 
 // LinkSpec holds the specification of a single link between tasks
 message LinkSpec {
   // Name of the link
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+  optional string name = 1;
 
   // SourceRef specifies the source of the link as `taskName/outputName`.
-  optional string sourceRef = 2 [(gogoproto.customname) = "SourceRef", (gogoproto.nullable) = false];
+  optional string sourceRef = 2;
 
   // DestinationRef specifies the destination of the link as `taskName/inputName`
-  optional string destinationRef = 3 [(gogoproto.customname) = "DestinationRef", (gogoproto.nullable) = false];
+  optional string destinationRef = 3;
 }
 
 // Pipeline is the Schema for the pipelines API
 // +k8s:openapi-gen=true
 message Pipeline {
-  optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1 [(gogoproto.customname) = "ObjectMeta", (gogoproto.nullable) = false];
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
 
-  optional PipelineSpec spec = 2 [(gogoproto.customname) = "Spec", (gogoproto.nullable) = false];
+  optional PipelineSpec spec = 2;
 
-  optional PipelineStatus status = 3 [(gogoproto.customname) = "Status", (gogoproto.nullable) = false];
+  optional PipelineStatus status = 3;
 }
 
 // PipelineList contains a list of Pipeline
 message PipelineList {
-  optional k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1 [(gogoproto.customname) = "ListMeta", (gogoproto.nullable) = false];
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
 
-  repeated Pipeline items = 2 [(gogoproto.customname) = "Items", (gogoproto.nullable) = false];
+  repeated Pipeline items = 2;
 }
 
 // PipelineSpec defines the desired state of Pipeline
 message PipelineSpec {
   // Tasks of the pipeline
-  repeated TaskSpec tasks = 1 [(gogoproto.customname) = "Tasks", (gogoproto.nullable) = false];
+  repeated TaskSpec tasks = 1;
 
   // Links between tasks of the pipeline
-  repeated LinkSpec links = 2 [(gogoproto.customname) = "Links", (gogoproto.nullable) = false];
+  repeated LinkSpec links = 2;
 
   // Types of input/output data of tasks
-  repeated TypeSpec types = 3 [(gogoproto.customname) = "Types", (gogoproto.nullable) = false];
+  repeated TypeSpec types = 3;
 }
 
 // PipelineStatus defines the observed state of Pipeline
@@ -707,58 +83,58 @@ message PipelineStatus {
 // TaskInputSpec holds the specification of a single input of a task
 message TaskInputSpec {
   // Name of the input
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+  optional string name = 1;
 
   // Reference to the type of the input
-  optional string typeRef = 2 [(gogoproto.customname) = "TypeRef", (gogoproto.nullable) = false];
+  optional string typeRef = 2;
 
   // SnapshotPolicy determines how to sample events into a tuple
   // that is the input for task execution.
   // Defaults to "All".
-  optional string snapshotPolicy = 3 [(gogoproto.casttype) = "InputSnapshotPolicy", (gogoproto.customname) = "SnapshotPolicy", (gogoproto.nullable) = false];
+  optional string snapshotPolicy = 3;
 }
 
 // TaskOutputSpec holds the specification of a single output of a task
 message TaskOutputSpec {
   // Name of the output
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+  optional string name = 1;
 
   // Reference to the type of the output
-  optional string typeRef = 2 [(gogoproto.customname) = "TypeRef", (gogoproto.nullable) = false];
+  optional string typeRef = 2;
 
   // Ready indicates when this output is ready and available for the
   // next task in the pipeline.
   // Defaults to "Succeeded".
-  optional string ready = 3 [(gogoproto.casttype) = "OutputReadiness", (gogoproto.customname) = "Ready", (gogoproto.nullable) = false];
+  optional string ready = 3;
 }
 
 // TaskSpec holds the specification of a single task
 message TaskSpec {
   // Name of the task
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+  optional string name = 1;
 
   // Type of task
-  optional string type = 2 [(gogoproto.casttype) = "TaskType", (gogoproto.customname) = "Type", (gogoproto.nullable) = false];
+  optional string type = 2;
 
   // Inputs of the task
-  repeated TaskInputSpec inputs = 3 [(gogoproto.customname) = "Inputs", (gogoproto.nullable) = false];
+  repeated TaskInputSpec inputs = 3;
 
   // Outputs of the task
-  repeated TaskOutputSpec outputs = 4 [(gogoproto.customname) = "Outputs", (gogoproto.nullable) = false];
+  repeated TaskOutputSpec outputs = 4;
 
   // Executor holds the spec of the execution part of the task
-  optional k8s.io.api.core.v1.Container executor = 5 [(gogoproto.customname) = "Executor"];
+  optional k8s.io.api.core.v1.Container executor = 5;
 }
 
 // TypeSpec holds the specification of a single type of data
 message TypeSpec {
   // Name of the type
-  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+  optional string name = 1;
 
   // Protocol indicating how to get to the data
-  optional string protocol = 2 [(gogoproto.casttype) = "Protocol", (gogoproto.customname) = "Protocol", (gogoproto.nullable) = false];
+  optional string protocol = 2;
 
   // Format of the content of the data
-  optional string format = 3 [(gogoproto.casttype) = "Format", (gogoproto.customname) = "Format", (gogoproto.nullable) = false];
+  optional string format = 3;
 }
 

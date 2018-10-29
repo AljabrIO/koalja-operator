@@ -76,17 +76,11 @@ vet:
 
 # Generate code
 generate:
-	mkdir -p .tmp
 	go-to-protobuf \
-		--only-idl \
 		--proto-import="vendor" \
 		--proto-import="third_party/googleapis" \
-		--output-base=.tmp \
-		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1,-k8s.io/apimachinery/pkg/apis/testapigroup/v1,-sigs.k8s.io/controller-runtime/pkg/runtime/scheme \
-		--packages=github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1,-k8s.io/api/core/v1
-	sed -e 's!import "sigs.k8s.io/controller-runtime/pkg/runtime/scheme/generated.proto";!!' \
-		-e 's!option go_package = "v1alpha1";!option go_package = "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1";!' \
-		./.tmp/github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1/generated.proto > ./pkg/apis/koalja/v1alpha1/generated.proto
+		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1,-k8s.io/apimachinery/pkg/apis/testapigroup/v1,+sigs.k8s.io/controller-runtime/pkg/runtime/scheme,-k8s.io/api/core/v1 \
+		--packages=github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1
 	go generate ./pkg/... ./cmd/...
 
 # Build & push all docker images

@@ -20,7 +20,7 @@ package pipeline;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline";
 
-import "pkg/apis/koalja/v1alpha1/generated.proto";
+import "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1/generated.proto";
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
 import "github.com/AljabrIO/koalja-operator/pkg/event/event.proto";

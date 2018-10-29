@@ -31,7 +31,7 @@ type LinkSpec struct {
 // LinkSourceSpec holds the specification
 type LinkSourceSpec struct {
 	// Type of source
-	Type LinkSourceType `json:"type"`
+	Type LinkSourceType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=LinkSourceType"`
 }
 
 // LinkSourceType indicates the type of source of a link

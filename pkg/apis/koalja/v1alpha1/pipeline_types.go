@@ -46,10 +46,10 @@ type PipelineStatus struct {
 // +k8s:openapi-gen=true
 type Pipeline struct {
 	metav1.TypeMeta   `json:",inline" protobuf:"-"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	Spec   PipelineSpec   `json:"spec,omitempty"`
-	Status PipelineStatus `json:"status,omitempty"`
+	Spec   PipelineSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status PipelineStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -57,8 +57,8 @@ type Pipeline struct {
 // PipelineList contains a list of Pipeline
 type PipelineList struct {
 	metav1.TypeMeta `json:",inline" protobuf:"-"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Pipeline `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []Pipeline `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 func init() {
