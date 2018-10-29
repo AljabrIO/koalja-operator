@@ -24,15 +24,15 @@ import (
 // TaskSpec holds the specification of a single task
 type TaskSpec struct {
 	// Name of the task
-	Name string `json:"name" protobuf:"bytes,1,req"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Type of task
-	Type TaskType `json:"type,omitempty" protobuf:"bytes,2,opt"`
+	Type TaskType `json:"type,omitempty" protobuf:"bytes,2,opt,name=type"`
 	// Inputs of the task
-	Inputs []TaskInputSpec `json:"inputs,omitempty" protobuf:"bytes,3,rep"`
+	Inputs []TaskInputSpec `json:"inputs,omitempty" protobuf:"bytes,3,rep,name=inputs"`
 	// Outputs of the task
-	Outputs []TaskOutputSpec `json:"outputs" protobuf:"bytes,4,rep"`
+	Outputs []TaskOutputSpec `json:"outputs" protobuf:"bytes,4,rep,name=outputs"`
 	// Executor holds the spec of the execution part of the task
-	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt"`
+	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt,name=executor"`
 }
 
 // TaskType identifies a well know type of task.

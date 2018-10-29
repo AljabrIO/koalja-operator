@@ -26,11 +26,11 @@ import (
 // PipelineSpec defines the desired state of Pipeline
 type PipelineSpec struct {
 	// Tasks of the pipeline
-	Tasks []TaskSpec `json:"tasks,omitempty" protobuf:"bytes,1,rep"`
+	Tasks []TaskSpec `json:"tasks,omitempty" protobuf:"bytes,1,rep,name=tasks"`
 	// Links between tasks of the pipeline
-	Links []LinkSpec `json:"links,omitempty" protobuf:"bytes,2,rep"`
+	Links []LinkSpec `json:"links,omitempty" protobuf:"bytes,2,rep,name=links"`
 	// Types of input/output data of tasks
-	Types []TypeSpec `json:"types,omitempty" protobuf:"bytes,3,rep"`
+	Types []TypeSpec `json:"types,omitempty" protobuf:"bytes,3,rep,name=types"`
 }
 
 // PipelineStatus defines the observed state of Pipeline

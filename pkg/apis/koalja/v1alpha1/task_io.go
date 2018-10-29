@@ -21,13 +21,13 @@ import "github.com/pkg/errors"
 // TaskInputSpec holds the specification of a single input of a task
 type TaskInputSpec struct {
 	// Name of the input
-	Name string `json:"name" protobuf:"bytes,1,req"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Reference to the type of the input
-	TypeRef string `json:"typeRef" protobuf:"bytes,2,req"`
+	TypeRef string `json:"typeRef" protobuf:"bytes,2,req,name=typeRef"`
 	// SnapshotPolicy determines how to sample events into a tuple
 	// that is the input for task execution.
 	// Defaults to "All".
-	SnapshotPolicy InputSnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,3,opt"`
+	SnapshotPolicy InputSnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,3,opt,name=snapshotPolicy"`
 }
 
 // InputSnapshotPolicy determines how to sample events into a tuple
@@ -46,13 +46,13 @@ const (
 // TaskOutputSpec holds the specification of a single output of a task
 type TaskOutputSpec struct {
 	// Name of the output
-	Name string `json:"name" protobuf:"bytes,1,req"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Reference to the type of the output
-	TypeRef string `json:"typeRef" protobuf:"bytes,2,req"`
+	TypeRef string `json:"typeRef" protobuf:"bytes,2,req,name=typeRef"`
 	// Ready indicates when this output is ready and available for the
 	// next task in the pipeline.
 	// Defaults to "Succeeded".
-	Ready OutputReadiness `json:"ready" protobuf:"bytes,3,opt"`
+	Ready OutputReadiness `json:"ready" protobuf:"bytes,3,opt,name=ready"`
 }
 
 // OutputReadiness specifies when an output of a task is ready for the

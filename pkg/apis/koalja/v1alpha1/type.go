@@ -19,11 +19,11 @@ package v1alpha1
 // TypeSpec holds the specification of a single type of data
 type TypeSpec struct {
 	// Name of the type
-	Name string `json:"name" protobuf:"bytes,1,req"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Protocol indicating how to get to the data
-	Protocol Protocol `json:"protocol" protobuf:"bytes,2,req"`
+	Protocol Protocol `json:"protocol" protobuf:"bytes,2,req,name=protocol"`
 	// Format of the content of the data
-	Format Format `json:"format,omitempty" protobuf:"bytes,3,opt"`
+	Format Format `json:"format,omitempty" protobuf:"bytes,3,opt,name=format"`
 }
 
 // Protocol of a data type.
