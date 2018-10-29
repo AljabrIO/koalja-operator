@@ -18,21 +18,21 @@ package v1alpha1
 
 import (
 	"github.com/pkg/errors"
-	core "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 )
 
 // TaskSpec holds the specification of a single task
 type TaskSpec struct {
 	// Name of the task
-	Name string `json:"name"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Type of task
-	Type TaskType `json:"type,omitempty"`
+	Type TaskType `json:"type,omitempty" protobuf:"bytes,2,opt,name=type"`
 	// Inputs of the task
-	Inputs []TaskInputSpec `json:"inputs,omitempty"`
+	Inputs []TaskInputSpec `json:"inputs,omitempty" protobuf:"bytes,3,rep,name=inputs"`
 	// Outputs of the task
-	Outputs []TaskOutputSpec `json:"outputs"`
+	Outputs []TaskOutputSpec `json:"outputs" protobuf:"bytes,4,rep,name=outputs"`
 	// Executor holds the spec of the execution part of the task
-	Executor *core.Container `json:"executor,omitempty"`
+	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt,name=executor"`
 }
 
 // TaskType identifies a well know type of task.

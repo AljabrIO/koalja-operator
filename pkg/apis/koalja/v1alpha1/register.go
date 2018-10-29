@@ -22,6 +22,7 @@ limitations under the License.
 // +k8s:conversion-gen=github.com/AljabrIO/koalja-operator/pkg/apis/koalja
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=koalja.aljabr.io
+// +protobuf=false
 package v1alpha1
 
 import (
@@ -31,8 +32,10 @@ import (
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
+	// +protobuf=false
 	SchemeGroupVersion = schema.GroupVersion{Group: "koalja.aljabr.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	// +protobuf=false
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )

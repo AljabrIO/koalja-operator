@@ -13,6 +13,7 @@ import (
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
 	"golang.org/x/net/context"
@@ -28,7 +29,16 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_OutputRegistry_GetOutputEvents_0(ctx context.Context, marshaler runtime.Marshaler, client OutputRegistryClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_Frontend_GetPipeline_0(ctx context.Context, marshaler runtime.Marshaler, client FrontendClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq empty.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.GetPipeline(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func request_Frontend_GetOutputEvents_0(ctx context.Context, marshaler runtime.Marshaler, client FrontendClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq OutputEventsRequest
 	var metadata runtime.ServerMetadata
 
@@ -41,9 +51,9 @@ func request_OutputRegistry_GetOutputEvents_0(ctx context.Context, marshaler run
 
 }
 
-// RegisterOutputRegistryHandlerFromEndpoint is same as RegisterOutputRegistryHandler but
+// RegisterFrontendHandlerFromEndpoint is same as RegisterFrontendHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterOutputRegistryHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterFrontendHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -63,23 +73,23 @@ func RegisterOutputRegistryHandlerFromEndpoint(ctx context.Context, mux *runtime
 		}()
 	}()
 
-	return RegisterOutputRegistryHandler(ctx, mux, conn)
+	return RegisterFrontendHandler(ctx, mux, conn)
 }
 
-// RegisterOutputRegistryHandler registers the http handlers for service OutputRegistry to "mux".
+// RegisterFrontendHandler registers the http handlers for service Frontend to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterOutputRegistryHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterOutputRegistryHandlerClient(ctx, mux, NewOutputRegistryClient(conn))
+func RegisterFrontendHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterFrontendHandlerClient(ctx, mux, NewFrontendClient(conn))
 }
 
-// RegisterOutputRegistryHandlerClient registers the http handlers for service OutputRegistry
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "OutputRegistryClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "OutputRegistryClient"
+// RegisterFrontendHandlerClient registers the http handlers for service Frontend
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "FrontendClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "FrontendClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "OutputRegistryClient" to call the correct interceptors.
-func RegisterOutputRegistryHandlerClient(ctx context.Context, mux *runtime.ServeMux, client OutputRegistryClient) error {
+// "FrontendClient" to call the correct interceptors.
+func RegisterFrontendHandlerClient(ctx context.Context, mux *runtime.ServeMux, client FrontendClient) error {
 
-	mux.Handle("POST", pattern_OutputRegistry_GetOutputEvents_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_Frontend_GetPipeline_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -97,14 +107,43 @@ func RegisterOutputRegistryHandlerClient(ctx context.Context, mux *runtime.Serve
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_OutputRegistry_GetOutputEvents_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_Frontend_GetPipeline_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_OutputRegistry_GetOutputEvents_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_Frontend_GetPipeline_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_Frontend_GetOutputEvents_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		if cn, ok := w.(http.CloseNotifier); ok {
+			go func(done <-chan struct{}, closed <-chan bool) {
+				select {
+				case <-done:
+				case <-closed:
+					cancel()
+				}
+			}(ctx.Done(), cn.CloseNotify())
+		}
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Frontend_GetOutputEvents_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Frontend_GetOutputEvents_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -112,9 +151,13 @@ func RegisterOutputRegistryHandlerClient(ctx context.Context, mux *runtime.Serve
 }
 
 var (
-	pattern_OutputRegistry_GetOutputEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "output", "events"}, ""))
+	pattern_Frontend_GetPipeline_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "pipeline"}, ""))
+
+	pattern_Frontend_GetOutputEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "output", "events"}, ""))
 )
 
 var (
-	forward_OutputRegistry_GetOutputEvents_0 = runtime.ForwardResponseMessage
+	forward_Frontend_GetPipeline_0 = runtime.ForwardResponseMessage
+
+	forward_Frontend_GetOutputEvents_0 = runtime.ForwardResponseMessage
 )

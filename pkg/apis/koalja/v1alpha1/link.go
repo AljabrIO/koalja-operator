@@ -21,17 +21,17 @@ import "github.com/pkg/errors"
 // LinkSpec holds the specification of a single link between tasks
 type LinkSpec struct {
 	// Name of the link
-	Name string `json:"name"`
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// SourceRef specifies the source of the link as `taskName/outputName`.
-	SourceRef string `json:"sourceRef,omitempty"`
+	SourceRef string `json:"sourceRef,omitempty" protobuf:"bytes,2,opt,name=sourceRef"`
 	// DestinationRef specifies the destination of the link as `taskName/inputName`
-	DestinationRef string `json:"destinationRef"`
+	DestinationRef string `json:"destinationRef" protobuf:"bytes,3,req,name=destinationRef"`
 }
 
 // LinkSourceSpec holds the specification
 type LinkSourceSpec struct {
 	// Type of source
-	Type LinkSourceType `json:"type"`
+	Type LinkSourceType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=LinkSourceType"`
 }
 
 // LinkSourceType indicates the type of source of a link

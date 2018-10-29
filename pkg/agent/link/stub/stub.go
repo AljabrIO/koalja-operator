@@ -24,7 +24,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
-	"github.com/golang/protobuf/ptypes"
+	ptypes "github.com/gogo/protobuf/types"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -214,7 +214,7 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 	}
 
 	// No event inflight, get one out of the queue(s)
-	waitTimeout, err := ptypes.Duration(req.GetWaitTimeout())
+	waitTimeout, err := ptypes.DurationFromProto(req.GetWaitTimeout())
 	if err != nil {
 		return nil, maskAny(err)
 	}
