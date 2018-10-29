@@ -1,3 +1,6 @@
+SCRIPTDIR := $(shell pwd)
+ROOTDIR := $(shell cd $(SCRIPTDIR) && pwd)
+
 # Various simple defines
 VERSION ?= dev
 GOOS ?= linux
@@ -9,6 +12,17 @@ OPERATORIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 AGENTSIMG ?= $(DOCKERNAMESPACE)/koalja-agents:$(VERSION)
 SERVICESIMG ?= $(DOCKERNAMESPACE)/koalja-services:$(VERSION)
 TASKSIMG ?= $(DOCKERNAMESPACE)/koalja-tasks:$(VERSION)
+
+# Frontend defines
+FRONTENDDIR := $(ROOTDIR)/frontend
+FRONTENDBUILDIMG := koalja-operator-frontend-builder
+FRONTENDSOURCES := $(shell find $(FRONTENDDIR)/src -name '*.js' -not -path './test/*')
+
+# Tools
+GOASSETSBUILDER := $(shell go env GOPATH)/bin/go-assets-builder$(shell go env GOEXE)
+
+# Sources
+SOURCES := $(shell find . -name '*.go') $(shell find . -name '*.proto')
 
 all: check-vars build test
 
@@ -29,22 +43,30 @@ test: generate fmt vet manifests
 build: manager agents services tasks
 
 # Build manager binary
-manager: generate fmt vet
+manager: bin/$(GOOS)/$(GOARCH)/manager
+
+bin/$(GOOS)/$(GOARCH)/manager: $(SOURCES) generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
 
 # Build agents binary
-agents: generate fmt vet
+agents: bin/$(GOOS)/$(GOARCH)/agents
+ 
+bin/$(GOOS)/$(GOARCH)/agents: $(SOURCES) generate fmt vet frontend/assets.go
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
 
 # Build services binary
-services: generate fmt vet
+services: bin/$(GOOS)/$(GOARCH)/services
+
+bin/$(GOOS)/$(GOARCH)/services: $(SOURCES) generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
 
 # Build tasks binary
-tasks: generate fmt vet
+tasks: bin/$(GOOS)/$(GOARCH)/tasks
+
+bin/$(GOOS)/$(GOARCH)/tasks: $(SOURCES) generate fmt vet
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
 
@@ -84,6 +106,17 @@ generate:
 		--packages=github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1
 	go generate ./pkg/... ./cmd/...
 
+frontend/assets.go: $(FRONTENDSOURCES) $(FRONTENDDIR)/Dockerfile.build
+	cd $(FRONTENDDIR) && docker build -t $(FRONTENDBUILDIMG) -f Dockerfile.build $(FRONTENDDIR)
+	@mkdir -p $(FRONTENDDIR)/build
+	docker run --rm \
+		-u $(shell id -u):$(shell id -g) \
+		-v $(FRONTENDDIR)/build:/usr/code/build \
+		-v $(FRONTENDDIR)/public:/usr/code/public:ro \
+		-v $(FRONTENDDIR)/src:/usr/code/src:ro \
+		$(FRONTENDBUILDIMG)
+	$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
+
 # Build & push all docker images
 docker: docker-build docker-push docker-patch-config
 
@@ -112,3 +145,6 @@ docker-patch-config:
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' ./config/default/local_fs_service_image_patch.yaml > ./config/default/$(VERSION)/local_fs_service_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filedrop_executor_image_patch.yaml > ./config/default/$(VERSION)/filedrop_executor_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-$(VERSION)" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"
+
+bootstrap:
+	go get github.com/jessevdk/go-assets-builder
