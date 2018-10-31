@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "echarts": "^4.2.0-rc.2",
+    "echarts-for-react": "^2.0.15-beta.0",
     "react": "^16.6.0",
-    "react-dom": "^16.6.0"
+    "react-dom": "^16.6.0",
+    "react-timeout": "^1.1.2"
   },
   "devDependencies": {
     "react-scripts": "2.0.5"
   },
+  "proxy": "http://192.168.140.214:8080",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
