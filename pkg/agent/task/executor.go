@@ -37,11 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
@@ -56,7 +56,7 @@ type Executor interface {
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
 	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int,
-	outputPublisher OutputPublisher, statistics *pipeline.TaskStatistics) (Executor, error) {
+	outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -118,7 +118,7 @@ type executor struct {
 	outputReadyNotifierPort int
 	podChangeQueues         map[string]chan *corev1.Pod
 	outputPublisher         OutputPublisher
-	statistics              *pipeline.TaskStatistics
+	statistics              *tracking.TaskStatistics
 }
 
 const (

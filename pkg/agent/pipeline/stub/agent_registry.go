@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 )
 
 // agentRegistry is an in-memory implementation of an agent registry.
@@ -40,7 +41,7 @@ type linkAgent struct {
 	URI        string
 	Statistics struct {
 		Timestamp time.Time
-		Data      pipeline.LinkStatistics
+		Data      tracking.LinkStatistics
 	}
 }
 
@@ -48,7 +49,7 @@ type taskAgent struct {
 	URI        string
 	Statistics struct {
 		Timestamp time.Time
-		Data      pipeline.TaskStatistics
+		Data      tracking.TaskStatistics
 	}
 }
 
@@ -110,7 +111,7 @@ func (s *agentRegistry) RegisterTask(ctx context.Context, req *pipeline.Register
 }
 
 // Provide statistics of a link (called by the link)
-func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *pipeline.LinkStatistics) (*empty.Empty, error) {
+func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *tracking.LinkStatistics) (*empty.Empty, error) {
 	s.log.Debug().
 		Str("link", req.GetName()).
 		Str("uri", req.GetURI()).
@@ -140,7 +141,7 @@ func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *pipeline
 }
 
 // Provide statistics of a task (called by the task)
-func (s *agentRegistry) PublishTaskStatistics(ctx context.Context, req *pipeline.TaskStatistics) (*empty.Empty, error) {
+func (s *agentRegistry) PublishTaskStatistics(ctx context.Context, req *tracking.TaskStatistics) (*empty.Empty, error) {
 	s.log.Debug().
 		Str("task", req.GetName()).
 		Str("uri", req.GetURI()).
@@ -189,7 +190,7 @@ func (s *agentRegistry) GetLinkStatistics(ctx context.Context, in *pipeline.GetL
 	result := &pipeline.GetLinkStatisticsResponse{}
 	for name, list := range s.linkAgents {
 		if isLinkRequested(name) {
-			stat := pipeline.LinkStatistics{
+			stat := tracking.LinkStatistics{
 				Name: name,
 			}
 			for _, x := range list {
@@ -222,7 +223,7 @@ func (s *agentRegistry) GetTaskStatistics(ctx context.Context, in *pipeline.GetT
 	result := &pipeline.GetTaskStatisticsResponse{}
 	for name, list := range s.taskAgents {
 		if isTaskRequested(name) {
-			stat := pipeline.TaskStatistics{
+			stat := tracking.TaskStatistics{
 				Name: name,
 			}
 			for _, x := range list {

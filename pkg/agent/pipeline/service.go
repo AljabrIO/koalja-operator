@@ -38,6 +38,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
@@ -48,6 +49,7 @@ type Service struct {
 	Namespace      string
 	eventPublisher event.EventPublisherServer
 	agentRegistry  AgentRegistryServer
+	statisticsSink tracking.StatisticsSinkServer
 	eventRegistry  registry.EventRegistryClient
 	frontend       FrontendServer
 }
@@ -70,6 +72,8 @@ type APIBuilder interface {
 	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
 	// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 	NewAgentRegistry(deps APIDependencies) (AgentRegistryServer, error)
+	// NewStatisticsSink creates an implementation of an StatisticsSink.
+	NewStatisticsSink(deps APIDependencies) (tracking.StatisticsSinkServer, error)
 	// NewFrontend creates an implementation of an FrontendServer, used to query results of the pipeline.
 	NewFrontend(deps APIDependencies) (FrontendServer, error)
 }
@@ -118,6 +122,10 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	statisticsSink, err := builder.NewStatisticsSink(deps)
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	frontend, err := builder.NewFrontend(deps)
 	if err != nil {
 		return nil, maskAny(err)
@@ -130,6 +138,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		eventPublisher: eventPublisher,
 		eventRegistry:  evtReg,
 		agentRegistry:  agentRegistry,
+		statisticsSink: statisticsSink,
 		frontend:       frontend,
 	}, nil
 }
@@ -157,6 +166,7 @@ func (s *Service) Run(ctx context.Context) error {
 	defer svr.GracefulStop()
 	event.RegisterEventPublisherServer(svr, s.eventPublisher)
 	RegisterAgentRegistryServer(svr, s.agentRegistry)
+	tracking.RegisterStatisticsSinkServer(svr, s.statisticsSink)
 	RegisterFrontendServer(svr, s.frontend)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)

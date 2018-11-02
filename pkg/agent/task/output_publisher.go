@@ -29,11 +29,11 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
@@ -49,11 +49,11 @@ type outputPublisher struct {
 	spec               *koalja.TaskSpec
 	outputAddressesMap map[string][]string            // map[outputName]eventPublisherAddresses
 	eventChannels      map[string][]chan *event.Event // map[outputName][]chan event
-	statistics         *pipeline.TaskStatistics
+	statistics         *tracking.TaskStatistics
 }
 
 // newOutputPublisher initializes a new outputPublisher.
-func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *pipeline.TaskStatistics) (*outputPublisher, error) {
+func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *tracking.TaskStatistics) (*outputPublisher, error) {
 	outputAddressesMap := make(map[string][]string)
 	eventChannels := make(map[string][]chan *event.Event)
 	for _, tos := range spec.Outputs {
@@ -176,7 +176,7 @@ func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputRea
 }
 
 // runForOutput keeps publishing events for the given output until the given context is canceled.
-func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, eventChan chan *event.Event, stats *pipeline.TaskOutputStatistics) error {
+func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, eventChan chan *event.Event, stats *tracking.TaskOutputStatistics) error {
 	defer close(eventChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
 

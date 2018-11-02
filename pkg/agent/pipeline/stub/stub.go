@@ -22,6 +22,7 @@ import (
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/rs/zerolog"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
@@ -70,6 +71,11 @@ func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPubl
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 func (s *stub) NewAgentRegistry(deps pipeline.APIDependencies) (pipeline.AgentRegistryServer, error) {
+	return s.getOrCreateAgentRegistry(), nil
+}
+
+// NewStatisticsSink creates an implementation of an StatisticsSink.
+func (s *stub) NewStatisticsSink(deps pipeline.APIDependencies) (tracking.StatisticsSinkServer, error) {
 	return s.getOrCreateAgentRegistry(), nil
 }
 

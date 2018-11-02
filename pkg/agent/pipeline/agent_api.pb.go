@@ -8,6 +8,7 @@ import fmt "fmt"
 import math "math"
 import v1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 import event "github.com/AljabrIO/koalja-operator/pkg/event"
+import tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
 import _ "github.com/gogo/protobuf/gogoproto"
 import types "github.com/gogo/protobuf/types"
 import empty "github.com/golang/protobuf/ptypes/empty"
@@ -42,7 +43,7 @@ func (m *RegisterLinkRequest) Reset()         { *m = RegisterLinkRequest{} }
 func (m *RegisterLinkRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterLinkRequest) ProtoMessage()    {}
 func (*RegisterLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{0}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{0}
 }
 func (m *RegisterLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -96,7 +97,7 @@ func (m *RegisterTaskRequest) Reset()         { *m = RegisterTaskRequest{} }
 func (m *RegisterTaskRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterTaskRequest) ProtoMessage()    {}
 func (*RegisterTaskRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{1}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{1}
 }
 func (m *RegisterTaskRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -139,330 +140,6 @@ func (m *RegisterTaskRequest) GetURI() string {
 	return ""
 }
 
-type LinkStatistics struct {
-	// Name of the link
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// URI of the link
-	URI string `protobuf:"bytes,2,opt,name=uri,proto3" json:"uri,omitempty"`
-	// Number of events waiting in this link before being processed
-	EventsWaiting int64 `protobuf:"varint,3,opt,name=events_waiting,json=eventsWaiting,proto3" json:"events_waiting,omitempty"`
-	// Number of events that are in progress but have not been acknowledged
-	EventsInProgress int64 `protobuf:"varint,4,opt,name=events_in_progress,json=eventsInProgress,proto3" json:"events_in_progress,omitempty"`
-	// Number of events that have been processed and acknowledged
-	EventsAcknowledged int64 `protobuf:"varint,5,opt,name=events_acknowledged,json=eventsAcknowledged,proto3" json:"events_acknowledged,omitempty"`
-}
-
-func (m *LinkStatistics) Reset()         { *m = LinkStatistics{} }
-func (m *LinkStatistics) String() string { return proto.CompactTextString(m) }
-func (*LinkStatistics) ProtoMessage()    {}
-func (*LinkStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{2}
-}
-func (m *LinkStatistics) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *LinkStatistics) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_LinkStatistics.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *LinkStatistics) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LinkStatistics.Merge(dst, src)
-}
-func (m *LinkStatistics) XXX_Size() int {
-	return m.Size()
-}
-func (m *LinkStatistics) XXX_DiscardUnknown() {
-	xxx_messageInfo_LinkStatistics.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LinkStatistics proto.InternalMessageInfo
-
-func (m *LinkStatistics) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *LinkStatistics) GetURI() string {
-	if m != nil {
-		return m.URI
-	}
-	return ""
-}
-
-func (m *LinkStatistics) GetEventsWaiting() int64 {
-	if m != nil {
-		return m.EventsWaiting
-	}
-	return 0
-}
-
-func (m *LinkStatistics) GetEventsInProgress() int64 {
-	if m != nil {
-		return m.EventsInProgress
-	}
-	return 0
-}
-
-func (m *LinkStatistics) GetEventsAcknowledged() int64 {
-	if m != nil {
-		return m.EventsAcknowledged
-	}
-	return 0
-}
-
-type TaskStatistics struct {
-	// Name of the task
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// URI of the task
-	URI string `protobuf:"bytes,2,opt,name=uri,proto3" json:"uri,omitempty"`
-	// Statistics for every input
-	Inputs []*TaskInputStatistics `protobuf:"bytes,3,rep,name=inputs" json:"inputs,omitempty"`
-	// Statistics for every output
-	Outputs []*TaskOutputStatistics `protobuf:"bytes,4,rep,name=outputs" json:"outputs,omitempty"`
-	// Number of snapshots waiting in this task waiting to be executed
-	SnapshotsWaiting int64 `protobuf:"varint,5,opt,name=snapshots_waiting,json=snapshotsWaiting,proto3" json:"snapshots_waiting,omitempty"`
-	// Number of snapshots that are in execution but have not been finished
-	SnapshotsInProgress int64 `protobuf:"varint,6,opt,name=snapshots_in_progress,json=snapshotsInProgress,proto3" json:"snapshots_in_progress,omitempty"`
-	// Number of snapshots that have been executed succesfully
-	SnapshotsSucceeded int64 `protobuf:"varint,7,opt,name=snapshots_succeeded,json=snapshotsSucceeded,proto3" json:"snapshots_succeeded,omitempty"`
-	// Number of snapshots that have been executed resulting in an error
-	SnapshotsFailed int64 `protobuf:"varint,8,opt,name=snapshots_failed,json=snapshotsFailed,proto3" json:"snapshots_failed,omitempty"`
-}
-
-func (m *TaskStatistics) Reset()         { *m = TaskStatistics{} }
-func (m *TaskStatistics) String() string { return proto.CompactTextString(m) }
-func (*TaskStatistics) ProtoMessage()    {}
-func (*TaskStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{3}
-}
-func (m *TaskStatistics) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TaskStatistics) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TaskStatistics.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *TaskStatistics) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TaskStatistics.Merge(dst, src)
-}
-func (m *TaskStatistics) XXX_Size() int {
-	return m.Size()
-}
-func (m *TaskStatistics) XXX_DiscardUnknown() {
-	xxx_messageInfo_TaskStatistics.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TaskStatistics proto.InternalMessageInfo
-
-func (m *TaskStatistics) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *TaskStatistics) GetURI() string {
-	if m != nil {
-		return m.URI
-	}
-	return ""
-}
-
-func (m *TaskStatistics) GetInputs() []*TaskInputStatistics {
-	if m != nil {
-		return m.Inputs
-	}
-	return nil
-}
-
-func (m *TaskStatistics) GetOutputs() []*TaskOutputStatistics {
-	if m != nil {
-		return m.Outputs
-	}
-	return nil
-}
-
-func (m *TaskStatistics) GetSnapshotsWaiting() int64 {
-	if m != nil {
-		return m.SnapshotsWaiting
-	}
-	return 0
-}
-
-func (m *TaskStatistics) GetSnapshotsInProgress() int64 {
-	if m != nil {
-		return m.SnapshotsInProgress
-	}
-	return 0
-}
-
-func (m *TaskStatistics) GetSnapshotsSucceeded() int64 {
-	if m != nil {
-		return m.SnapshotsSucceeded
-	}
-	return 0
-}
-
-func (m *TaskStatistics) GetSnapshotsFailed() int64 {
-	if m != nil {
-		return m.SnapshotsFailed
-	}
-	return 0
-}
-
-type TaskInputStatistics struct {
-	// Name of the task input
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Number of events that have been received from the link
-	EventsReceived int64 `protobuf:"varint,2,opt,name=events_received,json=eventsReceived,proto3" json:"events_received,omitempty"`
-	// Number of events that are in progress in an executor but have not been acknowledged
-	EventsInProgress int64 `protobuf:"varint,3,opt,name=events_in_progress,json=eventsInProgress,proto3" json:"events_in_progress,omitempty"`
-	// Number of events that have been processed and acknowledged
-	EventsProcessed int64 `protobuf:"varint,4,opt,name=events_processed,json=eventsProcessed,proto3" json:"events_processed,omitempty"`
-	// Number of events that have been skipped and acknowledged
-	EventsSkipped int64 `protobuf:"varint,5,opt,name=events_skipped,json=eventsSkipped,proto3" json:"events_skipped,omitempty"`
-}
-
-func (m *TaskInputStatistics) Reset()         { *m = TaskInputStatistics{} }
-func (m *TaskInputStatistics) String() string { return proto.CompactTextString(m) }
-func (*TaskInputStatistics) ProtoMessage()    {}
-func (*TaskInputStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{4}
-}
-func (m *TaskInputStatistics) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TaskInputStatistics) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TaskInputStatistics.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *TaskInputStatistics) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TaskInputStatistics.Merge(dst, src)
-}
-func (m *TaskInputStatistics) XXX_Size() int {
-	return m.Size()
-}
-func (m *TaskInputStatistics) XXX_DiscardUnknown() {
-	xxx_messageInfo_TaskInputStatistics.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TaskInputStatistics proto.InternalMessageInfo
-
-func (m *TaskInputStatistics) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *TaskInputStatistics) GetEventsReceived() int64 {
-	if m != nil {
-		return m.EventsReceived
-	}
-	return 0
-}
-
-func (m *TaskInputStatistics) GetEventsInProgress() int64 {
-	if m != nil {
-		return m.EventsInProgress
-	}
-	return 0
-}
-
-func (m *TaskInputStatistics) GetEventsProcessed() int64 {
-	if m != nil {
-		return m.EventsProcessed
-	}
-	return 0
-}
-
-func (m *TaskInputStatistics) GetEventsSkipped() int64 {
-	if m != nil {
-		return m.EventsSkipped
-	}
-	return 0
-}
-
-type TaskOutputStatistics struct {
-	// Name of the task output
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Number of events that have been published to the link
-	EventsPublished int64 `protobuf:"varint,2,opt,name=events_published,json=eventsPublished,proto3" json:"events_published,omitempty"`
-}
-
-func (m *TaskOutputStatistics) Reset()         { *m = TaskOutputStatistics{} }
-func (m *TaskOutputStatistics) String() string { return proto.CompactTextString(m) }
-func (*TaskOutputStatistics) ProtoMessage()    {}
-func (*TaskOutputStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{5}
-}
-func (m *TaskOutputStatistics) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TaskOutputStatistics) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TaskOutputStatistics.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *TaskOutputStatistics) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TaskOutputStatistics.Merge(dst, src)
-}
-func (m *TaskOutputStatistics) XXX_Size() int {
-	return m.Size()
-}
-func (m *TaskOutputStatistics) XXX_DiscardUnknown() {
-	xxx_messageInfo_TaskOutputStatistics.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TaskOutputStatistics proto.InternalMessageInfo
-
-func (m *TaskOutputStatistics) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *TaskOutputStatistics) GetEventsPublished() int64 {
-	if m != nil {
-		return m.EventsPublished
-	}
-	return 0
-}
-
 type OutputEventsRequest struct {
 	// EventIDs is a list of event IDs.
 	// The response will include only events that are (indirectly) related
@@ -481,7 +158,7 @@ func (m *OutputEventsRequest) Reset()         { *m = OutputEventsRequest{} }
 func (m *OutputEventsRequest) String() string { return proto.CompactTextString(m) }
 func (*OutputEventsRequest) ProtoMessage()    {}
 func (*OutputEventsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{6}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{2}
 }
 func (m *OutputEventsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -540,14 +217,14 @@ func (m *OutputEventsRequest) GetCreatedBefore() *types.Timestamp {
 
 type OutputEvents struct {
 	// The selected events
-	Events []*event.Event `protobuf:"bytes,1,rep,name=Events" json:"Events,omitempty"`
+	Events []*event.Event `protobuf:"bytes,1,rep,name=events" json:"events,omitempty"`
 }
 
 func (m *OutputEvents) Reset()         { *m = OutputEvents{} }
 func (m *OutputEvents) String() string { return proto.CompactTextString(m) }
 func (*OutputEvents) ProtoMessage()    {}
 func (*OutputEvents) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{7}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{3}
 }
 func (m *OutputEvents) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -593,7 +270,7 @@ func (m *GetLinkStatisticsRequest) Reset()         { *m = GetLinkStatisticsReque
 func (m *GetLinkStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsRequest) ProtoMessage()    {}
 func (*GetLinkStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{8}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{4}
 }
 func (m *GetLinkStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -631,14 +308,14 @@ func (m *GetLinkStatisticsRequest) GetLinkNames() []string {
 
 type GetLinkStatisticsResponse struct {
 	// Statistics contains the returned statistics
-	Statistics []*LinkStatistics `protobuf:"bytes,1,rep,name=statistics" json:"statistics,omitempty"`
+	Statistics []*tracking.LinkStatistics `protobuf:"bytes,1,rep,name=statistics" json:"statistics,omitempty"`
 }
 
 func (m *GetLinkStatisticsResponse) Reset()         { *m = GetLinkStatisticsResponse{} }
 func (m *GetLinkStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsResponse) ProtoMessage()    {}
 func (*GetLinkStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{9}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{5}
 }
 func (m *GetLinkStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -667,7 +344,7 @@ func (m *GetLinkStatisticsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetLinkStatisticsResponse proto.InternalMessageInfo
 
-func (m *GetLinkStatisticsResponse) GetStatistics() []*LinkStatistics {
+func (m *GetLinkStatisticsResponse) GetStatistics() []*tracking.LinkStatistics {
 	if m != nil {
 		return m.Statistics
 	}
@@ -684,7 +361,7 @@ func (m *GetTaskStatisticsRequest) Reset()         { *m = GetTaskStatisticsReque
 func (m *GetTaskStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsRequest) ProtoMessage()    {}
 func (*GetTaskStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{10}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{6}
 }
 func (m *GetTaskStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -722,14 +399,14 @@ func (m *GetTaskStatisticsRequest) GetTaskNames() []string {
 
 type GetTaskStatisticsResponse struct {
 	// Statistics contains the returned statistics
-	Statistics []*TaskStatistics `protobuf:"bytes,1,rep,name=statistics" json:"statistics,omitempty"`
+	Statistics []*tracking.TaskStatistics `protobuf:"bytes,1,rep,name=statistics" json:"statistics,omitempty"`
 }
 
 func (m *GetTaskStatisticsResponse) Reset()         { *m = GetTaskStatisticsResponse{} }
 func (m *GetTaskStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsResponse) ProtoMessage()    {}
 func (*GetTaskStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_66a585e615575e40, []int{11}
+	return fileDescriptor_agent_api_3636a00ceea5c883, []int{7}
 }
 func (m *GetTaskStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -758,7 +435,7 @@ func (m *GetTaskStatisticsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetTaskStatisticsResponse proto.InternalMessageInfo
 
-func (m *GetTaskStatisticsResponse) GetStatistics() []*TaskStatistics {
+func (m *GetTaskStatisticsResponse) GetStatistics() []*tracking.TaskStatistics {
 	if m != nil {
 		return m.Statistics
 	}
@@ -768,10 +445,6 @@ func (m *GetTaskStatisticsResponse) GetStatistics() []*TaskStatistics {
 func init() {
 	proto.RegisterType((*RegisterLinkRequest)(nil), "pipeline.RegisterLinkRequest")
 	proto.RegisterType((*RegisterTaskRequest)(nil), "pipeline.RegisterTaskRequest")
-	proto.RegisterType((*LinkStatistics)(nil), "pipeline.LinkStatistics")
-	proto.RegisterType((*TaskStatistics)(nil), "pipeline.TaskStatistics")
-	proto.RegisterType((*TaskInputStatistics)(nil), "pipeline.TaskInputStatistics")
-	proto.RegisterType((*TaskOutputStatistics)(nil), "pipeline.TaskOutputStatistics")
 	proto.RegisterType((*OutputEventsRequest)(nil), "pipeline.OutputEventsRequest")
 	proto.RegisterType((*OutputEvents)(nil), "pipeline.OutputEvents")
 	proto.RegisterType((*GetLinkStatisticsRequest)(nil), "pipeline.GetLinkStatisticsRequest")
@@ -796,10 +469,6 @@ type AgentRegistryClient interface {
 	RegisterLink(ctx context.Context, in *RegisterLinkRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Register an instance of a task agent
 	RegisterTask(ctx context.Context, in *RegisterTaskRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	// Provide statistics of a link (called by the link)
-	PublishLinkStatistics(ctx context.Context, in *LinkStatistics, opts ...grpc.CallOption) (*empty.Empty, error)
-	// Provide statistics of a task (called by the task)
-	PublishTaskStatistics(ctx context.Context, in *TaskStatistics, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type agentRegistryClient struct {
@@ -828,34 +497,12 @@ func (c *agentRegistryClient) RegisterTask(ctx context.Context, in *RegisterTask
 	return out, nil
 }
 
-func (c *agentRegistryClient) PublishLinkStatistics(ctx context.Context, in *LinkStatistics, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/pipeline.AgentRegistry/PublishLinkStatistics", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *agentRegistryClient) PublishTaskStatistics(ctx context.Context, in *TaskStatistics, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/pipeline.AgentRegistry/PublishTaskStatistics", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // AgentRegistryServer is the server API for AgentRegistry service.
 type AgentRegistryServer interface {
 	// Register an instance of a link agent
 	RegisterLink(context.Context, *RegisterLinkRequest) (*empty.Empty, error)
 	// Register an instance of a task agent
 	RegisterTask(context.Context, *RegisterTaskRequest) (*empty.Empty, error)
-	// Provide statistics of a link (called by the link)
-	PublishLinkStatistics(context.Context, *LinkStatistics) (*empty.Empty, error)
-	// Provide statistics of a task (called by the task)
-	PublishTaskStatistics(context.Context, *TaskStatistics) (*empty.Empty, error)
 }
 
 func RegisterAgentRegistryServer(s *grpc.Server, srv AgentRegistryServer) {
@@ -898,42 +545,6 @@ func _AgentRegistry_RegisterTask_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AgentRegistry_PublishLinkStatistics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LinkStatistics)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentRegistryServer).PublishLinkStatistics(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pipeline.AgentRegistry/PublishLinkStatistics",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentRegistryServer).PublishLinkStatistics(ctx, req.(*LinkStatistics))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AgentRegistry_PublishTaskStatistics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TaskStatistics)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentRegistryServer).PublishTaskStatistics(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pipeline.AgentRegistry/PublishTaskStatistics",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentRegistryServer).PublishTaskStatistics(ctx, req.(*TaskStatistics))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 var _AgentRegistry_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pipeline.AgentRegistry",
 	HandlerType: (*AgentRegistryServer)(nil),
@@ -945,14 +556,6 @@ var _AgentRegistry_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterTask",
 			Handler:    _AgentRegistry_RegisterTask_Handler,
-		},
-		{
-			MethodName: "PublishLinkStatistics",
-			Handler:    _AgentRegistry_PublishLinkStatistics_Handler,
-		},
-		{
-			MethodName: "PublishTaskStatistics",
-			Handler:    _AgentRegistry_PublishTaskStatistics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1188,198 +791,6 @@ func (m *RegisterTaskRequest) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.URI)))
 		i += copy(dAtA[i:], m.URI)
-	}
-	return i, nil
-}
-
-func (m *LinkStatistics) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *LinkStatistics) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.URI) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.URI)))
-		i += copy(dAtA[i:], m.URI)
-	}
-	if m.EventsWaiting != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsWaiting))
-	}
-	if m.EventsInProgress != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsInProgress))
-	}
-	if m.EventsAcknowledged != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsAcknowledged))
-	}
-	return i, nil
-}
-
-func (m *TaskStatistics) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TaskStatistics) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.URI) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.URI)))
-		i += copy(dAtA[i:], m.URI)
-	}
-	if len(m.Inputs) > 0 {
-		for _, msg := range m.Inputs {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintAgentApi(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Outputs) > 0 {
-		for _, msg := range m.Outputs {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintAgentApi(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.SnapshotsWaiting != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.SnapshotsWaiting))
-	}
-	if m.SnapshotsInProgress != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.SnapshotsInProgress))
-	}
-	if m.SnapshotsSucceeded != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.SnapshotsSucceeded))
-	}
-	if m.SnapshotsFailed != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.SnapshotsFailed))
-	}
-	return i, nil
-}
-
-func (m *TaskInputStatistics) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TaskInputStatistics) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.EventsReceived != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsReceived))
-	}
-	if m.EventsInProgress != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsInProgress))
-	}
-	if m.EventsProcessed != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsProcessed))
-	}
-	if m.EventsSkipped != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsSkipped))
-	}
-	return i, nil
-}
-
-func (m *TaskOutputStatistics) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TaskOutputStatistics) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.EventsPublished != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintAgentApi(dAtA, i, uint64(m.EventsPublished))
 	}
 	return i, nil
 }
@@ -1647,114 +1058,6 @@ func (m *RegisterTaskRequest) Size() (n int) {
 	l = len(m.URI)
 	if l > 0 {
 		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	return n
-}
-
-func (m *LinkStatistics) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	l = len(m.URI)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	if m.EventsWaiting != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsWaiting))
-	}
-	if m.EventsInProgress != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsInProgress))
-	}
-	if m.EventsAcknowledged != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsAcknowledged))
-	}
-	return n
-}
-
-func (m *TaskStatistics) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	l = len(m.URI)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	if len(m.Inputs) > 0 {
-		for _, e := range m.Inputs {
-			l = e.Size()
-			n += 1 + l + sovAgentApi(uint64(l))
-		}
-	}
-	if len(m.Outputs) > 0 {
-		for _, e := range m.Outputs {
-			l = e.Size()
-			n += 1 + l + sovAgentApi(uint64(l))
-		}
-	}
-	if m.SnapshotsWaiting != 0 {
-		n += 1 + sovAgentApi(uint64(m.SnapshotsWaiting))
-	}
-	if m.SnapshotsInProgress != 0 {
-		n += 1 + sovAgentApi(uint64(m.SnapshotsInProgress))
-	}
-	if m.SnapshotsSucceeded != 0 {
-		n += 1 + sovAgentApi(uint64(m.SnapshotsSucceeded))
-	}
-	if m.SnapshotsFailed != 0 {
-		n += 1 + sovAgentApi(uint64(m.SnapshotsFailed))
-	}
-	return n
-}
-
-func (m *TaskInputStatistics) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	if m.EventsReceived != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsReceived))
-	}
-	if m.EventsInProgress != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsInProgress))
-	}
-	if m.EventsProcessed != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsProcessed))
-	}
-	if m.EventsSkipped != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsSkipped))
-	}
-	return n
-}
-
-func (m *TaskOutputStatistics) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovAgentApi(uint64(l))
-	}
-	if m.EventsPublished != 0 {
-		n += 1 + sovAgentApi(uint64(m.EventsPublished))
 	}
 	return n
 }
@@ -2071,670 +1374,6 @@ func (m *RegisterTaskRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.URI = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAgentApi(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *LinkStatistics) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAgentApi
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: LinkStatistics: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: LinkStatistics: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field URI", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.URI = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsWaiting", wireType)
-			}
-			m.EventsWaiting = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsWaiting |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsInProgress", wireType)
-			}
-			m.EventsInProgress = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsInProgress |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsAcknowledged", wireType)
-			}
-			m.EventsAcknowledged = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsAcknowledged |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAgentApi(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TaskStatistics) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAgentApi
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TaskStatistics: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TaskStatistics: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field URI", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.URI = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Inputs", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Inputs = append(m.Inputs, &TaskInputStatistics{})
-			if err := m.Inputs[len(m.Inputs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Outputs", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Outputs = append(m.Outputs, &TaskOutputStatistics{})
-			if err := m.Outputs[len(m.Outputs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SnapshotsWaiting", wireType)
-			}
-			m.SnapshotsWaiting = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SnapshotsWaiting |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SnapshotsInProgress", wireType)
-			}
-			m.SnapshotsInProgress = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SnapshotsInProgress |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 7:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SnapshotsSucceeded", wireType)
-			}
-			m.SnapshotsSucceeded = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SnapshotsSucceeded |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 8:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SnapshotsFailed", wireType)
-			}
-			m.SnapshotsFailed = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.SnapshotsFailed |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAgentApi(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TaskInputStatistics) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAgentApi
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TaskInputStatistics: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TaskInputStatistics: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsReceived", wireType)
-			}
-			m.EventsReceived = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsReceived |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsInProgress", wireType)
-			}
-			m.EventsInProgress = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsInProgress |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsProcessed", wireType)
-			}
-			m.EventsProcessed = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsProcessed |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsSkipped", wireType)
-			}
-			m.EventsSkipped = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsSkipped |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAgentApi(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TaskOutputStatistics) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAgentApi
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TaskOutputStatistics: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TaskOutputStatistics: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAgentApi
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EventsPublished", wireType)
-			}
-			m.EventsPublished = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAgentApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.EventsPublished |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAgentApi(dAtA[iNdEx:])
@@ -3145,7 +1784,7 @@ func (m *GetLinkStatisticsResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Statistics = append(m.Statistics, &LinkStatistics{})
+			m.Statistics = append(m.Statistics, &tracking.LinkStatistics{})
 			if err := m.Statistics[len(m.Statistics)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -3305,7 +1944,7 @@ func (m *GetTaskStatisticsResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Statistics = append(m.Statistics, &TaskStatistics{})
+			m.Statistics = append(m.Statistics, &tracking.TaskStatistics{})
 			if err := m.Statistics[len(m.Statistics)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -3436,85 +2075,59 @@ var (
 	ErrIntOverflowAgentApi   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_66a585e615575e40) }
+func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_3636a00ceea5c883) }
 
-var fileDescriptor_agent_api_66a585e615575e40 = []byte{
-	// 1218 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0xcf, 0x6f, 0x1b, 0xc5,
-	0x17, 0xaf, 0xed, 0x34, 0xb1, 0x27, 0x8e, 0x93, 0x8c, 0xd3, 0x7c, 0xb7, 0x56, 0xbe, 0xde, 0x68,
-	0xe1, 0x10, 0x50, 0xbb, 0xab, 0xa4, 0x08, 0x01, 0x95, 0x2a, 0xd9, 0x25, 0x4d, 0x0d, 0x15, 0x0d,
-	0x93, 0x20, 0x24, 0x2e, 0xd6, 0xda, 0x9e, 0x6c, 0xb6, 0x76, 0x76, 0x97, 0x9d, 0x71, 0xaa, 0x1c,
-	0xb8, 0x70, 0xe1, 0x5a, 0x89, 0x03, 0xff, 0x05, 0x17, 0xfe, 0x09, 0x8e, 0x95, 0xb8, 0x70, 0x5a,
-	0xa1, 0x0d, 0x47, 0xfe, 0x02, 0x4e, 0x68, 0x7e, 0xed, 0x8e, 0x1d, 0x3b, 0x09, 0x12, 0x17, 0x6b,
-	0xde, 0xfb, 0xcc, 0xfb, 0xbc, 0xb7, 0xef, 0xcd, 0x9b, 0x79, 0x06, 0xab, 0xae, 0x87, 0x03, 0xda,
-	0x75, 0x23, 0xdf, 0x8e, 0xe2, 0x90, 0x86, 0xb0, 0x1c, 0xf9, 0x11, 0x1e, 0xf9, 0x01, 0x6e, 0xbc,
-	0xf0, 0x7c, 0x7a, 0x3a, 0xee, 0xd9, 0xfd, 0xf0, 0xcc, 0x69, 0x8d, 0x5e, 0xb9, 0xbd, 0xb8, 0xf3,
-	0xd2, 0x19, 0x86, 0xee, 0xe8, 0x95, 0xfb, 0x30, 0x8c, 0x70, 0xec, 0xd2, 0x30, 0x76, 0xa2, 0xa1,
-	0xe7, 0xb8, 0x91, 0x4f, 0x24, 0xe0, 0x9c, 0xef, 0xba, 0xa3, 0xe8, 0xd4, 0xdd, 0x75, 0x3c, 0x1c,
-	0xb0, 0x2d, 0x78, 0x20, 0x78, 0x1b, 0x8f, 0x35, 0x36, 0x2f, 0x1c, 0xb9, 0x81, 0xe7, 0x70, 0xa0,
-	0x37, 0x3e, 0x71, 0x22, 0x7a, 0x11, 0x61, 0xe2, 0x50, 0xff, 0x0c, 0x13, 0xea, 0x9e, 0x45, 0xf9,
-	0x4a, 0x1a, 0x3f, 0xba, 0xd9, 0x18, 0x9f, 0x45, 0xf4, 0x42, 0xfc, 0x4a, 0xa3, 0x8f, 0x6f, 0x1b,
-	0x3f, 0x3e, 0xc7, 0x01, 0x15, 0xbf, 0xd2, 0x74, 0xcb, 0x0b, 0x43, 0x6f, 0x84, 0xd9, 0x97, 0x39,
-	0x6e, 0x10, 0x84, 0xd4, 0xa5, 0x7e, 0x18, 0x10, 0x89, 0x3e, 0x9c, 0x88, 0xc6, 0x0b, 0xf3, 0x58,
-	0x98, 0xc4, 0x05, 0xbe, 0x12, 0xdb, 0xad, 0xa7, 0xa0, 0x8e, 0xb0, 0xe7, 0x13, 0x8a, 0xe3, 0x17,
-	0x7e, 0x30, 0x44, 0xf8, 0xdb, 0x31, 0x26, 0x14, 0x36, 0x40, 0x99, 0x89, 0x5f, 0xb8, 0x67, 0xd8,
-	0x28, 0x6c, 0x17, 0x76, 0x2a, 0x28, 0x93, 0xe1, 0x1a, 0x28, 0x7d, 0x85, 0x3a, 0x46, 0x91, 0xab,
-	0xd9, 0x52, 0x27, 0x39, 0x76, 0x89, 0x4e, 0xc2, 0x44, 0x9d, 0x44, 0xc9, 0x33, 0x48, 0xde, 0x14,
-	0x41, 0x8d, 0xf9, 0x38, 0x62, 0xdf, 0x43, 0xa8, 0xdf, 0x27, 0x70, 0x0b, 0x2c, 0x04, 0x99, 0x71,
-	0xbb, 0x9c, 0x26, 0xe6, 0x02, 0x33, 0x46, 0x5c, 0x0b, 0xef, 0x83, 0xd2, 0x38, 0xf6, 0x05, 0x45,
-	0x7b, 0x29, 0x4d, 0x4c, 0x46, 0x83, 0x98, 0x0e, 0x7e, 0x04, 0x6a, 0x3c, 0x63, 0xa4, 0xfb, 0xda,
-	0xf5, 0xa9, 0x1f, 0x78, 0x46, 0x69, 0xbb, 0xb0, 0x53, 0x6a, 0xaf, 0xa7, 0x89, 0xb9, 0xb2, 0xcf,
-	0x91, 0xaf, 0x05, 0x80, 0x56, 0xb0, 0x2e, 0xc2, 0x36, 0x80, 0xd2, 0xd2, 0x0f, 0xba, 0x51, 0x1c,
-	0x7a, 0x31, 0x26, 0xc4, 0x58, 0xe0, 0xd6, 0x1b, 0x69, 0x62, 0xae, 0x09, 0xeb, 0x4e, 0x70, 0x28,
-	0x31, 0xb4, 0x86, 0xa7, 0x34, 0xf0, 0x00, 0xd4, 0x25, 0x87, 0xdb, 0x1f, 0x06, 0xe1, 0xeb, 0x11,
-	0x1e, 0x78, 0x78, 0x60, 0xdc, 0xe5, 0x24, 0x9b, 0x69, 0x62, 0x42, 0x41, 0xd2, 0xd2, 0x50, 0x24,
-	0xdd, 0xea, 0x3a, 0xeb, 0xaf, 0x12, 0xa8, 0xb1, 0x8c, 0xfd, 0x17, 0x29, 0x69, 0x81, 0x45, 0x3f,
-	0x88, 0xc6, 0x94, 0x18, 0xa5, 0xed, 0xd2, 0xce, 0xf2, 0xde, 0xff, 0x6d, 0xd5, 0x4b, 0x36, 0x73,
-	0xd1, 0x61, 0x58, 0xee, 0xa7, 0x0d, 0xd2, 0xc4, 0x5c, 0xe4, 0x4a, 0x82, 0xa4, 0x21, 0xdc, 0x07,
-	0x4b, 0xe1, 0x98, 0x72, 0x8e, 0x05, 0xce, 0xd1, 0x9c, 0xe4, 0x78, 0xc9, 0x41, 0x8d, 0x64, 0x39,
-	0x4d, 0xcc, 0x25, 0xa1, 0x25, 0x48, 0xd9, 0xc2, 0x16, 0x58, 0x27, 0x81, 0x1b, 0x91, 0xd3, 0x50,
-	0xab, 0xcf, 0xdd, 0x3c, 0xc3, 0x47, 0x0a, 0x54, 0x25, 0x5a, 0x23, 0x53, 0x1a, 0xf8, 0x39, 0xb8,
-	0x97, 0x53, 0xe8, 0x85, 0x5a, 0xe4, 0x34, 0xff, 0x4b, 0x13, 0xb3, 0x9e, 0xd1, 0x68, 0xb5, 0xaa,
-	0x93, 0xab, 0x4a, 0x56, 0xae, 0x9c, 0x8c, 0x8c, 0xfb, 0x7d, 0x8c, 0x07, 0x78, 0x60, 0x2c, 0xe5,
-	0xe5, 0xca, 0xa8, 0x8e, 0x14, 0x8a, 0x20, 0xb9, 0xa2, 0x83, 0x4f, 0x40, 0x1e, 0x69, 0xf7, 0xc4,
-	0xf5, 0x47, 0x78, 0x60, 0x94, 0x39, 0x4b, 0x3d, 0x4d, 0xcc, 0xd5, 0x8c, 0xe5, 0x19, 0x87, 0xd0,
-	0x2a, 0x99, 0x54, 0x58, 0x3f, 0x17, 0x41, 0x7d, 0x46, 0x2d, 0x6e, 0xa8, 0xf9, 0x63, 0xb0, 0x2a,
-	0x4f, 0x5b, 0x8c, 0xfb, 0xd8, 0x3f, 0xc7, 0x03, 0x5e, 0xff, 0x52, 0x1b, 0xa6, 0x89, 0x59, 0x13,
-	0x27, 0x0d, 0x49, 0x04, 0xc9, 0xb6, 0x50, 0xf2, 0x9c, 0xe3, 0x5e, 0xfa, 0x57, 0xc7, 0xfd, 0x09,
-	0x90, 0x3a, 0x46, 0xd0, 0xc7, 0x84, 0xe0, 0x81, 0x6c, 0x18, 0xfe, 0xd9, 0x82, 0xe1, 0x50, 0x41,
-	0x48, 0x46, 0x9b, 0x29, 0xb4, 0x66, 0x25, 0x43, 0x3f, 0x8a, 0xb2, 0x4e, 0xd1, 0x9a, 0xf5, 0x48,
-	0x00, 0xaa, 0x59, 0xa5, 0x68, 0x51, 0xb0, 0x31, 0xeb, 0xdc, 0xdd, 0x90, 0x30, 0x2d, 0xde, 0x71,
-	0x6f, 0xe4, 0x93, 0xd3, 0x2c, 0x63, 0x7a, 0xbc, 0x0a, 0xca, 0xe2, 0x55, 0x0a, 0xeb, 0xa7, 0x22,
-	0xa8, 0x0b, 0x97, 0x2a, 0xb9, 0xe2, 0xba, 0x7b, 0x0f, 0x54, 0xf8, 0xd6, 0xae, 0x3f, 0x20, 0x46,
-	0x61, 0xbb, 0xb4, 0x53, 0x69, 0x57, 0xd3, 0xc4, 0x2c, 0xf3, 0x5d, 0x9d, 0x4f, 0x09, 0x2a, 0x73,
-	0xb8, 0x33, 0x20, 0xf0, 0x01, 0x00, 0xd4, 0x25, 0xc3, 0x2e, 0x8b, 0x87, 0x18, 0x45, 0xbe, 0x77,
-	0x25, 0x4d, 0xcc, 0x8a, 0xba, 0x1f, 0x09, 0xaa, 0x50, 0xb5, 0x84, 0x5f, 0x82, 0x95, 0x7e, 0x8c,
-	0xd9, 0x73, 0xd5, 0x75, 0x4f, 0x28, 0x8e, 0x79, 0x7d, 0x96, 0xf7, 0x1a, 0xb6, 0x78, 0x08, 0x6c,
-	0x75, 0xc3, 0xdb, 0xc7, 0xea, 0x65, 0x6a, 0xaf, 0xa5, 0x89, 0x59, 0x7d, 0x2a, 0x8c, 0x5a, 0xcc,
-	0x06, 0x55, 0xfb, 0x9a, 0x04, 0x8f, 0x41, 0x4d, 0x51, 0xf6, 0xf0, 0x49, 0x18, 0x63, 0x5e, 0xb1,
-	0xeb, 0x39, 0x79, 0x3d, 0x24, 0x67, 0x9b, 0x1b, 0x21, 0x15, 0x97, 0x10, 0xad, 0x0f, 0x40, 0x55,
-	0x4f, 0x0c, 0x7c, 0x17, 0x2c, 0x8a, 0x15, 0x4f, 0xc7, 0xf2, 0x5e, 0xd5, 0x16, 0xef, 0x18, 0x57,
-	0x22, 0x89, 0x59, 0xcf, 0x81, 0x71, 0x80, 0xe9, 0xe4, 0xd5, 0xaf, 0x72, 0xfa, 0x00, 0x80, 0x91,
-	0x1f, 0xa8, 0x44, 0x15, 0xf2, 0x44, 0xa9, 0xd7, 0x88, 0xa0, 0xca, 0x48, 0x2d, 0x2d, 0x0c, 0xee,
-	0xcf, 0x60, 0x22, 0x51, 0x18, 0x10, 0x0c, 0x9f, 0x03, 0x40, 0x32, 0xad, 0x0c, 0xc8, 0xc8, 0x2f,
-	0xb0, 0x49, 0xab, 0x76, 0x2d, 0x4d, 0x4c, 0xa0, 0xb1, 0x68, 0xb6, 0x32, 0xe0, 0xc9, 0x8b, 0x59,
-	0x0b, 0x58, 0xab, 0x6c, 0xe1, 0xfa, 0xca, 0xca, 0x80, 0xa7, 0x99, 0x6e, 0x17, 0xf0, 0xa4, 0xd5,
-	0x75, 0x01, 0xef, 0xfd, 0x52, 0x04, 0x2b, 0x2d, 0x36, 0x4a, 0x89, 0x57, 0x3a, 0xbe, 0x80, 0xfb,
-	0xa0, 0xaa, 0x3f, 0xfb, 0x50, 0x7b, 0x0d, 0x66, 0x8c, 0x03, 0x8d, 0xcd, 0x2b, 0xc7, 0x62, 0x9f,
-	0xcd, 0x32, 0x3a, 0x0d, 0x0b, 0x67, 0x16, 0x8d, 0x36, 0x10, 0xcc, 0xa5, 0xe9, 0x80, 0x7b, 0xb2,
-	0xbd, 0xa6, 0x06, 0x80, 0xb9, 0xf5, 0xb9, 0x05, 0xd5, 0xd4, 0xc3, 0x39, 0x37, 0x73, 0xf3, 0xa8,
-	0xf6, 0xfe, 0x2e, 0x81, 0xf2, 0xb3, 0x38, 0x0c, 0x28, 0x0e, 0x06, 0xf0, 0x87, 0x02, 0x58, 0x3e,
-	0xc0, 0xf4, 0x50, 0x72, 0xc0, 0x39, 0x46, 0x8d, 0xcf, 0xec, 0x7c, 0xfe, 0xb2, 0xd5, 0x60, 0x67,
-	0x8b, 0xc1, 0xae, 0xab, 0x06, 0x3b, 0x3b, 0x1a, 0x7a, 0x36, 0x1b, 0x4c, 0x25, 0x60, 0xab, 0xc1,
-	0xd4, 0x56, 0xfc, 0x47, 0x11, 0xee, 0x5b, 0x1b, 0xdf, 0xff, 0xf6, 0xe7, 0x8f, 0xc5, 0x1a, 0xac,
-	0x3a, 0xe7, 0xbb, 0x8e, 0x8a, 0x1e, 0x9e, 0x80, 0xd5, 0x03, 0x4c, 0x27, 0xfa, 0x4c, 0x4b, 0xfb,
-	0x8c, 0x8b, 0xa9, 0xb1, 0x39, 0x1b, 0xb6, 0xb6, 0x38, 0xff, 0xa6, 0xb5, 0xce, 0xf8, 0xc5, 0xeb,
-	0x2c, 0x06, 0x4d, 0xf2, 0x49, 0xe1, 0x7d, 0xf8, 0x1d, 0x58, 0xbf, 0xd2, 0x4c, 0xd0, 0xca, 0xa9,
-	0xe6, 0xf5, 0x6c, 0xe3, 0x9d, 0x6b, 0xf7, 0x88, 0xc3, 0x6d, 0x99, 0xdc, 0xf7, 0x7d, 0x6b, 0x83,
-	0xf9, 0xce, 0x8f, 0xaa, 0xc3, 0x9a, 0x59, 0x73, 0x3f, 0x55, 0xc4, 0x49, 0xf7, 0x33, 0x3b, 0x70,
-	0xca, 0xfd, 0xec, 0xde, 0x9a, 0xeb, 0x9e, 0xb5, 0x26, 0x73, 0xdf, 0x3e, 0xfc, 0x35, 0x6d, 0x16,
-	0xde, 0xa6, 0xcd, 0xc2, 0x1f, 0x69, 0xb3, 0xf0, 0xe6, 0xb2, 0x79, 0xe7, 0xed, 0x65, 0xf3, 0xce,
-	0xef, 0x97, 0xcd, 0x3b, 0xdf, 0x7c, 0x78, 0xeb, 0x7f, 0x1e, 0xac, 0xe3, 0xb2, 0xba, 0xf5, 0x16,
-	0xf9, 0x49, 0x79, 0xf4, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x86, 0x4c, 0x9e, 0xce, 0xd5, 0x0c,
-	0x00, 0x00,
+var fileDescriptor_agent_api_3636a00ceea5c883 = []byte{
+	// 814 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x55, 0xcf, 0x4f, 0xe3, 0x46,
+	0x14, 0xc6, 0x49, 0x85, 0x92, 0x21, 0xe1, 0xc7, 0x80, 0x90, 0xb1, 0x68, 0x82, 0xdc, 0x0b, 0xad,
+	0x60, 0x5c, 0x82, 0x54, 0xa9, 0xed, 0xa5, 0x09, 0xa5, 0x90, 0x0a, 0x15, 0x6a, 0xe8, 0xa5, 0x97,
+	0x68, 0x92, 0x4c, 0x8c, 0x89, 0xe3, 0x99, 0xf5, 0x4c, 0x90, 0x38, 0xec, 0x65, 0x2f, 0x7b, 0x5d,
+	0x69, 0x0f, 0x7b, 0xda, 0xff, 0x67, 0x8f, 0x48, 0x7b, 0xd9, 0x53, 0xb4, 0x32, 0xfb, 0x57, 0xec,
+	0x69, 0x35, 0xb6, 0x87, 0x38, 0xe0, 0x40, 0x2e, 0xd6, 0xbc, 0xbc, 0xf9, 0xbe, 0xf7, 0xe6, 0xbd,
+	0xef, 0xbd, 0x80, 0x25, 0xec, 0x10, 0x5f, 0xb4, 0x30, 0x73, 0x11, 0x0b, 0xa8, 0xa0, 0xb0, 0xc0,
+	0x5c, 0x46, 0x3c, 0xd7, 0x27, 0xc6, 0x89, 0xe3, 0x8a, 0xcb, 0x61, 0x1b, 0x75, 0xe8, 0xc0, 0xaa,
+	0x7b, 0x57, 0xb8, 0x1d, 0x34, 0x4f, 0xad, 0x3e, 0xc5, 0xde, 0x15, 0xde, 0xa5, 0x8c, 0x04, 0x58,
+	0xd0, 0xc0, 0x62, 0x7d, 0xc7, 0xc2, 0xcc, 0xe5, 0x89, 0xc3, 0xba, 0xde, 0xc3, 0x1e, 0xbb, 0xc4,
+	0x7b, 0x96, 0x43, 0x7c, 0x79, 0x85, 0x74, 0x63, 0x5e, 0xe3, 0xf7, 0x14, 0x9b, 0x43, 0x3d, 0xec,
+	0x3b, 0x56, 0xe4, 0x68, 0x0f, 0x7b, 0x16, 0x13, 0x37, 0x8c, 0x70, 0x4b, 0xb8, 0x03, 0xc2, 0x05,
+	0x1e, 0xb0, 0xf1, 0x29, 0x01, 0xef, 0x3f, 0x0f, 0x26, 0x03, 0x26, 0x6e, 0xe2, 0x6f, 0x02, 0xfa,
+	0x75, 0xd6, 0xfc, 0xc9, 0x35, 0xf1, 0x45, 0xfc, 0x4d, 0xa0, 0xf5, 0x59, 0xa1, 0x22, 0xc0, 0x9d,
+	0xbe, 0xeb, 0x3b, 0x16, 0x17, 0x58, 0xb8, 0x5c, 0xb8, 0x1d, 0x9e, 0x50, 0x6c, 0x3a, 0x94, 0x3a,
+	0x1e, 0x91, 0xc5, 0xb1, 0xb0, 0xef, 0x53, 0xe9, 0xa7, 0xbe, 0xf2, 0xee, 0x4e, 0x3c, 0xc8, 0xa1,
+	0xe3, 0xe7, 0x48, 0x2b, 0x32, 0xa2, 0x53, 0x7c, 0xdd, 0x3c, 0x00, 0xab, 0x36, 0x71, 0x5c, 0x2e,
+	0x48, 0x70, 0xe2, 0xfa, 0x7d, 0x9b, 0xbc, 0x18, 0x12, 0x2e, 0xa0, 0x01, 0x0a, 0xd2, 0xfc, 0x07,
+	0x0f, 0x88, 0xae, 0x6d, 0x69, 0xdb, 0x45, 0xfb, 0xde, 0x86, 0xcb, 0x20, 0xff, 0x9f, 0xdd, 0xd4,
+	0x73, 0xd1, 0xcf, 0xf2, 0x98, 0x26, 0xb9, 0xc0, 0x3c, 0x4d, 0x22, 0xcd, 0x34, 0x89, 0xb2, 0x33,
+	0x48, 0xde, 0xe5, 0xc0, 0xea, 0xe9, 0x50, 0xb0, 0xa1, 0x38, 0x94, 0xf5, 0xe2, 0x8a, 0xe5, 0x47,
+	0x50, 0x8c, 0x0a, 0xd8, 0x72, 0xbb, 0x5c, 0xd7, 0xb6, 0xf2, 0xdb, 0xc5, 0x46, 0x29, 0x1c, 0x55,
+	0x0b, 0xd1, 0xad, 0xe6, 0x9f, 0xdc, 0x2e, 0x44, 0xee, 0x66, 0x97, 0xc3, 0x1d, 0x00, 0x04, 0xe6,
+	0xfd, 0x96, 0x8f, 0x07, 0x84, 0xeb, 0xb9, 0xe8, 0x6e, 0x39, 0x1c, 0x55, 0x8b, 0x2a, 0x2c, 0xb7,
+	0x8b, 0x42, 0x1d, 0xe1, 0xbf, 0xa0, 0xdc, 0x09, 0x88, 0x14, 0x52, 0x0b, 0xf7, 0x04, 0x09, 0xf4,
+	0xfc, 0x96, 0xb6, 0xbd, 0x50, 0x33, 0x50, 0x5c, 0x5f, 0xa4, 0x0a, 0x87, 0x2e, 0x94, 0x66, 0x1a,
+	0xcb, 0xe1, 0xa8, 0x5a, 0x3a, 0x88, 0x41, 0x75, 0x89, 0xb1, 0x4b, 0x9d, 0x94, 0x05, 0x2f, 0xc0,
+	0xa2, 0xa2, 0x6c, 0x93, 0x1e, 0x0d, 0x88, 0xfe, 0xdd, 0xb3, 0x9c, 0x2b, 0xe1, 0xa8, 0x5a, 0x4e,
+	0x38, 0x1b, 0x11, 0xc8, 0x56, 0x79, 0xc5, 0xa6, 0xf9, 0x07, 0x28, 0xa5, 0x0b, 0x03, 0x7f, 0x06,
+	0xf3, 0xd1, 0x93, 0xe3, 0x72, 0x2c, 0xd4, 0x4a, 0x28, 0x56, 0x58, 0xe4, 0x6e, 0x80, 0x70, 0x54,
+	0x9d, 0x4f, 0x4a, 0x98, 0xdc, 0x33, 0x8f, 0x81, 0x7e, 0x44, 0x84, 0xec, 0xe0, 0xf9, 0xbd, 0x9a,
+	0x54, 0x7d, 0x77, 0x00, 0xf0, 0x5c, 0x5f, 0x15, 0x4d, 0x1b, 0x17, 0x4d, 0x35, 0x9c, 0xdb, 0x45,
+	0x4f, 0x1d, 0x4d, 0x02, 0x36, 0x32, 0x98, 0x38, 0xa3, 0x3e, 0x27, 0xf0, 0x18, 0x80, 0xb1, 0x5a,
+	0x93, 0xe4, 0x74, 0xa4, 0x94, 0x8c, 0x26, 0x51, 0x8d, 0xc5, 0x70, 0x54, 0x05, 0x29, 0x96, 0x14,
+	0x36, 0x49, 0x58, 0xb6, 0x2d, 0x33, 0xe1, 0x54, 0x97, 0xb5, 0xa7, 0xbb, 0x9c, 0x24, 0xfc, 0x90,
+	0x69, 0xb6, 0x84, 0x27, 0x51, 0x4f, 0x25, 0x5c, 0x7b, 0xaf, 0x81, 0x72, 0x5d, 0x2e, 0xbc, 0x78,
+	0x10, 0x82, 0x1b, 0x78, 0x08, 0x4a, 0xe9, 0xc9, 0x82, 0xdf, 0x23, 0xb5, 0xff, 0x50, 0xc6, 0xc4,
+	0x19, 0xeb, 0x8f, 0x24, 0x72, 0x28, 0x37, 0x4e, 0x9a, 0x46, 0xa6, 0x93, 0x45, 0x93, 0x9a, 0xb9,
+	0x69, 0x34, 0xb5, 0xaf, 0x79, 0x50, 0xf8, 0x2b, 0xa0, 0xbe, 0x20, 0x7e, 0x17, 0xbe, 0xd6, 0xc0,
+	0xc2, 0x11, 0x11, 0x67, 0x09, 0x11, 0x9c, 0x02, 0x32, 0xfe, 0x46, 0xe3, 0x65, 0x82, 0xd4, 0xb6,
+	0x42, 0xf1, 0xb6, 0x6a, 0xa9, 0x6d, 0x85, 0x58, 0xdf, 0x41, 0x72, 0x51, 0x27, 0x0e, 0xa4, 0x16,
+	0x35, 0x52, 0xfc, 0xe7, 0x8c, 0x74, 0xcc, 0xb5, 0x57, 0x1f, 0xbf, 0xbc, 0xcd, 0x2d, 0xc2, 0x92,
+	0x75, 0xbd, 0x67, 0xa9, 0x27, 0xc0, 0x1e, 0x58, 0x3a, 0x22, 0x62, 0x42, 0xdd, 0xa9, 0x07, 0x66,
+	0xac, 0x03, 0x63, 0x3d, 0xdb, 0x6d, 0x6e, 0x46, 0xfc, 0xeb, 0xe6, 0x8a, 0xe4, 0xa7, 0x91, 0x27,
+	0x5e, 0xbc, 0xfc, 0x37, 0xed, 0x27, 0xf8, 0x12, 0xac, 0x3c, 0x92, 0x2d, 0x34, 0xc7, 0x54, 0xd3,
+	0xa6, 0xc3, 0xf8, 0xe1, 0xc9, 0x3b, 0xb1, 0x8c, 0xcc, 0x6a, 0x14, 0x7b, 0xc3, 0x5c, 0x93, 0xb1,
+	0xc7, 0xa2, 0xb0, 0xe4, 0xd8, 0xa4, 0xc2, 0x4f, 0xca, 0xe9, 0x41, 0xf8, 0x4c, 0xad, 0x3f, 0x08,
+	0x9f, 0xad, 0xe2, 0xa9, 0xe1, 0xe5, 0x10, 0xc8, 0xf0, 0x8d, 0xb3, 0x0f, 0x61, 0x45, 0xbb, 0x0d,
+	0x2b, 0xda, 0xe7, 0xb0, 0xa2, 0xbd, 0xb9, 0xab, 0xcc, 0xdd, 0xde, 0x55, 0xe6, 0x3e, 0xdd, 0x55,
+	0xe6, 0xfe, 0xff, 0x65, 0xe6, 0x7f, 0x62, 0xa9, 0xed, 0xfb, 0xbe, 0xb5, 0xe7, 0x23, 0xa5, 0xec,
+	0x7f, 0x0b, 0x00, 0x00, 0xff, 0xff, 0x7e, 0xc2, 0xaa, 0x05, 0xe5, 0x07, 0x00, 0x00,
 }

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package pipeline
+package tracking
 
 // Add the values of the source statistic to the target statistic.
 func (target *LinkStatistics) Add(source LinkStatistics) {

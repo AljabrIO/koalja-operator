@@ -22,6 +22,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 
 	"github.com/rs/zerolog"
@@ -40,6 +41,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
+	trackingcl "github.com/AljabrIO/koalja-operator/pkg/tracking/client"
 )
 
 // Service implements the task agent.
@@ -52,8 +54,9 @@ type Service struct {
 	port            int
 	taskName        string
 	uri             string
-	statistics      *pipeline.TaskStatistics
+	statistics      *tracking.TaskStatistics
 	agentRegistry   pipeline.AgentRegistryClient
+	statisticsSink  tracking.StatisticsSinkClient
 }
 
 // NewService creates a new Service instance.
@@ -128,16 +131,21 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		log.Error().Err(err).Msg("Failed to create agent registry client")
 		return nil, maskAny(err)
 	}
+	statsSink, err := trackingcl.CreateStatisticsSinkClient()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create statistics sink client")
+		return nil, maskAny(err)
+	}
 	uri := newTaskURI(dnsName, port, &pod)
-	statistics := &pipeline.TaskStatistics{
+	statistics := &tracking.TaskStatistics{
 		Name: taskName,
 		URI:  uri,
 	}
 	for _, x := range taskSpec.Inputs {
-		statistics.Inputs = append(statistics.Inputs, &pipeline.TaskInputStatistics{Name: x.Name})
+		statistics.Inputs = append(statistics.Inputs, &tracking.TaskInputStatistics{Name: x.Name})
 	}
 	for _, x := range taskSpec.Outputs {
-		statistics.Outputs = append(statistics.Outputs, &pipeline.TaskOutputStatistics{Name: x.Name})
+		statistics.Outputs = append(statistics.Outputs, &tracking.TaskOutputStatistics{Name: x.Name})
 	}
 	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod, statistics)
 	if err != nil {
@@ -162,6 +170,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		uri:             uri,
 		statistics:      statistics,
 		agentRegistry:   agentReg,
+		statisticsSink:  statsSink,
 	}, nil
 }
 
@@ -286,10 +295,10 @@ func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistere
 		}
 
 		if agentRegistered == nil {
-			var stats pipeline.TaskStatistics
+			var stats tracking.TaskStatistics
 			stats.Add(*s.statistics)
 			if err := retry.Do(ctx, func(ctx context.Context) error {
-				if _, err := s.agentRegistry.PublishTaskStatistics(ctx, &stats); err != nil {
+				if _, err := s.statisticsSink.PublishTaskStatistics(ctx, &stats); err != nil {
 					s.log.Debug().Err(err).Msg("publish task statistics attempt failed")
 					return err
 				}

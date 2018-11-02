@@ -35,6 +35,8 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
+	trackingcl "github.com/AljabrIO/koalja-operator/pkg/tracking/client"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/rs/zerolog"
 )
@@ -45,11 +47,12 @@ type Service struct {
 	port           int
 	linkName       string
 	uri            string
-	statistics     *pipeline.LinkStatistics
+	statistics     *tracking.LinkStatistics
 	eventPublisher event.EventPublisherServer
 	eventSource    event.EventSourceServer
 	eventRegistry  registry.EventRegistryClient
 	agentRegistry  pipeline.AgentRegistryClient
+	statisticsSink tracking.StatisticsSinkClient
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -67,7 +70,7 @@ type APIDependencies struct {
 	// AgentRegistry client
 	AgentRegistry pipeline.AgentRegistryClient
 	// Statistics
-	Statistics *pipeline.LinkStatistics
+	Statistics *tracking.LinkStatistics
 }
 
 // APIBuilder is an interface provided by an Link implementation
@@ -128,8 +131,13 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		log.Error().Err(err).Msg("Failed to create agent registry client")
 		return nil, maskAny(err)
 	}
+	statsSink, err := trackingcl.CreateStatisticsSinkClient()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create statistics sink client")
+		return nil, maskAny(err)
+	}
 	uri := newLinkURI(dnsName, port, &p)
-	statistics := &pipeline.LinkStatistics{
+	statistics := &tracking.LinkStatistics{
 		Name: linkName,
 		URI:  uri,
 	}
@@ -160,6 +168,7 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		eventSource:    eventSource,
 		eventRegistry:  evtReg,
 		agentRegistry:  agentReg,
+		statisticsSink: statsSink,
 	}, nil
 }
 
@@ -246,7 +255,7 @@ func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistere
 		if agentRegistered == nil {
 			if err := retry.Do(ctx, func(ctx context.Context) error {
 				stats := *s.statistics
-				if _, err := s.agentRegistry.PublishLinkStatistics(ctx, &stats); err != nil {
+				if _, err := s.statisticsSink.PublishLinkStatistics(ctx, &stats); err != nil {
 					s.log.Debug().Err(err).Msg("publish link statistics attempt failed")
 					return err
 				}

@@ -30,10 +30,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/link"
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/dchest/uniuri"
 )
@@ -50,11 +50,11 @@ type inputLoop struct {
 	executionCount  int32
 	execQueue       chan (*InputSnapshot)
 	executor        Executor
-	statistics      *pipeline.TaskStatistics
+	statistics      *tracking.TaskStatistics
 }
 
 // newInputLoop initializes a new input loop.
-func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor, statistics *pipeline.TaskStatistics) (*inputLoop, error) {
+func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor, statistics *tracking.TaskStatistics) (*inputLoop, error) {
 	inputAddressMap := make(map[string]string)
 	for _, tis := range spec.Inputs {
 		annKey := constants.CreateInputLinkAddressAnnotationName(tis.Name)
@@ -181,7 +181,7 @@ func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot
 }
 
 // processEvent the event coming from the given input.
-func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalja.TaskInputSpec, stats *pipeline.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
+func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
 	snapshotPolicy := tis.SnapshotPolicy
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
@@ -244,7 +244,7 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 }
 
 // watchInput subscribes to the given input and gathers events until the given context is canceled.
-func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, stats *pipeline.TaskInputStatistics) error {
+func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics) error {
 	// Create client
 	address := il.inputAddressMap[tis.Name]
 

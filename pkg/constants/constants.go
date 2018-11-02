@@ -62,6 +62,10 @@ const (
 	// address of the AgentRegistry to a container.
 	EnvAgentRegistryAddress = "KOALJA_AGENT_REGISTRY_ADDRESS"
 
+	// EnvStatisticsSinkAddress is the name of the environment variable used to pass the
+	// address of the StatisticsSink to a container.
+	EnvStatisticsSinkAddress = "KOALJA_STATISTICS_SINK_ADDRESS"
+
 	// EnvEventRegistryAddress is the name of the environment variable used to pass the
 	// address of the EventRegistry to a container.
 	EnvEventRegistryAddress = "KOALJA_EVENT_REGISTRY_ADDRESS"

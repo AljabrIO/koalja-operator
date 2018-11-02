@@ -21,8 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 )
 
 // InputSnapshot holds a single event for every input of a task.
@@ -33,7 +33,7 @@ type InputSnapshot struct {
 
 type eventActPair struct {
 	e     *event.Event
-	stats *pipeline.TaskInputStatistics
+	stats *tracking.TaskInputStatistics
 	ack   func(context.Context, *event.Event) error
 }
 
@@ -95,7 +95,7 @@ func (s *InputSnapshot) m() map[string]eventActPair {
 
 // Set the event at the given input name.
 // This will acknowledge any existing event.
-func (s *InputSnapshot) Set(ctx context.Context, inputName string, e *event.Event, stats *pipeline.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
+func (s *InputSnapshot) Set(ctx context.Context, inputName string, e *event.Event, stats *tracking.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
 	s.mutex.Lock()
 	previous, found := s.m()[inputName]
 	delete(s.m(), inputName)

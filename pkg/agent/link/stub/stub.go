@@ -25,6 +25,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	ptypes "github.com/gogo/protobuf/types"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
@@ -65,7 +66,7 @@ type stub struct {
 	subscriptions      map[int64]*subscription
 	subscriptionsMutex sync.Mutex
 	lastSubscriptionID int64
-	statistics         *pipeline.LinkStatistics
+	statistics         *tracking.LinkStatistics
 }
 
 const (

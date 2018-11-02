@@ -1,0 +1,85 @@
+// 
+// Copyright © 2018 Aljabr, Inc.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// 
+
+syntax = "proto3";
+
+package tracking;
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/tracking";
+
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+// StatisticsSink is the API covering publication of statistics.
+service StatisticsSink {
+    // Provide statistics of a link (called by the link)
+    rpc PublishLinkStatistics(tracking.LinkStatistics) returns (google.protobuf.Empty);
+    // Provide statistics of a task (called by the task)
+    rpc PublishTaskStatistics(tracking.TaskStatistics) returns (google.protobuf.Empty);
+}
+
+message LinkStatistics {
+    // Name of the link
+    string name = 1 [(gogoproto.customname) = "Name"];
+    // URI of the link
+    string uri = 2 [(gogoproto.customname) = "URI"];
+    // Number of events waiting in this link before being processed
+    int64 events_waiting = 3 [(gogoproto.customname) = "EventsWaiting"];
+    // Number of events that are in progress but have not been acknowledged
+    int64 events_in_progress = 4 [(gogoproto.customname) = "EventsInProgress"];
+    // Number of events that have been processed and acknowledged
+    int64 events_acknowledged = 5 [(gogoproto.customname) = "EventsAcknowledged"];
+}
+
+message TaskStatistics {
+    // Name of the task
+    string name = 1 [(gogoproto.customname) = "Name"];
+    // URI of the task
+    string uri = 2 [(gogoproto.customname) = "URI"];
+    // Statistics for every input
+    repeated TaskInputStatistics inputs = 3  [(gogoproto.customname) = "Inputs"];
+    // Statistics for every output
+    repeated TaskOutputStatistics outputs = 4  [(gogoproto.customname) = "Outputs"];
+    // Number of snapshots waiting in this task waiting to be executed
+    int64 snapshots_waiting = 5 [(gogoproto.customname) = "SnapshotsWaiting"];
+    // Number of snapshots that are in execution but have not been finished
+    int64 snapshots_in_progress = 6 [(gogoproto.customname) = "SnapshotsInProgress"];
+    // Number of snapshots that have been executed succesfully
+    int64 snapshots_succeeded = 7 [(gogoproto.customname) = "SnapshotsSucceeded"];
+    // Number of snapshots that have been executed resulting in an error
+    int64 snapshots_failed = 8 [(gogoproto.customname) = "SnapshotsFailed"];
+}
+
+message TaskInputStatistics {
+    // Name of the task input
+    string name = 1 [(gogoproto.customname) = "Name"];
+    // Number of events that have been received from the link
+    int64 events_received = 2 [(gogoproto.customname) = "EventsReceived"];
+    // Number of events that are in progress in an executor but have not been acknowledged
+    int64 events_in_progress = 3 [(gogoproto.customname) = "EventsInProgress"];
+    // Number of events that have been processed and acknowledged
+    int64 events_processed = 4 [(gogoproto.customname) = "EventsProcessed"];
+    // Number of events that have been skipped and acknowledged
+    int64 events_skipped = 5 [(gogoproto.customname) = "EventsSkipped"];
+}
+
+message TaskOutputStatistics {
+    // Name of the task output
+    string name = 1 [(gogoproto.customname) = "Name"];
+    // Number of events that have been published to the link
+    int64 events_published = 2 [(gogoproto.customname) = "EventsPublished"];
+}
+

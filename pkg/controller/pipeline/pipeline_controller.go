@@ -210,12 +210,13 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	agentCont := *plAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&agentCont, true)
 	SetContainerEnvVars(&agentCont, map[string]string{
-		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvAPIHTTPPort:          strconv.Itoa(constants.AgentAPIHTTPPort),
-		constants.EnvPipelineName:         instance.Name,
-		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.EventRegistryAPIPort)),
-		constants.EnvDNSName:              CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
+		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvAPIHTTPPort:           strconv.Itoa(constants.AgentAPIHTTPPort),
+		constants.EnvPipelineName:          instance.Name,
+		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvEventRegistryAddress:  net.JoinHostPort("localhost", strconv.Itoa(constants.EventRegistryAPIPort)),
+		constants.EnvDNSName:               CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
 	})
 
 	// Search for event registry resource
@@ -375,12 +376,13 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	c := *linkAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvPipelineName:         instance.Name,
-		constants.EnvLinkName:             link.Name,
-		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvDNSName:              CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
+		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:          instance.Name,
+		constants.EnvLinkName:              link.Name,
+		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvEventRegistryAddress:  CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvDNSName:               CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
 	})
 
 	// Define the desired StatefulSet object for link agent
@@ -561,13 +563,14 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	c := *taskAgentList.Items[0].Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:              strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvPipelineName:         instance.Name,
-		constants.EnvTaskName:             task.Name,
-		constants.EnvAgentRegistryAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress: CreateEventRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvFileSystemAddress:    filesystemServiceAddress,
-		constants.EnvDNSName:              CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
+		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:          instance.Name,
+		constants.EnvTaskName:              task.Name,
+		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvEventRegistryAddress:  CreateEventRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvFileSystemAddress:     filesystemServiceAddress,
+		constants.EnvDNSName:               CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
 	})
 
 	// Define the desired StatefulSet object for task agent
