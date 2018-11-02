@@ -16,6 +16,8 @@
 
 package tracking
 
+import "sort"
+
 // Add the values of the source statistic to the target statistic.
 func (target *LinkStatistics) Add(source LinkStatistics) {
 	if target.Name == "" {
@@ -39,6 +41,7 @@ func (target *TaskStatistics) InputByName(name string) *TaskInputStatistics {
 	}
 	s := &TaskInputStatistics{Name: name}
 	target.Inputs = append(target.Inputs, s)
+	sort.Slice(target.Inputs, func(i, j int) bool { return target.Inputs[i].Name < target.Inputs[j].Name })
 	return s
 }
 
@@ -52,6 +55,7 @@ func (target *TaskStatistics) OutputByName(name string) *TaskOutputStatistics {
 	}
 	s := &TaskOutputStatistics{Name: name}
 	target.Outputs = append(target.Outputs, s)
+	sort.Slice(target.Outputs, func(i, j int) bool { return target.Outputs[i].Name < target.Outputs[j].Name })
 	return s
 }
 

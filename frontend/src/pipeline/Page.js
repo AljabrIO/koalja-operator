@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import api from '../api/api';
 import ReactTimeout from 'react-timeout';
 import Graph from './Graph';
+import Websocket from 'react-websocket';
 
 class Page extends Component {
   state = {
@@ -33,7 +34,6 @@ class Page extends Component {
       this.props.doLogout();
     }*/
     }
-    this.props.setTimeout(this.reloadPipeline, 10000);
   }
 
   reloadLinkStats = async() => {
@@ -52,7 +52,6 @@ class Page extends Component {
       this.props.doLogout();
     }*/
     }
-    this.props.setTimeout(this.reloadLinkStats, 2500);
   }
 
   reloadTaskStats = async() => {
@@ -71,20 +70,34 @@ class Page extends Component {
       this.props.doLogout();
     }*/
     }
-    this.props.setTimeout(this.reloadTaskStats, 2500);
+  }
+
+  handleUpdate = (data) => {
+    this.reloadPipeline();
+    this.reloadLinkStats();
+    this.reloadTaskStats();
+
+    //let result = JSON.parse(data);
+    //this.setState({count: this.state.count + result.movement});
   }
 
   render() {
+    let ws = (<Websocket 
+      key="socket"
+      url={`ws://${window.location.host}/v1/updates`}
+      onMessage={this.handleUpdate}/>);
+
     if (this.state.pipeline && this.state.linkStats && this.state.taskStats) {
-      return (
+      return [ws, (
         <Graph
+          key="graph"
           pipeline={this.state.pipeline}
           linkStats={this.state.linkStats.statistics || []}
           taskStats={this.state.taskStats.statistics || []}
         />
-        );
+        )];
     }
-    return (<div>Loading...</div>);
+    return [ws, (<div key="loading">Loading...</div>)];
   }
 }
 

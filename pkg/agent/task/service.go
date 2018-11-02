@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 
 	"github.com/rs/zerolog"
@@ -263,12 +264,14 @@ func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistere
 		Str("task", s.taskName).
 		Str("uri", s.uri).
 		Logger()
-	minDelay := time.Second * 5
+	minDelay := time.Second
 	maxDelay := time.Second * 15
 	delay := minDelay
 	var lastAgentRegistration time.Time
+	var lastHash string
 	for {
 		// Register agent (if needed)
+		registered := false
 		if time.Since(lastAgentRegistration) > time.Minute {
 			if err := retry.Do(ctx, func(ctx context.Context) error {
 				if _, err := s.agentRegistry.RegisterTask(ctx, &pipeline.RegisterTaskRequest{
@@ -284,6 +287,7 @@ func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistere
 			} else {
 				// Success
 				lastAgentRegistration = time.Now()
+				registered = true
 				if agentRegistered != nil {
 					close(agentRegistered)
 					agentRegistered = nil
@@ -298,9 +302,12 @@ func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistere
 			var stats tracking.TaskStatistics
 			stats.Add(*s.statistics)
 			if err := retry.Do(ctx, func(ctx context.Context) error {
-				if _, err := s.statisticsSink.PublishTaskStatistics(ctx, &stats); err != nil {
-					s.log.Debug().Err(err).Msg("publish task statistics attempt failed")
-					return err
+				if newHash := util.Hash(stats); newHash != lastHash || registered {
+					if _, err := s.statisticsSink.PublishTaskStatistics(ctx, &stats); err != nil {
+						s.log.Debug().Err(err).Msg("publish task statistics attempt failed")
+						return err
+					}
+					lastHash = newHash
 				}
 				return nil
 			}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {

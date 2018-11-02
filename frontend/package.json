@@ -7,7 +7,9 @@
     "echarts-for-react": "^2.0.15-beta.0",
     "react": "^16.6.0",
     "react-dom": "^16.6.0",
-    "react-timeout": "^1.1.2"
+    "react-timeout": "^1.1.2",
+    "react-websocket": "^2.0.0",
+    "sockette-component": "^1.0.0"
   },
   "devDependencies": {
     "react-scripts": "2.0.5"

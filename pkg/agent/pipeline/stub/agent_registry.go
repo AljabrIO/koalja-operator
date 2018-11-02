@@ -35,6 +35,7 @@ type agentRegistry struct {
 	linkAgents  map[string][]*linkAgent // map[link-name][]linkAgent
 	taskAgents  map[string][]*taskAgent // map[task-name][]taskAgent
 	agentsMutex sync.Mutex
+	hub         pipeline.FrontendHub
 }
 
 type linkAgent struct {
@@ -54,9 +55,10 @@ type taskAgent struct {
 }
 
 // newAgentRegistry initializes a new agent registry
-func newAgentRegistry(log zerolog.Logger) *agentRegistry {
+func newAgentRegistry(log zerolog.Logger, hub pipeline.FrontendHub) *agentRegistry {
 	return &agentRegistry{
 		log:        log,
+		hub:        hub,
 		linkAgents: make(map[string][]*linkAgent),
 		taskAgents: make(map[string][]*taskAgent),
 	}
@@ -116,26 +118,31 @@ func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *tracking
 		Str("link", req.GetName()).
 		Str("uri", req.GetURI()).
 		Msg("Publish link statistics")
-	s.agentsMutex.Lock()
-	defer s.agentsMutex.Unlock()
 
-	current := s.linkAgents[req.GetName()]
-	var linkAgentRef *linkAgent
-	for _, x := range current {
-		if x.URI == req.GetURI() {
-			linkAgentRef = x
-			break
+	s.agentsMutex.Lock()
+	{
+		current := s.linkAgents[req.GetName()]
+		var linkAgentRef *linkAgent
+		for _, x := range current {
+			if x.URI == req.GetURI() {
+				linkAgentRef = x
+				break
+			}
 		}
+		if linkAgentRef == nil {
+			linkAgentRef = &linkAgent{URI: req.GetURI()}
+			current = append(current, linkAgentRef)
+			s.linkAgents[req.GetName()] = current
+		}
+		linkAgentRef.Statistics.Data.Reset()
+		linkAgentRef.Statistics.Data.Add(*req)
+		linkAgentRef.Statistics.Timestamp = time.Now()
+		sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
 	}
-	if linkAgentRef == nil {
-		linkAgentRef = &linkAgent{URI: req.GetURI()}
-		current = append(current, linkAgentRef)
-		s.linkAgents[req.GetName()] = current
-	}
-	linkAgentRef.Statistics.Data.Reset()
-	linkAgentRef.Statistics.Data.Add(*req)
-	linkAgentRef.Statistics.Timestamp = time.Now()
-	sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
+	s.agentsMutex.Unlock()
+
+	// Notify frontend clients
+	s.hub.StatisticsChanged()
 
 	return &empty.Empty{}, nil
 }
@@ -146,26 +153,31 @@ func (s *agentRegistry) PublishTaskStatistics(ctx context.Context, req *tracking
 		Str("task", req.GetName()).
 		Str("uri", req.GetURI()).
 		Msg("Publish task statistics")
-	s.agentsMutex.Lock()
-	defer s.agentsMutex.Unlock()
 
-	current := s.taskAgents[req.GetName()]
-	var taskAgentRef *taskAgent
-	for _, x := range current {
-		if x.URI == req.GetURI() {
-			taskAgentRef = x
-			break
+	s.agentsMutex.Lock()
+	{
+		current := s.taskAgents[req.GetName()]
+		var taskAgentRef *taskAgent
+		for _, x := range current {
+			if x.URI == req.GetURI() {
+				taskAgentRef = x
+				break
+			}
 		}
+		if taskAgentRef == nil {
+			taskAgentRef = &taskAgent{URI: req.GetURI()}
+			current = append(current, taskAgentRef)
+			s.taskAgents[req.GetName()] = current
+		}
+		taskAgentRef.Statistics.Data.Reset()
+		taskAgentRef.Statistics.Data.Add(*req)
+		taskAgentRef.Statistics.Timestamp = time.Now()
+		sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
 	}
-	if taskAgentRef == nil {
-		taskAgentRef = &taskAgent{URI: req.GetURI()}
-		current = append(current, taskAgentRef)
-		s.taskAgents[req.GetName()] = current
-	}
-	taskAgentRef.Statistics.Data.Reset()
-	taskAgentRef.Statistics.Data.Add(*req)
-	taskAgentRef.Statistics.Timestamp = time.Now()
-	sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
+	s.agentsMutex.Unlock()
+
+	// Notify frontend clients
+	s.hub.StatisticsChanged()
 
 	return &empty.Empty{}, nil
 }

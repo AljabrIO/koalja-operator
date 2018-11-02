@@ -44,18 +44,18 @@ func NewStub(log zerolog.Logger) pipeline.APIBuilder {
 }
 
 // getOrCreateAgentRegistry returns the agent registry, creating one if needed.
-func (s *stub) getOrCreateAgentRegistry() *agentRegistry {
+func (s *stub) getOrCreateAgentRegistry(hub pipeline.FrontendHub) *agentRegistry {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.agentRegistry == nil {
-		s.agentRegistry = newAgentRegistry(s.log)
+		s.agentRegistry = newAgentRegistry(s.log, hub)
 	}
 	return s.agentRegistry
 }
 
 // getOrCreateOutputStore returns the output store, creating one if needed.
-func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *koalja.Pipeline) *outputStore {
-	agentRegistry := s.getOrCreateAgentRegistry()
+func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
+	agentRegistry := s.getOrCreateAgentRegistry(hub)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.outputStore == nil {
@@ -66,20 +66,20 @@ func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *
 
 // NewEventPublisher "builds" a new publisher
 func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPublisherServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline), nil
+	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline, deps.FrontendHub), nil
 }
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 func (s *stub) NewAgentRegistry(deps pipeline.APIDependencies) (pipeline.AgentRegistryServer, error) {
-	return s.getOrCreateAgentRegistry(), nil
+	return s.getOrCreateAgentRegistry(deps.FrontendHub), nil
 }
 
 // NewStatisticsSink creates an implementation of an StatisticsSink.
 func (s *stub) NewStatisticsSink(deps pipeline.APIDependencies) (tracking.StatisticsSinkServer, error) {
-	return s.getOrCreateAgentRegistry(), nil
+	return s.getOrCreateAgentRegistry(deps.FrontendHub), nil
 }
 
 // NewFrontend creates an implementation of an Frontend, used to query results of the pipeline.
 func (s *stub) NewFrontend(deps pipeline.APIDependencies) (pipeline.FrontendServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline), nil
+	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline, deps.FrontendHub), nil
 }

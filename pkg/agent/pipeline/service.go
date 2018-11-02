@@ -18,22 +18,14 @@ package pipeline
 
 import (
 	"context"
-	fmt "fmt"
-	"net"
-	"net/http"
-	"strconv"
-	"strings"
 
-	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	assets "github.com/jessevdk/go-assets"
 	"github.com/rs/zerolog"
-	grpc "google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/AljabrIO/koalja-operator/frontend"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/frontend"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -52,6 +44,7 @@ type Service struct {
 	statisticsSink tracking.StatisticsSinkServer
 	eventRegistry  registry.EventRegistryClient
 	frontend       FrontendServer
+	frontendHub    *frontend.Hub
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -64,6 +57,14 @@ type APIDependencies struct {
 	EventRegistry registry.EventRegistryClient
 	// The pipeline
 	Pipeline *koalja.Pipeline
+	// Access to the frontend hub
+	FrontendHub FrontendHub
+}
+
+// FrontendHub is the API provided by the frontend websocket hub.
+type FrontendHub interface {
+	// StatisticsChanged sends a message to all clients notifying a statistics change.
+	StatisticsChanged()
 }
 
 // APIBuilder is an interface provided by an Link implementation
@@ -108,11 +109,13 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	frontendHub := frontend.NewHub(log)
 	deps := APIDependencies{
 		Client:        c,
 		Namespace:     ns,
 		EventRegistry: evtReg,
 		Pipeline:      &pipeline,
+		FrontendHub:   frontendHub,
 	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
 	if err != nil {
@@ -126,7 +129,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	frontend, err := builder.NewFrontend(deps)
+	frontendSvr, err := builder.NewFrontend(deps)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -139,7 +142,8 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		eventRegistry:  evtReg,
 		agentRegistry:  agentRegistry,
 		statisticsSink: statisticsSink,
-		frontend:       frontend,
+		frontend:       frontendSvr,
+		frontendHub:    frontendHub,
 	}, nil
 }
 
@@ -155,72 +159,15 @@ func (s *Service) Run(ctx context.Context) error {
 		return maskAny(err)
 	}
 
-	// Server GRPC api
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to listen")
+	g, lctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.runAPIServer(lctx, port) })
+	g.Go(func() error { return s.runFrontendServer(lctx, httpPort, port) })
+	g.Go(func() error { s.frontendHub.Run(lctx); return nil })
+
+	// Wait until done
+	if err := g.Wait(); err != nil {
 		return maskAny(err)
 	}
-	svr := grpc.NewServer()
-	defer svr.GracefulStop()
-	event.RegisterEventPublisherServer(svr, s.eventPublisher)
-	RegisterAgentRegistryServer(svr, s.agentRegistry)
-	tracking.RegisterStatisticsSinkServer(svr, s.statisticsSink)
-	RegisterFrontendServer(svr, s.frontend)
-	// Register reflection service on gRPC server.
-	reflection.Register(svr)
-	go func() {
-		if err := svr.Serve(lis); err != nil {
-			s.log.Fatal().Err(err).Msg("Failed to serve")
-		}
-	}()
-	s.log.Info().Msgf("Started pipeline agent, listening on %s", addr)
 
-	// Server HTTP API
-	mux := gwruntime.NewServeMux()
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-	if err := RegisterFrontendHandlerFromEndpoint(ctx, mux, net.JoinHostPort("localhost", strconv.Itoa(port)), opts); err != nil {
-		s.log.Error().Err(err).Msg("Failed to register HTTP gateway")
-		return maskAny(err)
-	}
-	// Frontend
-	mux.Handle("GET", parsePattern("/"), createAssetFileHandler(frontend.Assets.Files["index.html"]))
-	for path, file := range frontend.Assets.Files {
-		localPath := "/" + strings.TrimPrefix(path, "/")
-		mux.Handle("GET", parsePattern(localPath), createAssetFileHandler(file))
-	}
-
-	httpAddr := fmt.Sprintf("0.0.0.0:%d", httpPort)
-	go func() {
-		if err := http.ListenAndServe(httpAddr, mux); err != nil {
-			s.log.Fatal().Err(err).Msg("Failed to serve HTTP gateway")
-		}
-	}()
-	s.log.Info().Msgf("Started pipeline agent HTTP gateway, listening on %s", httpAddr)
-
-	// Wait until context canceled
-	<-ctx.Done()
 	return nil
-}
-
-// createAssetFileHandler creates a gin handler to serve the content
-// of the given asset file.
-func createAssetFileHandler(file *assets.File) func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-		http.ServeContent(w, r, file.Name(), file.ModTime(), file)
-	}
-}
-
-func parsePattern(localPath string) gwruntime.Pattern {
-	localPath = strings.TrimSuffix(strings.TrimPrefix(localPath, "/"), "/")
-	if localPath == "" {
-		return gwruntime.MustPattern(gwruntime.NewPattern(1, []int{}, []string{}, ""))
-	}
-	parts := strings.Split(localPath, "/")
-	ops := make([]int, 0, len(parts)*2)
-	for i := range parts {
-		ops = append(ops, 2, i)
-	}
-	return gwruntime.MustPattern(gwruntime.NewPattern(1, ops, parts, ""))
 }
