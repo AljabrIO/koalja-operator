@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import ReactEcharts from 'echarts-for-react';
-import api, { isUnauthorized } from './api/api';
+import api from './api/api';
 import ReactTimeout from 'react-timeout';
 
 class Pipeline extends Component {
@@ -76,20 +76,29 @@ class Pipeline extends Component {
 
   getOption = () => {
     const spec = this.state.pipeline;
+    let yOffsets = {};
     let taskNodes = spec.tasks.map((t, i) => {
       let stats = this.state.taskStats.statistics.find(x => x.name === t.name);
+      const x = (!hasInputs(t)) ? 100 : (!hasConnectedOutputs(t, spec)) ? 700 : 400;
+      const yOffsetsKey = `x${x}`;
+      const y = (yOffsets[yOffsetsKey] || 50) + 50;
+      yOffsets[yOffsetsKey] = y;
       return {
         name: t.name,
         category: 'task',
         label: {
           show: true,
-          position: 'bottom'
+          position: 'bottom',
+          color: 'black'
+        },
+        itemStyle: {
+          color: taskNodeColor(stats),
         },
         symbolSize: 60,
         symbolRotate: 0,
-        x: (!hasInputs(t)) ? 100 : (!hasConnectedOutputs(t, spec)) ? 700 : 400,
-        y: 100 + i * 50,
-        fixed: (!hasInputs(t)) || (!hasConnectedOutputs(t, spec)),
+        x: x,
+        y: y,
+        fixed: true, //(!hasInputs(t)) || (!hasConnectedOutputs(t, spec)),
         task: t,
         stats: stats
       };
@@ -100,6 +109,7 @@ class Pipeline extends Component {
       x: n.x - n.symbolSize / 2,
       y: n.y,
       fixed: n.fixed,
+      symbol: 'roundRect',
       stats: (n.stats.inputs || []).find(s => s.name === x.name),
     }))));
     let outputNodes = flatten(taskNodes.map(n => (n.task.outputs || []).map(x => ({
@@ -108,25 +118,28 @@ class Pipeline extends Component {
       x: n.x + n.symbolSize / 2,
       y: n.y,
       fixed: n.fixed,
+      symbol: 'diamond',
       stats: (n.stats.outputs || []).find(s => s.name === x.name),
     }))));
     let nodes = taskNodes.concat(inputNodes, outputNodes);
     //console.log(nodes);
 
-    let taskLinks = spec.links.map(t => {
-      let stats = this.state.linkStats.statistics.find(x => x.name === t.name);
+    let taskLinks = spec.links.map(l => {
+      let stats = this.state.linkStats.statistics.find(x => x.name === l.name);
       return {
-        name: `${t.name}`,
+        name: `${l.name}`,
         label: {
           show: true,
           formatter: (e) => formatLinkLabel(e.data),
         },
-        source: t.sourceRef,
-        target: t.destinationRef,
+        source: l.sourceRef,
+        target: l.destinationRef,
         value: 2,
         lineStyle: {
-          curveness: 0.1
+          curveness: 0.1,
+          width: Math.min((stats.events_waiting || 0) + 1, 20),
         },
+        symbol: ['none', 'arrow'],
         stats: stats
       };
     });
@@ -189,7 +202,7 @@ class Pipeline extends Component {
         links: graphLinks,
         lineStyle: {
           color: 'source'
-        }
+        },
       }]
     };
   };
@@ -224,7 +237,7 @@ function flatten(a) {
 }
 
 let hasInputs = (t) => ((t.inputs || []).length > 0)
-let hasOutputs = (t) => ((t.outputs || []).length > 0)
+//let hasOutputs = (t) => ((t.outputs || []).length > 0)
 let hasConnectedOutputs = (t, spec) => ((t.outputs || []).some(o => outputIsConnected(t, o, spec)))
 let outputIsConnected = (t, output, spec) => (spec.links.some(l => l.sourceRef === `${t.name}/${output.name}`))
 
@@ -233,7 +246,7 @@ let formatLabel = (e) => {
     case "task":
       return formatTaskNodeLabel(e.data);
     default:
-      return e.data.name;
+      return "";
   }
 };
 let formatTaskNodeLabel = (n) => {
@@ -260,44 +273,57 @@ let formatTooltip = (e) => {
     case "node/output":
       return formatOutputNodeTooltip(e.data);
     case "edge/":
-      return e.data.name;
+      return formatLinkTooltip(e.data);
+    default:
   }
 };
 let formatTaskNodeTooltip = (n) => {
   const stats = n.stats || {};
   return [
-    n.name,
-    (stats.snapshots_in_progress > 0) ? `In progress ${stats.snapshots_in_progress}` : undefined,
-    (stats.snapshots_waiting > 0) ? `Waiting ${stats.snapshots_waiting}` : undefined,
-    `Succeeded ${stats.snapshots_succeeded || 0}`,
-    `Failed ${stats.snapshots_failed || 0}`,
-  ].filter(x => (typeof x === 'string')).join("\n");
+    `<b>${n.name}</b>`,
+    "Executions:",
+    (stats.snapshots_in_progress > 0) ? `- In progress ${stats.snapshots_in_progress}` : undefined,
+    (stats.snapshots_waiting > 0) ? `- Waiting ${stats.snapshots_waiting}` : undefined,
+    `- Succeeded ${stats.snapshots_succeeded || 0}`,
+    `- Failed ${stats.snapshots_failed || 0}`,
+  ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 let formatInputNodeTooltip = (n) => {
   const stats = n.stats || {};
   return [
-    n.name,
-    `Received ${stats.events_received || 0}`,
-    `In progress ${stats.events_in_progress || 0}`,
-    `Processed ${stats.events_processed || 0}`,
-    `Skipped ${stats.events_skipped || 0}`,
+    `<b>${n.name}</b>`,
+    "Events:",
+    `- Received ${stats.events_received || 0}`,
+    `- In progress ${stats.events_in_progress || 0}`,
+    `- Processed ${stats.events_processed || 0}`,
+    `- Skipped ${stats.events_skipped || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 let formatOutputNodeTooltip = (n) => {
   const stats = n.stats || {};
   return [
-    n.name,
-    `Published ${stats.events_published || 0}`,
+    `<b>${n.name}</b>`,
+    "Events:",
+    `- Published ${stats.events_published || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 let formatLinkTooltip = (n) => {
   const stats = n.stats || {};
   return [
-    n.name,
-    `Waiting ${stats.events_waiting || 0}`,
-    `In progress ${stats.events_in_progress || 0}`,
-    `Acknowledged ${stats.events_acknowledged || 0}`,
+    `<b>${n.name}</b>`,
+    "Events:",
+    `- Waiting ${stats.events_waiting || 0}`,
+    `- In progress ${stats.events_in_progress || 0}`,
+    `- Acknowledged ${stats.events_acknowledged || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
+};
+
+let taskNodeColor = (stats) => {
+  if (stats.snapshots_failed > 0) return 'red';
+  if (stats.snapshots_in_progress > 0) return '#ffcc00';
+  if (stats.snapshots_waiting > 0) return 'orange';
+  if (stats.snapshots_succeeded > 0) return 'green';
+  return 'gray';
 };
 
 export default ReactTimeout(Pipeline);
