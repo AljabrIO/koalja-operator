@@ -110,8 +110,6 @@ func (s *outputStore) GetPipeline(context.Context, *empty.Empty) (*koalja.Pipeli
 
 // GetLinkStatistics returns statistics for selected (or all) links.
 func (s *outputStore) GetLinkStatistics(ctx context.Context, req *pipeline.GetLinkStatisticsRequest) (*pipeline.GetLinkStatisticsResponse, error) {
-	s.log.Debug().Interface("req", req).Msg("GetLinkStatistics request")
-
 	result, err := s.agentRegistry.GetLinkStatistics(ctx, req)
 	if err != nil {
 		return nil, maskAny(err)
@@ -121,8 +119,6 @@ func (s *outputStore) GetLinkStatistics(ctx context.Context, req *pipeline.GetLi
 
 // GetTaskStatistics returns statistics for selected (or all) tasks.
 func (s *outputStore) GetTaskStatistics(ctx context.Context, req *pipeline.GetTaskStatisticsRequest) (*pipeline.GetTaskStatisticsResponse, error) {
-	s.log.Debug().Interface("req", req).Msg("GetTaskStatistics request")
-
 	result, err := s.agentRegistry.GetTaskStatistics(ctx, req)
 	if err != nil {
 		return nil, maskAny(err)

@@ -7,12 +7,14 @@ class Pipeline extends Component {
   state = {
     pipeline: undefined,
     linkStats: undefined,
+    taskStats: undefined,
     error: undefined
   };
 
   componentDidMount() {
     this.reloadPipeline();
     this.reloadLinkStats();
+    this.reloadTaskStats();
   }
 
   reloadPipeline = async() => {
@@ -22,14 +24,14 @@ class Pipeline extends Component {
         pipeline: spec,
         error: undefined
       });
-      console.log(spec);
+    //console.log(spec);
     } catch (e) {
       this.setState({
         error: e.message
       });
-      /*if (isUnauthorized(e)) {
-        this.props.doLogout();
-      }*/
+    /*if (isUnauthorized(e)) {
+      this.props.doLogout();
+    }*/
     }
     this.props.setTimeout(this.reloadPipeline, 10000);
   }
@@ -41,72 +43,102 @@ class Pipeline extends Component {
         linkStats: stats,
         error: undefined
       });
-      console.log(stats);
+    //console.log(stats);
     } catch (e) {
       this.setState({
         error: e.message
       });
-      /*if (isUnauthorized(e)) {
-        this.props.doLogout();
-      }*/
+    /*if (isUnauthorized(e)) {
+      this.props.doLogout();
+    }*/
     }
     this.props.setTimeout(this.reloadLinkStats, 2500);
   }
 
+  reloadTaskStats = async() => {
+    try {
+      const stats = await api.post('/v1/statistics/tasks', {});
+      this.setState({
+        taskStats: stats,
+        error: undefined
+      });
+    //console.log(stats);
+    } catch (e) {
+      this.setState({
+        error: e.message
+      });
+    /*if (isUnauthorized(e)) {
+      this.props.doLogout();
+    }*/
+    }
+    this.props.setTimeout(this.reloadTaskStats, 2500);
+  }
+
   getOption = () => {
     const spec = this.state.pipeline;
-    let taskNodes = spec.tasks.map((x, i) => ({
-      name: x.name,
-      category: 'task',
-      label: {
-        show: true,
-        position: 'bottom'
-      },
-      symbolSize: 60,
-      symbolRotate: 0,
-      x: (!hasInputs(x)) ? 100 : (!hasConnectedOutputs(x, spec)) ? 700 : 400,
-      y: 100 + i * 50,
-      fixed: (!hasInputs(x)) || (!hasConnectedOutputs(x, spec)),
-      task: x
-    }));
+    let taskNodes = spec.tasks.map((t, i) => {
+      let stats = this.state.taskStats.statistics.find(x => x.name === t.name);
+      return {
+        name: t.name,
+        category: 'task',
+        label: {
+          show: true,
+          position: 'bottom'
+        },
+        symbolSize: 60,
+        symbolRotate: 0,
+        x: (!hasInputs(t)) ? 100 : (!hasConnectedOutputs(t, spec)) ? 700 : 400,
+        y: 100 + i * 50,
+        fixed: (!hasInputs(t)) || (!hasConnectedOutputs(t, spec)),
+        task: t,
+        stats: stats
+      };
+    });
     let inputNodes = flatten(taskNodes.map(n => (n.task.inputs || []).map(x => ({
       name: `${n.task.name}/${x.name}`,
       category: 'input',
-      x: n.x - n.symbolSize/2,
+      x: n.x - n.symbolSize / 2,
       y: n.y,
-      fixed: n.fixed
+      fixed: n.fixed,
+      stats: (n.stats.inputs || []).find(s => s.name === x.name),
     }))));
     let outputNodes = flatten(taskNodes.map(n => (n.task.outputs || []).map(x => ({
       name: `${n.task.name}/${x.name}`,
       category: 'output',
-      x: n.x + n.symbolSize/2,
+      x: n.x + n.symbolSize / 2,
       y: n.y,
-      fixed: n.fixed
+      fixed: n.fixed,
+      stats: (n.stats.outputs || []).find(s => s.name === x.name),
     }))));
     let nodes = taskNodes.concat(inputNodes, outputNodes);
-    console.log(nodes);
+    //console.log(nodes);
 
-    let taskLinks = spec.links.map(x => {
-      let stats = this.state.linkStats.statistics.find(x => x.link_name === x.name);
+    let taskLinks = spec.links.map(t => {
+      let stats = this.state.linkStats.statistics.find(x => x.name === t.name);
       return {
-        name: `${x.name} ${stats}`,
+        name: `${t.name}`,
         label: {
-          show: false
+          show: true,
+          formatter: (e) => formatLinkLabel(e.data),
         },
-        source: x.sourceRef, 
-        target: x.destinationRef,
+        source: t.sourceRef,
+        target: t.destinationRef,
         value: 2,
         lineStyle: {
           curveness: 0.1
-        }
+        },
+        stats: stats
       };
     });
-    let taskInputLinks = flatten(spec.tasks.map(t => (t.inputs || []).map(x => ({
-      name: `${t.name}/${x.name}`,
-      source: `${t.name}/${x.name}`,
-      target: t.name,
-      value: 1
-    }))));
+    let taskInputLinks = flatten(spec.tasks.map(t => {
+      const inputs = t.inputs || [];
+      return inputs.map(x => ({
+        name: `${t.name}/${x.name}`,
+        source: `${t.name}/${x.name}`,
+        target: t.name,
+        value: 1
+      }));
+    }));
     let taskOutputLinks = flatten(spec.tasks.map(t => (t.outputs || []).map(x => ({
       name: `${t.name}/${x.name}`,
       source: t.name,
@@ -129,10 +161,14 @@ class Pipeline extends Component {
         layout: 'force',
         animation: false,
         label: {
+          color: 'blue',
           normal: {
             position: 'right',
-            formatter: '{b}'
+            formatter: formatLabel,
           }
+        },
+        tooltip: {
+          formatter: formatTooltip,
         },
         roam: true,
         categories: [{
@@ -153,26 +189,31 @@ class Pipeline extends Component {
         links: graphLinks,
         lineStyle: {
           color: 'source'
-        }  
+        }
       }]
     };
   };
 
-  onChartClick(e) { console.log(e); }
+  onChartClick(e) {
+    console.log(e);
+  }
 
   render() {
     let onEvents = {
       'click': this.onChartClick
-      //'legendselectchanged': this.onChartLegendselectchanged
+    //'legendselectchanged': this.onChartLegendselectchanged
     }
-    if (this.state.pipeline && this.state.linkStats) {
+    if (this.state.pipeline && this.state.linkStats && this.state.taskStats) {
       return (
-        <ReactEcharts 
-          option={this.getOption()} 
-          style={{height: '700px', width: '100%'}}
-          onEvents={onEvents} 
+        <ReactEcharts
+        option={this.getOption()}
+        style={{
+          height: '700px',
+          width: '100%'
+        }}
+        onEvents={onEvents}
         />
-      );
+        );
     }
     return (<div>Loading...</div>);
   }
@@ -186,6 +227,78 @@ let hasInputs = (t) => ((t.inputs || []).length > 0)
 let hasOutputs = (t) => ((t.outputs || []).length > 0)
 let hasConnectedOutputs = (t, spec) => ((t.outputs || []).some(o => outputIsConnected(t, o, spec)))
 let outputIsConnected = (t, output, spec) => (spec.links.some(l => l.sourceRef === `${t.name}/${output.name}`))
+
+let formatLabel = (e) => {
+  switch (e.data.category) {
+    case "task":
+      return formatTaskNodeLabel(e.data);
+    default:
+      return e.data.name;
+  }
+};
+let formatTaskNodeLabel = (n) => {
+  const stats = n.stats || {};
+  return [
+    n.name,
+    (stats.snapshots_in_progress > 0) ? `In progress ${stats.snapshots_in_progress}` : undefined,
+    (stats.snapshots_waiting > 0) ? `Waiting ${stats.snapshots_waiting}` : undefined,
+    `Succeeded ${stats.snapshots_succeeded || 0}`,
+    (stats.snapshots_failed > 0) ? `Failed ${stats.snapshots_failed || 0}` : undefined,
+  ].filter(x => (typeof x === 'string')).join("\n");
+};
+let formatLinkLabel = (n) => {
+  const stats = n.stats || {};
+  return `${stats.events_waiting || 0} / ${stats.events_in_progress || 0} / ${stats.events_acknowledged || 0}`;
+};
+
+let formatTooltip = (e) => {
+  switch (`${e.dataType}/${e.data.category || ""}`) {
+    case "node/task":
+      return formatTaskNodeTooltip(e.data);
+    case "node/input":
+      return formatInputNodeTooltip(e.data);
+    case "node/output":
+      return formatOutputNodeTooltip(e.data);
+    case "edge/":
+      return e.data.name;
+  }
+};
+let formatTaskNodeTooltip = (n) => {
+  const stats = n.stats || {};
+  return [
+    n.name,
+    (stats.snapshots_in_progress > 0) ? `In progress ${stats.snapshots_in_progress}` : undefined,
+    (stats.snapshots_waiting > 0) ? `Waiting ${stats.snapshots_waiting}` : undefined,
+    `Succeeded ${stats.snapshots_succeeded || 0}`,
+    `Failed ${stats.snapshots_failed || 0}`,
+  ].filter(x => (typeof x === 'string')).join("\n");
+};
+let formatInputNodeTooltip = (n) => {
+  const stats = n.stats || {};
+  return [
+    n.name,
+    `Received ${stats.events_received || 0}`,
+    `In progress ${stats.events_in_progress || 0}`,
+    `Processed ${stats.events_processed || 0}`,
+    `Skipped ${stats.events_skipped || 0}`,
+  ].filter(x => (typeof x === 'string')).join("<br/>");
+};
+let formatOutputNodeTooltip = (n) => {
+  const stats = n.stats || {};
+  return [
+    n.name,
+    `Published ${stats.events_published || 0}`,
+  ].filter(x => (typeof x === 'string')).join("<br/>");
+};
+let formatLinkTooltip = (n) => {
+  const stats = n.stats || {};
+  return [
+    n.name,
+    `Waiting ${stats.events_waiting || 0}`,
+    `In progress ${stats.events_in_progress || 0}`,
+    `Acknowledged ${stats.events_acknowledged || 0}`,
+  ].filter(x => (typeof x === 'string')).join("<br/>");
+};
 
 export default ReactTimeout(Pipeline);
 
