@@ -22,6 +22,7 @@ import (
 	"context"
 	fmt "fmt"
 	"net"
+	"time"
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -44,21 +45,29 @@ type Service struct {
 	port           int
 	linkName       string
 	uri            string
+	statistics     *pipeline.LinkStatistics
 	eventPublisher event.EventPublisherServer
 	eventSource    event.EventSourceServer
 	eventRegistry  registry.EventRegistryClient
+	agentRegistry  pipeline.AgentRegistryClient
 }
 
 // APIDependencies provides some dependencies to API builder implementations
 type APIDependencies struct {
 	// Kubernetes client
 	client.Client
+	// Name of the link
+	Name string
 	// Namespace in which this link is running
 	Namespace string
 	// URI of this link
 	URI string
 	// EventRegister client
 	EventRegistry registry.EventRegistryClient
+	// AgentRegistry client
+	AgentRegistry pipeline.AgentRegistryClient
+	// Statistics
+	Statistics *pipeline.LinkStatistics
 }
 
 // APIBuilder is an interface provided by an Link implementation
@@ -106,18 +115,32 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 	if err := retry.Do(ctx, func(ctx context.Context) error {
 		return c.Get(ctx, podKey, &p)
 	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
+		log.Error().Err(err).Msg("Failed to get own pod")
 		return nil, maskAny(err)
 	}
 	evtReg, err := registry.CreateEventRegistryClient()
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create event registry client")
+		return nil, maskAny(err)
+	}
+	agentReg, err := pipelinecl.CreateAgentRegistryClient()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create agent registry client")
 		return nil, maskAny(err)
 	}
 	uri := newLinkURI(dnsName, port, &p)
+	statistics := &pipeline.LinkStatistics{
+		Name: linkName,
+		URI:  uri,
+	}
 	deps := APIDependencies{
 		Client:        c,
+		Name:          linkName,
 		Namespace:     ns,
 		URI:           uri,
 		EventRegistry: evtReg,
+		AgentRegistry: agentReg,
+		Statistics:    statistics,
 	}
 	eventPublisher, err := builder.NewEventPublisher(deps)
 	if err != nil {
@@ -132,9 +155,11 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		port:           port,
 		linkName:       linkName,
 		uri:            uri,
+		statistics:     statistics,
 		eventPublisher: eventPublisher,
 		eventSource:    eventSource,
 		eventRegistry:  evtReg,
+		agentRegistry:  agentReg,
 	}, nil
 }
 
@@ -142,26 +167,18 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 func (s *Service) Run(ctx context.Context) error {
 	defer s.eventRegistry.Close()
 
-	// Register agent
-	agentReg, err := pipelinecl.CreateAgentRegistryClient()
-	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to create agent registry client")
-		return maskAny(err)
+	// Start the registry update loop
+	agentRegistered := make(chan struct{})
+	go s.runUpdateAgentRegistration(ctx, agentRegistered)
+
+	// Wait until agent is first registered
+	select {
+	case <-agentRegistered:
+		// Agent was register. Good to start
+	case <-ctx.Done():
+		// Context was canceled
+		return maskAny(ctx.Err())
 	}
-	if err := retry.Do(ctx, func(ctx context.Context) error {
-		if _, err := agentReg.RegisterLink(ctx, &pipeline.RegisterLinkRequest{
-			LinkName: s.linkName,
-			URI:      s.uri,
-		}); err != nil {
-			s.log.Debug().Err(err).Msg("register link agent attempt failed")
-			return err
-		}
-		return nil
-	}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
-		s.log.Error().Err(err).Msg("Failed to register link agent")
-		return maskAny(err)
-	}
-	s.log.Info().Msgf("Registered link %s as %s", s.linkName, s.uri)
 
 	// Serve API
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
@@ -186,4 +203,72 @@ func (s *Service) Run(ctx context.Context) error {
 	// Wait until context closed
 	<-ctx.Done()
 	return nil
+}
+
+// runUpdateAgentRegistration registers the link at the agent registry at regular
+// intervals and publishes the statistics frequently.
+func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistered chan struct{}) {
+	log := s.log.With().
+		Str("link", s.linkName).
+		Str("uri", s.uri).
+		Logger()
+	minDelay := time.Second * 5
+	maxDelay := time.Second * 15
+	delay := minDelay
+	var lastAgentRegistration time.Time
+	for {
+		// Register agent (if needed)
+		if time.Since(lastAgentRegistration) > time.Minute {
+			if err := retry.Do(ctx, func(ctx context.Context) error {
+				if _, err := s.agentRegistry.RegisterLink(ctx, &pipeline.RegisterLinkRequest{
+					LinkName: s.linkName,
+					URI:      s.uri,
+				}); err != nil {
+					log.Debug().Err(err).Msg("register link agent attempt failed")
+					return err
+				}
+				return nil
+			}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
+				log.Error().Err(err).Msg("Failed to register link agent")
+			} else {
+				// Success
+				lastAgentRegistration = time.Now()
+				if agentRegistered != nil {
+					close(agentRegistered)
+					agentRegistered = nil
+					log.Info().Msg("Registered link")
+				} else {
+					log.Debug().Msg("Re-registered link")
+				}
+			}
+		}
+
+		if agentRegistered == nil {
+			if err := retry.Do(ctx, func(ctx context.Context) error {
+				stats := *s.statistics
+				if _, err := s.agentRegistry.PublishLinkStatistics(ctx, &stats); err != nil {
+					s.log.Debug().Err(err).Msg("publish link statistics attempt failed")
+					return err
+				}
+				return nil
+			}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
+				s.log.Error().Err(err).Msg("Failed to public link statistics")
+				delay = time.Duration(float64(delay) * 1.5)
+				if delay > maxDelay {
+					delay = maxDelay
+				}
+			} else {
+				// Success
+				delay = minDelay
+			}
+		}
+
+		select {
+		case <-time.After(delay):
+			// Continue
+		case <-ctx.Done():
+			// Context canceled
+			return
+		}
+	}
 }

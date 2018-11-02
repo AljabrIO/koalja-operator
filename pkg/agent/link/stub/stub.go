@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -30,6 +31,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 )
 
 // subscription of a single client
@@ -56,17 +58,19 @@ func (s *subscription) RenewExpiresAt() {
 type stub struct {
 	log                zerolog.Logger
 	registry           registry.EventRegistryClient
+	agentRegistry      pipeline.AgentRegistryClient
 	uri                string
 	queue              chan *event.Event
 	retryQueue         chan *event.Event
 	subscriptions      map[int64]*subscription
 	subscriptionsMutex sync.Mutex
 	lastSubscriptionID int64
+	statistics         *pipeline.LinkStatistics
 }
 
 const (
 	queueSize       = 1024
-	retryQueueSize  = 8
+	retryQueueSize  = 32
 	subscriptionTTL = time.Minute
 )
 
@@ -84,6 +88,8 @@ func NewStub(log zerolog.Logger) link.APIBuilder {
 func (s *stub) NewEventPublisher(deps link.APIDependencies) (event.EventPublisherServer, error) {
 	s.uri = deps.URI
 	s.registry = deps.EventRegistry
+	s.agentRegistry = deps.AgentRegistry
+	s.statistics = deps.Statistics
 	return s, nil
 }
 
@@ -101,6 +107,7 @@ func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.P
 	if _, err := s.registry.RecordEvent(ctx, &e); err != nil {
 		return nil, maskAny(err)
 	}
+	atomic.AddInt64(&s.statistics.EventsWaiting, 1)
 
 	// Now put event in in-memory queue
 	select {
@@ -173,13 +180,22 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 	if sub, found := s.subscriptions[id]; found {
 		if len(sub.inflight) != 0 {
 			// Put inflight events back into queue
-			for _, e := range sub.inflight {
+			inflight := sub.inflight
+			for _, e := range inflight {
 				select {
 				case s.retryQueue <- e:
+					sub.inflight = sub.inflight[1:] // Remove inflight event
+					// Update statistics
+					atomic.AddInt64(&s.statistics.EventsInProgress, -1)
+					atomic.AddInt64(&s.statistics.EventsWaiting, 1)
 					// OK
 				case <-ctx.Done():
 					// Context expired
 					return nil, maskAny(ctx.Err())
+				default:
+					// retryQueue full
+					// Since we have a mutex locked, we cannot wait here until retry queue has space.
+					return nil, maskAny(fmt.Errorf("Retry queue full"))
 				}
 			}
 		}
@@ -229,6 +245,8 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 		} else {
 			sub.RenewExpiresAt()
 			sub.inflight = append(sub.inflight, e)
+			atomic.AddInt64(&s.statistics.EventsInProgress, 1)
+			atomic.AddInt64(&s.statistics.EventsWaiting, -1)
 			return &event.NextEventResponse{
 				Event:      e,
 				NoEventYet: false,
@@ -269,6 +287,8 @@ func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*googl
 			if e.GetID() == req.GetEventID() {
 				// Found inflight event; Remove it.
 				sub.inflight = append(sub.inflight[:i], sub.inflight[i+1:]...)
+				// Update statistics
+				atomic.AddInt64(&s.statistics.EventsAcknowledged, 1)
 				return &google_protobuf1.Empty{}, nil
 			}
 		}

@@ -22,8 +22,10 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	assets "github.com/jessevdk/go-assets"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/AljabrIO/koalja-operator/frontend"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -171,6 +174,13 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Error().Err(err).Msg("Failed to register HTTP gateway")
 		return maskAny(err)
 	}
+	// Frontend
+	mux.Handle("GET", parsePattern("/"), createAssetFileHandler(frontend.Assets.Files["index.html"]))
+	for path, file := range frontend.Assets.Files {
+		localPath := "/" + strings.TrimPrefix(path, "/")
+		mux.Handle("GET", parsePattern(localPath), createAssetFileHandler(file))
+	}
+
 	httpAddr := fmt.Sprintf("0.0.0.0:%d", httpPort)
 	go func() {
 		if err := http.ListenAndServe(httpAddr, mux); err != nil {
@@ -182,4 +192,25 @@ func (s *Service) Run(ctx context.Context) error {
 	// Wait until context canceled
 	<-ctx.Done()
 	return nil
+}
+
+// createAssetFileHandler creates a gin handler to serve the content
+// of the given asset file.
+func createAssetFileHandler(file *assets.File) func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		http.ServeContent(w, r, file.Name(), file.ModTime(), file)
+	}
+}
+
+func parsePattern(localPath string) gwruntime.Pattern {
+	localPath = strings.TrimSuffix(strings.TrimPrefix(localPath, "/"), "/")
+	if localPath == "" {
+		return gwruntime.MustPattern(gwruntime.NewPattern(1, []int{}, []string{}, ""))
+	}
+	parts := strings.Split(localPath, "/")
+	ops := make([]int, 0, len(parts)*2)
+	for i := range parts {
+		ops = append(ops, 2, i)
+	}
+	return gwruntime.MustPattern(gwruntime.NewPattern(1, ops, parts, ""))
 }

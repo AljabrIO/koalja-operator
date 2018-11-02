@@ -19,7 +19,9 @@ package task
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
 )
 
@@ -30,8 +32,9 @@ type InputSnapshot struct {
 }
 
 type eventActPair struct {
-	e   *event.Event
-	ack func(context.Context, *event.Event) error
+	e     *event.Event
+	stats *pipeline.TaskInputStatistics
+	ack   func(context.Context, *event.Event) error
 }
 
 // CreateTuple copies all events into a new tuple, if the number of events
@@ -92,7 +95,7 @@ func (s *InputSnapshot) m() map[string]eventActPair {
 
 // Set the event at the given input name.
 // This will acknowledge any existing event.
-func (s *InputSnapshot) Set(ctx context.Context, inputName string, e *event.Event, ack func(context.Context, *event.Event) error) error {
+func (s *InputSnapshot) Set(ctx context.Context, inputName string, e *event.Event, stats *pipeline.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
 	s.mutex.Lock()
 	previous, found := s.m()[inputName]
 	delete(s.m(), inputName)
@@ -109,12 +112,14 @@ func (s *InputSnapshot) Set(ctx context.Context, inputName string, e *event.Even
 				return err
 			}
 		}
+		// Update statistics reflecting that we're skipping an event
+		atomic.AddInt64(&previous.stats.EventsSkipped, 1)
 	}
 
 	// Set new entry if not nil
 	if e != nil {
 		s.mutex.Lock()
-		s.m()[inputName] = eventActPair{e, ack}
+		s.m()[inputName] = eventActPair{e, stats, ack}
 		s.mutex.Unlock()
 	}
 	return nil
@@ -134,7 +139,7 @@ func (s *InputSnapshot) RemoveAck(inputName string) {
 	defer s.mutex.Unlock()
 
 	if x, found := s.m()[inputName]; found {
-		s.members[inputName] = eventActPair{e: x.e, ack: nil}
+		s.members[inputName] = eventActPair{e: x.e, stats: x.stats, ack: nil}
 	}
 }
 
@@ -151,4 +156,26 @@ func (s *InputSnapshot) AckAll(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// AddInProgressStatistics adds the given delta to all EventsInProgress statistics
+// of the events in this snapshot.
+func (s *InputSnapshot) AddInProgressStatistics(delta int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, v := range s.members {
+		atomic.AddInt64(&v.stats.EventsInProgress, delta)
+	}
+}
+
+// AddProcessedStatistics adds the given delta to all EventsProcessed statistics
+// of the events in this snapshot.
+func (s *InputSnapshot) AddProcessedStatistics(delta int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, v := range s.members {
+		atomic.AddInt64(&v.stats.EventsProcessed, delta)
+	}
 }
