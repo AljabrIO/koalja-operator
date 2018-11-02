@@ -41,6 +41,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - koalja.aljabr.io
   resources:
   - pipelines
@@ -56,6 +68,14 @@ rules:
   - agents.aljabr.io
   resources:
   - pipelines
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agents.aljabr.io
+  resources:
+  - eventregistries
   verbs:
   - get
   - list
