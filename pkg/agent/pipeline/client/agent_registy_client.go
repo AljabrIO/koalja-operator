@@ -67,6 +67,11 @@ func (c *agentRegistryClient) RegisterTask(ctx context.Context, in *pipeline.Reg
 	return c.c.RegisterTask(ctx, in, opts...)
 }
 
+// Provide statistics of a link (called by the link)
+func (c *agentRegistryClient) PublishLinkStatistics(ctx context.Context, in *pipeline.LinkStatistics, opts ...grpc.CallOption) (*empty.Empty, error) {
+	return c.c.PublishLinkStatistics(ctx, in, opts...)
+}
+
 // Close the connection
 func (c *agentRegistryClient) CloseConnection() error {
 	return c.conn.Close()

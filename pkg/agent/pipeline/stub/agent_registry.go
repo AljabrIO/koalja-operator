@@ -18,7 +18,9 @@ package stub
 
 import (
 	"context"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
@@ -29,16 +31,24 @@ import (
 // agentRegistry is an in-memory implementation of an agent registry.
 type agentRegistry struct {
 	log         zerolog.Logger
-	linkAgents  map[string][]string // map[link-name][]uri
-	taskAgents  map[string][]string // map[task-name][]uri
+	linkAgents  map[string][]*linkAgent // map[link-name][]linkAgent
+	taskAgents  map[string][]string     // map[task-name][]uri
 	agentsMutex sync.Mutex
 }
 
+type linkAgent struct {
+	URI        string
+	Statistics struct {
+		Timestamp time.Time
+		Data      pipeline.LinkStatistics
+	}
+}
+
 // newAgentRegistry initializes a new agent registry
-func newAgentRegistry(log zerolog.Logger) pipeline.AgentRegistryServer {
+func newAgentRegistry(log zerolog.Logger) *agentRegistry {
 	return &agentRegistry{
 		log:        log,
-		linkAgents: make(map[string][]string),
+		linkAgents: make(map[string][]*linkAgent),
 		taskAgents: make(map[string][]string),
 	}
 }
@@ -53,8 +63,15 @@ func (s *agentRegistry) RegisterLink(ctx context.Context, req *pipeline.Register
 	defer s.agentsMutex.Unlock()
 
 	current := s.linkAgents[req.GetLinkName()]
-	if !contains(current, req.GetURI()) {
-		s.linkAgents[req.GetLinkName()] = append(current, req.GetURI())
+	uriFound := false
+	for _, x := range current {
+		if x.URI == req.GetURI() {
+			uriFound = true
+			break
+		}
+	}
+	if !uriFound {
+		s.linkAgents[req.GetLinkName()] = append(current, &linkAgent{URI: req.GetURI()})
 	}
 
 	return &empty.Empty{}, nil
@@ -75,6 +92,70 @@ func (s *agentRegistry) RegisterTask(ctx context.Context, req *pipeline.Register
 	}
 
 	return &empty.Empty{}, nil
+}
+
+// Provide statistics of a link (called by the link)
+func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *pipeline.LinkStatistics) (*empty.Empty, error) {
+	s.log.Debug().
+		Str("link", req.GetLinkName()).
+		Str("uri", req.GetURI()).
+		Msg("Publish link statistics")
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	current := s.linkAgents[req.GetLinkName()]
+	var linkAgentRef *linkAgent
+	for _, x := range current {
+		if x.URI == req.GetURI() {
+			linkAgentRef = x
+			break
+		}
+	}
+	if linkAgentRef == nil {
+		linkAgentRef = &linkAgent{URI: req.GetURI()}
+		current = append(current, linkAgentRef)
+		s.linkAgents[req.GetLinkName()] = current
+	}
+	linkAgentRef.Statistics.Data = *req
+	linkAgentRef.Statistics.Timestamp = time.Now()
+	sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
+
+	return &empty.Empty{}, nil
+}
+
+// GetLinkStatistics returns statistics for selected (or all) links.
+func (s *agentRegistry) GetLinkStatistics(ctx context.Context, in *pipeline.GetLinkStatisticsRequest) (*pipeline.GetLinkStatisticsResponse, error) {
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	isLinkRequested := func(linkName string) bool {
+		if len(in.GetLinkNames()) == 0 {
+			return true
+		}
+		for _, x := range in.GetLinkNames() {
+			if x == linkName {
+				return true
+			}
+		}
+		return false
+	}
+
+	result := &pipeline.GetLinkStatisticsResponse{}
+	for name, list := range s.linkAgents {
+		if isLinkRequested(name) {
+			stat := pipeline.LinkStatistics{
+				LinkName: name,
+			}
+			for _, x := range list {
+				stat.EventsWaiting += x.Statistics.Data.EventsWaiting
+				stat.EventsInProgress += x.Statistics.Data.EventsInProgress
+				stat.EventsAcknowledged += x.Statistics.Data.EventsAcknowledged
+			}
+			result.Statistics = append(result.Statistics, &stat)
+		}
+	}
+
+	return result, nil
 }
 
 func contains(list []string, value string) bool {

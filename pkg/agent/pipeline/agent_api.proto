@@ -25,6 +25,7 @@ import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
 import "github.com/AljabrIO/koalja-operator/pkg/event/event.proto";
 import "google/api/annotations.proto";
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 // AgentRegistry is the API covering registration of agents.
 service AgentRegistry {
@@ -32,6 +33,8 @@ service AgentRegistry {
     rpc RegisterLink(RegisterLinkRequest) returns (google.protobuf.Empty);
     // Register an instance of a task agent
     rpc RegisterTask(RegisterTaskRequest) returns (google.protobuf.Empty);
+    // Provide statistics of a link (called by the link)
+    rpc PublishLinkStatistics(LinkStatistics) returns (google.protobuf.Empty);
 }
 
 message RegisterLinkRequest {
@@ -46,6 +49,19 @@ message RegisterTaskRequest {
     string TaskName = 1;
     // URI of the task
     string URI = 2;
+}
+
+message LinkStatistics {
+    // Name of the link
+    string link_name = 1 [(gogoproto.customname) = "LinkName"];
+    // URI of the link
+    string uri = 2 [(gogoproto.customname) = "URI"];
+    // Number of events waiting in this link before being processed
+    int64 events_waiting = 3 [(gogoproto.customname) = "EventsWaiting"];
+    // Number of events that are in progress but have not been acknowledged
+    int64 events_in_progress = 4 [(gogoproto.customname) = "EventsInProgress"];
+    // Number of events that have been processed and acknowledged
+    int64 events_acknowledged = 5 [(gogoproto.customname) = "EventsAcknowledged"];
 }
 
 // Frontend is the API provided to the pipeline frontend.
@@ -64,23 +80,41 @@ service Frontend {
             body: "*"
         };
     }
+    // GetLinkStatistics returns statistics for selected (or all) links.
+    rpc GetLinkStatistics(GetLinkStatisticsRequest) returns (GetLinkStatisticsResponse) {
+        option (google.api.http) = {
+            post: "/v1/statistics/links"
+            body: "*"
+        };
+    }
 }
 
 message OutputEventsRequest {
     // EventIDs is a list of event IDs.
     // The response will include only events that are (indirectly) related
     // to any of these event IDs. 
-    repeated string EventIDs = 1;
+    repeated string event_ids = 1 [(gogoproto.customname) = "EventIDs"];
     // TaskNames is a list of names of tasks.
     // The response will include only events that are created by one of these tasks.
-    repeated string TaskNames = 2;
+    repeated string task_names = 2 [(gogoproto.customname) = "TaskNames"];
     // If set, only events created after this timestamp are returned.
-    google.protobuf.Timestamp CreatedAfter = 3;
+    google.protobuf.Timestamp created_after = 3 [(gogoproto.customname) = "CreatedAfter"];
     // If set, only events created before this timestamp are returned.
-    google.protobuf.Timestamp CreatedBefore = 4;
+    google.protobuf.Timestamp created_before = 4 [(gogoproto.customname) = "CreatedBefore"];
 }
 
 message OutputEvents {
     // The selected events
     repeated event.Event Events = 1;
+}
+
+message GetLinkStatisticsRequest {
+    // LinkNames is a list of names of links to get statistics from.
+    // Empty list results in statistics from all links.
+    repeated string link_names = 1 [(gogoproto.customname) = "LinkNames", (gogoproto.jsontag) = "link_names,omitempty"];
+}
+
+message GetLinkStatisticsResponse {
+    // Statistics contains the returned statistics
+    repeated LinkStatistics statistics = 1 [(gogoproto.customname) = "Statistics", (gogoproto.jsontag) = "statistics"];
 }

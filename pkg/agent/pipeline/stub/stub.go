@@ -29,9 +29,10 @@ import (
 
 // stub is an in-memory implementation of an event queue.
 type stub struct {
-	outputStore *outputStore
-	log         zerolog.Logger
-	mutex       sync.Mutex
+	agentRegistry *agentRegistry
+	outputStore   *outputStore
+	log           zerolog.Logger
+	mutex         sync.Mutex
 }
 
 // NewStub initializes a new stub API builder
@@ -41,12 +42,23 @@ func NewStub(log zerolog.Logger) pipeline.APIBuilder {
 	}
 }
 
+// getOrCreateAgentRegistry returns the agent registry, creating one if needed.
+func (s *stub) getOrCreateAgentRegistry() *agentRegistry {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.agentRegistry == nil {
+		s.agentRegistry = newAgentRegistry(s.log)
+	}
+	return s.agentRegistry
+}
+
 // getOrCreateOutputStore returns the output store, creating one if needed.
 func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *koalja.Pipeline) *outputStore {
+	agentRegistry := s.getOrCreateAgentRegistry()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.outputStore == nil {
-		s.outputStore = newOutputStore(s.log, r, pipeline)
+		s.outputStore = newOutputStore(s.log, r, pipeline, agentRegistry)
 	}
 	return s.outputStore
 }
@@ -58,7 +70,7 @@ func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPubl
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 func (s *stub) NewAgentRegistry(deps pipeline.APIDependencies) (pipeline.AgentRegistryServer, error) {
-	return newAgentRegistry(s.log), nil
+	return s.getOrCreateAgentRegistry(), nil
 }
 
 // NewFrontend creates an implementation of an Frontend, used to query results of the pipeline.

@@ -36,19 +36,21 @@ import (
 
 // outputStore is an in-memory implementation of an event queue.
 type outputStore struct {
-	log         zerolog.Logger
-	registry    registry.EventRegistryClient
-	pipeline    *koalja.Pipeline
-	events      []*tree.EventTree
-	eventsMutex sync.Mutex
+	log           zerolog.Logger
+	agentRegistry *agentRegistry
+	eventRegistry registry.EventRegistryClient
+	pipeline      *koalja.Pipeline
+	events        []*tree.EventTree
+	eventsMutex   sync.Mutex
 }
 
 // newOutputStore creates a new output store
-func newOutputStore(log zerolog.Logger, r registry.EventRegistryClient, pipeline *koalja.Pipeline) *outputStore {
+func newOutputStore(log zerolog.Logger, r registry.EventRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
 	return &outputStore{
-		log:      log,
-		registry: r,
-		pipeline: pipeline,
+		log:           log,
+		eventRegistry: r,
+		pipeline:      pipeline,
+		agentRegistry: agentRegistry,
 	}
 }
 
@@ -60,7 +62,7 @@ func (s *outputStore) Publish(ctx context.Context, req *event.PublishRequest) (*
 	e.Link = "" // the end
 	if err := retry.Do(ctx, func(ctx context.Context) error {
 		s.log.Debug().Msg("RecordEvent attempt start")
-		if _, err := s.registry.RecordEvent(ctx, &e); err != nil {
+		if _, err := s.eventRegistry.RecordEvent(ctx, &e); err != nil {
 			s.log.Debug().Err(err).Msg("RecordEvent attempt failed")
 			return maskAny(err)
 		}
@@ -71,7 +73,7 @@ func (s *outputStore) Publish(ctx context.Context, req *event.PublishRequest) (*
 	}
 
 	// Build event tree
-	evtTree, err := tree.Build(ctx, e, s.registry)
+	evtTree, err := tree.Build(ctx, e, s.eventRegistry)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -104,6 +106,17 @@ func (s *outputStore) GetOutputEvents(ctx context.Context, req *pipeline.OutputE
 // GetPipeline returns the pipeline resource.
 func (s *outputStore) GetPipeline(context.Context, *empty.Empty) (*koalja.PipelineSpec, error) {
 	return &s.pipeline.Spec, nil
+}
+
+// GetLinkStatistics returns statistics for selected (or all) links.
+func (s *outputStore) GetLinkStatistics(ctx context.Context, req *pipeline.GetLinkStatisticsRequest) (*pipeline.GetLinkStatisticsResponse, error) {
+	s.log.Debug().Interface("req", req).Msg("GetLinkStatistics request")
+
+	result, err := s.agentRegistry.GetLinkStatistics(ctx, req)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	return result, nil
 }
 
 // isMatch returns true when the given event tree matches the given request.

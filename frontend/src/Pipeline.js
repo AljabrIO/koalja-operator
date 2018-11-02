@@ -6,11 +6,13 @@ import ReactTimeout from 'react-timeout';
 class Pipeline extends Component {
   state = {
     pipeline: undefined,
+    linkStats: undefined,
     error: undefined
   };
 
   componentDidMount() {
     this.reloadPipeline();
+    this.reloadLinkStats();
   }
 
   reloadPipeline = async() => {
@@ -30,6 +32,25 @@ class Pipeline extends Component {
       }*/
     }
     this.props.setTimeout(this.reloadPipeline, 10000);
+  }
+
+  reloadLinkStats = async() => {
+    try {
+      const stats = await api.post('/v1/statistics/links', {});
+      this.setState({
+        linkStats: stats,
+        error: undefined
+      });
+      console.log(stats);
+    } catch (e) {
+      this.setState({
+        error: e.message
+      });
+      /*if (isUnauthorized(e)) {
+        this.props.doLogout();
+      }*/
+    }
+    this.props.setTimeout(this.reloadLinkStats, 2500);
   }
 
   getOption = () => {
@@ -65,18 +86,21 @@ class Pipeline extends Component {
     let nodes = taskNodes.concat(inputNodes, outputNodes);
     console.log(nodes);
 
-    let taskLinks = spec.links.map(x => ({
-      name: x.name,
-      label: {
-        show: false
-      },
-      source: x.sourceRef, 
-      target: x.destinationRef,
-      value: 2,
-      lineStyle: {
-        curveness: 0.1
-      }
-    }));
+    let taskLinks = spec.links.map(x => {
+      let stats = this.state.linkStats.statistics.find(x => x.link_name === x.name);
+      return {
+        name: `${x.name} ${stats}`,
+        label: {
+          show: false
+        },
+        source: x.sourceRef, 
+        target: x.destinationRef,
+        value: 2,
+        lineStyle: {
+          curveness: 0.1
+        }
+      };
+    });
     let taskInputLinks = flatten(spec.tasks.map(t => (t.inputs || []).map(x => ({
       name: `${t.name}/${x.name}`,
       source: `${t.name}/${x.name}`,
@@ -89,7 +113,7 @@ class Pipeline extends Component {
       target: `${t.name}/${x.name}`,
       value: 1
     }))));
-    let links = [].concat(taskLinks, taskInputLinks, taskOutputLinks);
+    let graphLinks = [].concat(taskLinks, taskInputLinks, taskOutputLinks);
 
     return {
       legend: {
@@ -126,7 +150,7 @@ class Pipeline extends Component {
           repulsion: 50,
           gravity: 0.0
         },
-        links: links,
+        links: graphLinks,
         lineStyle: {
           color: 'source'
         }  
@@ -141,7 +165,7 @@ class Pipeline extends Component {
       'click': this.onChartClick
       //'legendselectchanged': this.onChartLegendselectchanged
     }
-    if (this.state.pipeline) {
+    if (this.state.pipeline && this.state.linkStats) {
       return (
         <ReactEcharts 
           option={this.getOption()} 
