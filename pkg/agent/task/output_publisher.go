@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/dchest/uniuri"
@@ -28,6 +29,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -47,10 +49,11 @@ type outputPublisher struct {
 	spec               *koalja.TaskSpec
 	outputAddressesMap map[string][]string            // map[outputName]eventPublisherAddresses
 	eventChannels      map[string][]chan *event.Event // map[outputName][]chan event
+	statistics         *pipeline.TaskStatistics
 }
 
 // newOutputPublisher initializes a new outputPublisher.
-func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod) (*outputPublisher, error) {
+func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *pipeline.TaskStatistics) (*outputPublisher, error) {
 	outputAddressesMap := make(map[string][]string)
 	eventChannels := make(map[string][]chan *event.Event)
 	for _, tos := range spec.Outputs {
@@ -72,6 +75,7 @@ func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.P
 		spec:               spec,
 		outputAddressesMap: outputAddressesMap,
 		eventChannels:      eventChannels,
+		statistics:         statistics,
 	}, nil
 }
 
@@ -82,11 +86,12 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 		tos := tos // bring into scope
 		addresses := op.outputAddressesMap[tos.Name]
 		eventChans := op.eventChannels[tos.Name]
+		outputStats := op.statistics.OutputByName(tos.Name)
 		for i, eventChan := range eventChans {
 			eventChan := eventChan // bring into scope
 			addr := addresses[i]
 			g.Go(func() error {
-				if err := op.runForOutput(lctx, tos, addr, eventChan); err != nil {
+				if err := op.runForOutput(lctx, tos, addr, eventChan, outputStats); err != nil {
 					return maskAny(err)
 				}
 				return nil
@@ -171,7 +176,7 @@ func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputRea
 }
 
 // runForOutput keeps publishing events for the given output until the given context is canceled.
-func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, eventChan chan *event.Event) error {
+func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, eventChan chan *event.Event, stats *pipeline.TaskOutputStatistics) error {
 	defer close(eventChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
 
@@ -197,6 +202,7 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 					return maskAny(err)
 				}
 				log.Debug().Str("id", evt.ID).Msg("published event")
+				atomic.AddInt64(&stats.EventsPublished, 1)
 			case <-ctx.Done():
 				return ctx.Err()
 			}

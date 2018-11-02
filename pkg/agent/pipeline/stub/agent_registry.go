@@ -32,7 +32,7 @@ import (
 type agentRegistry struct {
 	log         zerolog.Logger
 	linkAgents  map[string][]*linkAgent // map[link-name][]linkAgent
-	taskAgents  map[string][]string     // map[task-name][]uri
+	taskAgents  map[string][]*taskAgent // map[task-name][]taskAgent
 	agentsMutex sync.Mutex
 }
 
@@ -44,12 +44,20 @@ type linkAgent struct {
 	}
 }
 
+type taskAgent struct {
+	URI        string
+	Statistics struct {
+		Timestamp time.Time
+		Data      pipeline.TaskStatistics
+	}
+}
+
 // newAgentRegistry initializes a new agent registry
 func newAgentRegistry(log zerolog.Logger) *agentRegistry {
 	return &agentRegistry{
 		log:        log,
 		linkAgents: make(map[string][]*linkAgent),
-		taskAgents: make(map[string][]string),
+		taskAgents: make(map[string][]*taskAgent),
 	}
 }
 
@@ -87,8 +95,15 @@ func (s *agentRegistry) RegisterTask(ctx context.Context, req *pipeline.Register
 	defer s.agentsMutex.Unlock()
 
 	current := s.taskAgents[req.GetTaskName()]
-	if !contains(current, req.GetURI()) {
-		s.taskAgents[req.GetTaskName()] = append(current, req.GetURI())
+	uriFound := false
+	for _, x := range current {
+		if x.URI == req.GetURI() {
+			uriFound = true
+			break
+		}
+	}
+	if !uriFound {
+		s.taskAgents[req.GetTaskName()] = append(current, &taskAgent{URI: req.GetURI()})
 	}
 
 	return &empty.Empty{}, nil
@@ -97,13 +112,13 @@ func (s *agentRegistry) RegisterTask(ctx context.Context, req *pipeline.Register
 // Provide statistics of a link (called by the link)
 func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *pipeline.LinkStatistics) (*empty.Empty, error) {
 	s.log.Debug().
-		Str("link", req.GetLinkName()).
+		Str("link", req.GetName()).
 		Str("uri", req.GetURI()).
 		Msg("Publish link statistics")
 	s.agentsMutex.Lock()
 	defer s.agentsMutex.Unlock()
 
-	current := s.linkAgents[req.GetLinkName()]
+	current := s.linkAgents[req.GetName()]
 	var linkAgentRef *linkAgent
 	for _, x := range current {
 		if x.URI == req.GetURI() {
@@ -114,10 +129,41 @@ func (s *agentRegistry) PublishLinkStatistics(ctx context.Context, req *pipeline
 	if linkAgentRef == nil {
 		linkAgentRef = &linkAgent{URI: req.GetURI()}
 		current = append(current, linkAgentRef)
-		s.linkAgents[req.GetLinkName()] = current
+		s.linkAgents[req.GetName()] = current
 	}
-	linkAgentRef.Statistics.Data = *req
+	linkAgentRef.Statistics.Data.Reset()
+	linkAgentRef.Statistics.Data.Add(*req)
 	linkAgentRef.Statistics.Timestamp = time.Now()
+	sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
+
+	return &empty.Empty{}, nil
+}
+
+// Provide statistics of a task (called by the task)
+func (s *agentRegistry) PublishTaskStatistics(ctx context.Context, req *pipeline.TaskStatistics) (*empty.Empty, error) {
+	s.log.Debug().
+		Str("task", req.GetName()).
+		Str("uri", req.GetURI()).
+		Msg("Publish task statistics")
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	current := s.taskAgents[req.GetName()]
+	var taskAgentRef *taskAgent
+	for _, x := range current {
+		if x.URI == req.GetURI() {
+			taskAgentRef = x
+			break
+		}
+	}
+	if taskAgentRef == nil {
+		taskAgentRef = &taskAgent{URI: req.GetURI()}
+		current = append(current, taskAgentRef)
+		s.taskAgents[req.GetName()] = current
+	}
+	taskAgentRef.Statistics.Data.Reset()
+	taskAgentRef.Statistics.Data.Add(*req)
+	taskAgentRef.Statistics.Timestamp = time.Now()
 	sort.Slice(current, func(i, j int) bool { return current[i].Statistics.Timestamp.Before(current[j].Statistics.Timestamp) })
 
 	return &empty.Empty{}, nil
@@ -144,12 +190,10 @@ func (s *agentRegistry) GetLinkStatistics(ctx context.Context, in *pipeline.GetL
 	for name, list := range s.linkAgents {
 		if isLinkRequested(name) {
 			stat := pipeline.LinkStatistics{
-				LinkName: name,
+				Name: name,
 			}
 			for _, x := range list {
-				stat.EventsWaiting += x.Statistics.Data.EventsWaiting
-				stat.EventsInProgress += x.Statistics.Data.EventsInProgress
-				stat.EventsAcknowledged += x.Statistics.Data.EventsAcknowledged
+				stat.Add(x.Statistics.Data)
 			}
 			result.Statistics = append(result.Statistics, &stat)
 		}
@@ -158,11 +202,35 @@ func (s *agentRegistry) GetLinkStatistics(ctx context.Context, in *pipeline.GetL
 	return result, nil
 }
 
-func contains(list []string, value string) bool {
-	for _, x := range list {
-		if x == value {
+// GetTaskStatistics returns statistics for selected (or all) tasks.
+func (s *agentRegistry) GetTaskStatistics(ctx context.Context, in *pipeline.GetTaskStatisticsRequest) (*pipeline.GetTaskStatisticsResponse, error) {
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
+	isTaskRequested := func(taskName string) bool {
+		if len(in.GetTaskNames()) == 0 {
 			return true
 		}
+		for _, x := range in.GetTaskNames() {
+			if x == taskName {
+				return true
+			}
+		}
+		return false
 	}
-	return false
+
+	result := &pipeline.GetTaskStatisticsResponse{}
+	for name, list := range s.taskAgents {
+		if isTaskRequested(name) {
+			stat := pipeline.TaskStatistics{
+				Name: name,
+			}
+			for _, x := range list {
+				stat.Add(x.Statistics.Data)
+			}
+			result.Statistics = append(result.Statistics, &stat)
+		}
+	}
+
+	return result, nil
 }

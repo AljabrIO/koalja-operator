@@ -45,28 +45,28 @@ build: manager agents services tasks
 # Build manager binary
 manager: bin/$(GOOS)/$(GOARCH)/manager
 
-bin/$(GOOS)/$(GOARCH)/manager: $(SOURCES) generate fmt vet
+bin/$(GOOS)/$(GOARCH)/manager: generate fmt vet $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
 
 # Build agents binary
 agents: bin/$(GOOS)/$(GOARCH)/agents
  
-bin/$(GOOS)/$(GOARCH)/agents: $(SOURCES) generate fmt vet frontend/assets.go
+bin/$(GOOS)/$(GOARCH)/agents: generate fmt vet $(SOURCES) frontend/assets.go
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
 
 # Build services binary
 services: bin/$(GOOS)/$(GOARCH)/services
 
-bin/$(GOOS)/$(GOARCH)/services: $(SOURCES) generate fmt vet
+bin/$(GOOS)/$(GOARCH)/services: generate fmt vet $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
 
 # Build tasks binary
 tasks: bin/$(GOOS)/$(GOARCH)/tasks
 
-bin/$(GOOS)/$(GOARCH)/tasks: $(SOURCES) generate fmt vet
+bin/$(GOOS)/$(GOARCH)/tasks: generate fmt vet $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
 

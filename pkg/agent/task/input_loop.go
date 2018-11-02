@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/eapache/go-resiliency/breaker"
@@ -29,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/event"
@@ -48,10 +50,11 @@ type inputLoop struct {
 	executionCount  int32
 	execQueue       chan (*InputSnapshot)
 	executor        Executor
+	statistics      *pipeline.TaskStatistics
 }
 
 // newInputLoop initializes a new input loop.
-func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor) (*inputLoop, error) {
+func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor, statistics *pipeline.TaskStatistics) (*inputLoop, error) {
 	inputAddressMap := make(map[string]string)
 	for _, tis := range spec.Inputs {
 		annKey := constants.CreateInputLinkAddressAnnotationName(tis.Name)
@@ -68,6 +71,7 @@ func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, ex
 		clientID:        uniuri.New(),
 		execQueue:       make(chan *InputSnapshot),
 		executor:        executor,
+		statistics:      statistics,
 	}, nil
 }
 
@@ -79,8 +83,9 @@ func (il *inputLoop) Run(ctx context.Context) error {
 		// Watch inputs
 		for _, tis := range il.spec.Inputs {
 			tis := tis // Bring in scope
+			stats := il.statistics.InputByName(tis.Name)
 			g.Go(func() error {
-				return il.watchInput(lctx, tis)
+				return il.watchInput(lctx, tis, stats)
 			})
 		}
 	} else {
@@ -146,13 +151,27 @@ func (il *inputLoop) runExecWithoutInputs(ctx context.Context) error {
 
 // execOnSnapshot executes the task executor for the given snapshot.
 func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot) error {
+	// Update statistics
+	atomic.AddInt64(&il.statistics.SnapshotsWaiting, -1)
+	atomic.AddInt64(&il.statistics.SnapshotsInProgress, 1)
+	snapshot.AddInProgressStatistics(1)
+
+	// Update statistics on return
+	defer func() {
+		snapshot.AddInProgressStatistics(-1)
+		snapshot.AddProcessedStatistics(1)
+		atomic.AddInt64(&il.statistics.SnapshotsInProgress, -1)
+	}()
 	if err := il.executor.Execute(ctx, snapshot); ctx.Err() != nil {
+		atomic.AddInt64(&il.statistics.SnapshotsFailed, 1)
 		return ctx.Err()
 	} else if err != nil {
+		atomic.AddInt64(&il.statistics.SnapshotsFailed, 1)
 		il.log.Debug().Err(err).Msg("executor.Execute failed")
 		return maskAny(err)
 	} else {
 		// Acknowledge all event in the snapshot
+		atomic.AddInt64(&il.statistics.SnapshotsSucceeded, 1)
 		il.log.Debug().Msg("acknowledging all events in snapshot")
 		if err := snapshot.AckAll(ctx); err != nil {
 			il.log.Error().Err(err).Msg("Failed to acknowledge events")
@@ -162,7 +181,7 @@ func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot
 }
 
 // processEvent the event coming from the given input.
-func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalja.TaskInputSpec, ack func(context.Context, *event.Event) error) error {
+func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalja.TaskInputSpec, stats *pipeline.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
 	snapshotPolicy := tis.SnapshotPolicy
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
@@ -187,7 +206,7 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 	}
 
 	// Set the event in the snapshot
-	if err := il.snapshot.Set(ctx, tis.Name, e, ack); err != nil {
+	if err := il.snapshot.Set(ctx, tis.Name, e, stats, ack); err != nil {
 		return err
 	}
 
@@ -213,6 +232,9 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 		}
 	}
 
+	// Update statistics
+	atomic.AddInt64(&il.statistics.SnapshotsWaiting, 1)
+
 	// Push snapshot into execution queue
 	il.mutex.Unlock()
 	il.execQueue <- clonedSnapshot
@@ -222,7 +244,7 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 }
 
 // watchInput subscribes to the given input and gathers events until the given context is canceled.
-func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec) error {
+func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, stats *pipeline.TaskInputStatistics) error {
 	// Create client
 	address := il.inputAddressMap[tis.Name]
 
@@ -251,6 +273,7 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec) e
 				il.log.Error().Err(err).Msg("Failed to ack event")
 				return maskAny(err)
 			}
+			atomic.AddInt64(&stats.EventsProcessed, 1)
 			return nil
 		}
 
@@ -267,7 +290,8 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec) e
 			} else {
 				// Process event (if any)
 				if e := resp.GetEvent(); e != nil {
-					if err := il.processEvent(ctx, e, tis, ack); err != nil {
+					atomic.AddInt64(&stats.EventsReceived, 1)
+					if err := il.processEvent(ctx, e, tis, stats, ack); err != nil {
 						il.log.Error().Err(err).Msg("Failed to process event")
 					}
 				}

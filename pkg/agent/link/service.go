@@ -130,8 +130,8 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 	}
 	uri := newLinkURI(dnsName, port, &p)
 	statistics := &pipeline.LinkStatistics{
-		LinkName: linkName,
-		URI:      uri,
+		Name: linkName,
+		URI:  uri,
 	}
 	deps := APIDependencies{
 		Client:        c,
@@ -171,7 +171,7 @@ func (s *Service) Run(ctx context.Context) error {
 	agentRegistered := make(chan struct{})
 	go s.runUpdateAgentRegistration(ctx, agentRegistered)
 
-	// Until until agent is first registered
+	// Wait until agent is first registered
 	select {
 	case <-agentRegistered:
 		// Agent was register. Good to start

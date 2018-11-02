@@ -119,6 +119,17 @@ func (s *outputStore) GetLinkStatistics(ctx context.Context, req *pipeline.GetLi
 	return result, nil
 }
 
+// GetTaskStatistics returns statistics for selected (or all) tasks.
+func (s *outputStore) GetTaskStatistics(ctx context.Context, req *pipeline.GetTaskStatisticsRequest) (*pipeline.GetTaskStatisticsResponse, error) {
+	s.log.Debug().Interface("req", req).Msg("GetTaskStatistics request")
+
+	result, err := s.agentRegistry.GetTaskStatistics(ctx, req)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	return result, nil
+}
+
 // isMatch returns true when the given event tree matches the given request.
 func isMatch(e *tree.EventTree, req *pipeline.OutputEventsRequest) bool {
 	createdAt, _ := ptypes.TimestampFromProto(e.Event.GetCreatedAt())

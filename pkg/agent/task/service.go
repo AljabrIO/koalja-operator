@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 
@@ -51,6 +52,8 @@ type Service struct {
 	port            int
 	taskName        string
 	uri             string
+	statistics      *pipeline.TaskStatistics
+	agentRegistry   pipeline.AgentRegistryClient
 }
 
 // NewService creates a new Service instance.
@@ -100,13 +103,13 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		return nil, maskAny(err)
 	}
 
-	var pipeline koalja.Pipeline
+	var pl koalja.Pipeline
 	if err := retry.Do(ctx, func(ctx context.Context) error {
-		return c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pipeline)
+		return c.Get(ctx, client.ObjectKey{Name: pipelineName, Namespace: ns}, &pl)
 	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
 		return nil, maskAny(err)
 	}
-	taskSpec, found := pipeline.Spec.TaskByName(taskName)
+	taskSpec, found := pl.Spec.TaskByName(taskName)
 	if !found {
 		return nil, maskAny(fmt.Errorf("Task '%s' not found in pipeline '%s'", taskName, pipelineName))
 	}
@@ -120,16 +123,31 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	}
 
 	// Create executor
+	agentReg, err := pipelinecl.CreateAgentRegistryClient()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create agent registry client")
+		return nil, maskAny(err)
+	}
 	uri := newTaskURI(dnsName, port, &pod)
-	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod)
+	statistics := &pipeline.TaskStatistics{
+		Name: taskName,
+		URI:  uri,
+	}
+	for _, x := range taskSpec.Inputs {
+		statistics.Inputs = append(statistics.Inputs, &pipeline.TaskInputStatistics{Name: x.Name})
+	}
+	for _, x := range taskSpec.Outputs {
+		statistics.Outputs = append(statistics.Outputs, &pipeline.TaskOutputStatistics{Name: x.Name})
+	}
+	op, err := newOutputPublisher(log.With().Str("component", "outputPublisher").Logger(), &taskSpec, &pod, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pipeline, &taskSpec, &pod, port, op)
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pl, &taskSpec, &pod, port, op, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	il, err := newInputLoop(log.With().Str("component", "inputLoop").Logger(), &taskSpec, &pod, executor)
+	il, err := newInputLoop(log.With().Str("component", "inputLoop").Logger(), &taskSpec, &pod, executor, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -142,6 +160,8 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		port:            port,
 		taskName:        taskName,
 		uri:             uri,
+		statistics:      statistics,
+		agentRegistry:   agentReg,
 	}, nil
 }
 
@@ -149,26 +169,18 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 func (s *Service) Run(ctx context.Context) error {
 	s.log.Info().Msg("Service starting...")
 
-	// Register agent
-	agentReg, err := pipelinecl.CreateAgentRegistryClient()
-	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to create agent registry client")
-		return maskAny(err)
+	// Start the registry update loop
+	agentRegistered := make(chan struct{})
+	go s.runUpdateAgentRegistration(ctx, agentRegistered)
+
+	// Wait until agent is first registered
+	select {
+	case <-agentRegistered:
+		// Agent was register. Good to start
+	case <-ctx.Done():
+		// Context was canceled
+		return maskAny(ctx.Err())
 	}
-	if err := retry.Do(ctx, func(ctx context.Context) error {
-		if _, err := agentReg.RegisterTask(ctx, &pipeline.RegisterTaskRequest{
-			TaskName: s.taskName,
-			URI:      s.uri,
-		}); err != nil {
-			s.log.Debug().Err(err).Msg("register task agent attempt failed")
-			return err
-		}
-		return nil
-	}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
-		s.log.Error().Err(err).Msg("Failed to register task agent")
-		return maskAny(err)
-	}
-	s.log.Info().Msgf("Registered task %s as %s", s.taskName, s.uri)
 
 	g, lctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -233,4 +245,73 @@ func (s *Service) runServer(ctx context.Context) error {
 	<-ctx.Done()
 	svr.GracefulStop()
 	return nil
+}
+
+// runUpdateAgentRegistration registers the task at the agent registry at regular
+// intervals and publishes the statistics frequently.
+func (s *Service) runUpdateAgentRegistration(ctx context.Context, agentRegistered chan struct{}) {
+	log := s.log.With().
+		Str("task", s.taskName).
+		Str("uri", s.uri).
+		Logger()
+	minDelay := time.Second * 5
+	maxDelay := time.Second * 15
+	delay := minDelay
+	var lastAgentRegistration time.Time
+	for {
+		// Register agent (if needed)
+		if time.Since(lastAgentRegistration) > time.Minute {
+			if err := retry.Do(ctx, func(ctx context.Context) error {
+				if _, err := s.agentRegistry.RegisterTask(ctx, &pipeline.RegisterTaskRequest{
+					TaskName: s.taskName,
+					URI:      s.uri,
+				}); err != nil {
+					log.Debug().Err(err).Msg("register task agent attempt failed")
+					return err
+				}
+				return nil
+			}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
+				log.Error().Err(err).Msg("Failed to register task agent")
+			} else {
+				// Success
+				lastAgentRegistration = time.Now()
+				if agentRegistered != nil {
+					close(agentRegistered)
+					agentRegistered = nil
+					log.Info().Msg("Registered task")
+				} else {
+					log.Debug().Msg("Re-registered task")
+				}
+			}
+		}
+
+		if agentRegistered == nil {
+			var stats pipeline.TaskStatistics
+			stats.Add(*s.statistics)
+			if err := retry.Do(ctx, func(ctx context.Context) error {
+				if _, err := s.agentRegistry.PublishTaskStatistics(ctx, &stats); err != nil {
+					s.log.Debug().Err(err).Msg("publish task statistics attempt failed")
+					return err
+				}
+				return nil
+			}, retry.Timeout(constants.TimeoutRegisterAgent)); err != nil {
+				s.log.Error().Err(err).Msg("Failed to public task statistics")
+				delay = time.Duration(float64(delay) * 1.5)
+				if delay > maxDelay {
+					delay = maxDelay
+				}
+			} else {
+				// Success
+				delay = minDelay
+			}
+		}
+
+		select {
+		case <-time.After(delay):
+			// Continue
+		case <-ctx.Done():
+			// Context canceled
+			return
+		}
+	}
 }
