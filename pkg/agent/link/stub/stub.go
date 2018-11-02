@@ -288,6 +288,7 @@ func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*googl
 				// Found inflight event; Remove it.
 				sub.inflight = append(sub.inflight[:i], sub.inflight[i+1:]...)
 				// Update statistics
+				atomic.AddInt64(&s.statistics.EventsInProgress, -1)
 				atomic.AddInt64(&s.statistics.EventsAcknowledged, 1)
 				return &google_protobuf1.Empty{}, nil
 			}
