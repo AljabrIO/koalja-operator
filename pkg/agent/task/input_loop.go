@@ -273,7 +273,6 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 				il.log.Error().Err(err).Msg("Failed to ack event")
 				return maskAny(err)
 			}
-			atomic.AddInt64(&stats.EventsProcessed, 1)
 			return nil
 		}
 
