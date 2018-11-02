@@ -1,12 +1,11 @@
 import React, { Component } from 'react';
 import './App.css';
-import './Pipeline';
-import Pipeline from './Pipeline';
+import PipelinePage from './pipeline/Page';
 
 class App extends Component {
   render() {
     return (
-      <Pipeline/>
+      <PipelinePage/>
     );
   }
 }
