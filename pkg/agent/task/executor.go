@@ -72,6 +72,11 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	// Get ServiceAccount for task executors
+	executorServiceName, err := constants.GetServiceAccountName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	// Get task executor annotation (if any)
 	annTaskExecutorContainer := pod.GetAnnotations()[constants.AnnTaskExecutorContainer]
 	var taskExecContainer *corev1.Container
@@ -92,6 +97,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		pipeline:                pipeline,
 		outputAddressesMap:      outputAddressesMap,
 		taskExecContainer:       taskExecContainer,
+		executorServiceName:     executorServiceName,
 		myPod:                   pod,
 		dnsName:                 dnsName,
 		namespace:               pod.GetNamespace(),
@@ -112,6 +118,7 @@ type executor struct {
 	pipeline                *koalja.Pipeline
 	outputAddressesMap      map[string][]string
 	taskExecContainer       *corev1.Container
+	executorServiceName     string
 	myPod                   *corev1.Pod
 	dnsName                 string
 	namespace               string
@@ -204,8 +211,9 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 			},
 		},
 		Spec: corev1.PodSpec{
-			Containers:    []corev1.Container{*execCont},
-			RestartPolicy: corev1.RestartPolicyNever,
+			Containers:         []corev1.Container{*execCont},
+			RestartPolicy:      corev1.RestartPolicyNever,
+			ServiceAccountName: e.executorServiceName,
 		},
 	}
 	resources, outputProcessors, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod, ownerRef)

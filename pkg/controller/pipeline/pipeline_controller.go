@@ -182,9 +182,25 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		result = MergeReconcileResult(result, lresult)
 	}
 
+	// Ensure executors ServiceAccount is created
+	if lresult, err := r.ensureExecutorsServiceAccount(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensureExecutorsServiceAccount failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
 	// Ensure agents Role & RoleBinding are created
 	if lresult, err := r.ensureAgentsRoleAndBinding(ctx, instance); err != nil {
 		log.Error().Err(err).Msg("ensureAgentsRoleAndBinding failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
+	// Ensure executors Role & RoleBinding are created
+	if lresult, err := r.ensureExecutorsRoleAndBinding(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensureExecutorsRoleAndBinding failed")
 		return lresult, err
 	} else {
 		result = MergeReconcileResult(result, lresult)
@@ -243,6 +259,34 @@ func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, inst
 
 	// Check if the pipeline agents ServiceAccount already exists
 	if err := util.EnsureServiceAccount(ctx, log, r.Client, serviceAccount, "Pipeline Agents ServiceAccount"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensureExecutorsServiceAccount ensures that a service account exists that is the identity
+// for all task executors.
+// +kubebuilder:rbac:groups=v1,resources=serviceaccounts,verbs=get;create;update;patch;delete
+func (r *ReconcilePipeline) ensureExecutorsServiceAccount(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	serviceAccountName := CreatePipelineExecutorsServiceAccountName(instance.Name)
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: instance.Namespace,
+		},
+	}
+
+	log := r.log.With().
+		Str("name", serviceAccount.Name).
+		Str("namespace", serviceAccount.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, serviceAccount, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents ServiceAccount already exists
+	if err := util.EnsureServiceAccount(ctx, log, r.Client, serviceAccount, "Pipeline Executors ServiceAccount"); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -308,6 +352,78 @@ func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, inst
 
 	// Check if the pipeline agents RoleBinding already exists
 	if err := util.EnsureRoleBinding(ctx, log, r.Client, roleBinding, "Pipeline Agents RoleBinding"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensureExecutorsRoleAndBinding ensures that a Role & RoleBinding exists for the service account that is the identity
+// for all task executors.
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;update;patch;delete
+func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	// Role
+	roleName := CreatePipelineExecutorsRoleName(instance.Name)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: instance.Namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			// Allow reading pods
+			rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+			// Allow creating services
+			rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"services"},
+				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+			},
+		},
+	}
+	log := r.log.With().
+		Str("name", role.Name).
+		Str("namespace", role.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents Role already exists
+	if err := util.EnsureRole(ctx, log, r.Client, role, "Pipeline Executors Role"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// RoleBinding
+	roleBindingName := CreatePipelineExecutorsRoleBindingName(instance.Name)
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindingName,
+			Namespace: instance.Namespace,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      CreatePipelineExecutorsServiceAccountName(instance.Name),
+				Namespace: instance.Namespace,
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents RoleBinding already exists
+	if err := util.EnsureRoleBinding(ctx, log, r.Client, roleBinding, "Pipeline Executors RoleBinding"); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -627,6 +743,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		constants.EnvEventRegistryAddress:  CreateEventRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvFileSystemAddress:     filesystemServiceAddress,
 		constants.EnvDNSName:               CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
+		constants.EnvServiceAccountName:    CreatePipelineExecutorsServiceAccountName(instance.Name),
 	})
 
 	// Define the desired StatefulSet object for task agent

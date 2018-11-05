@@ -82,6 +82,36 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - v1
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - get
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - get
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - roles

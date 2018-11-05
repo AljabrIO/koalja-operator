@@ -82,6 +82,10 @@ const (
 	// name of the link to an agent/sidecar.
 	EnvLinkName = "KOALJA_LINK_NAME"
 
+	// EnvServiceAccountName is the name of the environment variable used to pass the
+	// name of the ServiceAccount used to execute tasks.
+	EnvServiceAccountName = "KOALJA_SERVICEACCOUNT_NAME"
+
 	// EnvTaskName is the name of the environment variable used to pass the
 	// name of the task to an agent.
 	EnvTaskName = "KOALJA_TASK_NAME"
@@ -204,6 +208,16 @@ func GetTaskName() (string, error) {
 	name := os.Getenv(EnvTaskName)
 	if name == "" {
 		return "", fmt.Errorf("Environment variable '%s' not set", EnvTaskName)
+	}
+	return name, nil
+}
+
+// GetServiceAccountName loads the ServiceAccount name passed to the task agent
+// used to pass the name of the ServiceAccount of executor Pods.
+func GetServiceAccountName() (string, error) {
+	name := os.Getenv(EnvServiceAccountName)
+	if name == "" {
+		return "", fmt.Errorf("Environment variable '%s' not set", EnvServiceAccountName)
 	}
 	return name, nil
 }
