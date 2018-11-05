@@ -197,3 +197,24 @@ func CreateServiceDNSName(s corev1.Service) string {
 func CreateServiceAddress(s corev1.Service) string {
 	return net.JoinHostPort(CreateServiceDNSName(s), strconv.Itoa(int(s.Spec.Ports[0].Port)))
 }
+
+// CreatePipelineAgentsServiceAccountName returns the name of the ServiceAccount
+// used as identity of all pipeline, link & task agents of the pipeline.
+// for the given pipeline.
+func CreatePipelineAgentsServiceAccountName(pipelineName string) string {
+	return util.FixupKubernetesName(pipelineName + "-agents")
+}
+
+// CreatePipelineAgentsRoleName returns the name of the Role
+// that provides permissions for to the ServiceAccount that is used as identity of all
+// pipeline, link & task agents of the pipeline.
+func CreatePipelineAgentsRoleName(pipelineName string) string {
+	return util.FixupKubernetesName(pipelineName + "-agents")
+}
+
+// CreatePipelineAgentsRoleBindingName returns the name of the RoleBinding
+// that provides permissions for to the ServiceAccount that is used as identity of all
+// pipeline, link & task agents of the pipeline.
+func CreatePipelineAgentsRoleBindingName(pipelineName string) string {
+	return util.FixupKubernetesName(pipelineName + "-agents")
+}

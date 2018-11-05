@@ -22,6 +22,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -79,6 +80,100 @@ func ObjectMetaEqual(prefix string, spec, actual metav1.ObjectMeta) []Diff {
 		StringEqual(prefix+".name", spec.GetName(), actual.GetName()),
 		StringEqual(prefix+".namespace", spec.GetNamespace(), actual.GetNamespace())...),
 		LabelsEqual(prefix+".labels", spec.GetLabels(), actual.GetLabels())...)
+}
+
+// ServiceAccountEqual returns zero-length result when the given objects have the same specs.
+func ServiceAccountEqual(spec, actual corev1.ServiceAccount) []Diff {
+	return ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta)
+}
+
+// RoleEqual returns zero-length result when the given objects have the same specs.
+func RoleEqual(spec, actual rbacv1.Role) []Diff {
+	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		PolicyRulesEqual("rules", spec.Rules, actual.Rules)...)
+}
+
+// PolicyRulesEqual returns zero-length result when the given objects have the same specs.
+func PolicyRulesEqual(prefix string, spec, actual []rbacv1.PolicyRule) []Diff {
+	for i, sr := range spec {
+		var result []Diff
+		found := false
+		for j, ar := range actual {
+			if diff := PolicyRuleEqual(prefix, sr, ar); len(diff) == 0 {
+				// Found match
+				found = true
+				break
+			} else {
+				if j < i {
+					result = diff
+				}
+			}
+		}
+		if !found {
+			if len(result) > 0 {
+				return result
+			}
+			return []Diff{Diff(prefix + fmt.Sprintf("missing policy rule %d: %v", i, sr))}
+		}
+	}
+	return nil
+}
+
+// PolicyRuleEqual returns zero-length result when the given objects have the same specs.
+func PolicyRuleEqual(prefix string, spec, actual rbacv1.PolicyRule) []Diff {
+	return append(StringsEqual(prefix+".verbs", spec.Verbs, actual.Verbs),
+		append(StringsEqual(prefix+".apiGroups", spec.APIGroups, actual.APIGroups),
+			append(StringsEqual(prefix+".resources", spec.Resources, actual.Resources),
+				append(StringsEqual(prefix+".resourceNames", spec.ResourceNames, actual.ResourceNames),
+					StringsEqual(prefix+".nonResourceURLs", spec.NonResourceURLs, actual.NonResourceURLs)...)...)...)...)
+}
+
+// RoleBindingEqual returns zero-length result when the given objects have the same specs.
+func RoleBindingEqual(spec, actual rbacv1.RoleBinding) []Diff {
+	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		append(SubjectsEqual("subjects", spec.Subjects, actual.Subjects),
+			RoleRefEqual("roleRef", spec.RoleRef, actual.RoleRef)...)...)
+}
+
+// RoleRefEqual returns zero-length result when the given objects have the same specs.
+func RoleRefEqual(prefix string, spec, actual rbacv1.RoleRef) []Diff {
+	return append(StringEqual(prefix+".apiGroup", spec.APIGroup, actual.APIGroup),
+		append(StringEqual(prefix+".kind", spec.Kind, actual.Kind),
+			StringEqual(prefix+".name", spec.Name, actual.Name)...)...)
+}
+
+// SubjectsEqual returns zero-length result when the given objects have the same specs.
+func SubjectsEqual(prefix string, spec, actual []rbacv1.Subject) []Diff {
+	for i, sr := range spec {
+		var result []Diff
+		found := false
+		for j, ar := range actual {
+			if diff := SubjectEqual(prefix, sr, ar); len(diff) == 0 {
+				// Found match
+				found = true
+				break
+			} else {
+				if j < i {
+					result = diff
+				}
+			}
+		}
+		if !found {
+			if len(result) > 0 {
+				return result
+			}
+			return []Diff{Diff(prefix + fmt.Sprintf("missing subject %d: %v", i, sr))}
+		}
+	}
+	return nil
+}
+
+// SubjectEqual returns zero-length result when the given objects have the same specs.
+func SubjectEqual(prefix string, spec, actual rbacv1.Subject) []Diff {
+	return append(StringEqual(prefix+".apiGroup", spec.APIGroup, actual.APIGroup),
+		append(StringEqual(prefix+".kind", spec.Kind, actual.Kind),
+			append(StringEqual(prefix+".name", spec.Name, actual.Name),
+				StringEqual(prefix+".namespace", spec.Namespace, actual.Namespace)...)...)...)
 }
 
 // StatefulSetEqual returns zero-length result when the given objects have the same specs.

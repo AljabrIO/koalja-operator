@@ -30,10 +30,10 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -67,6 +67,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
+// +kubebuilder:rbac:groups=v1,resources=serviceaccounts,verbs=list;watch
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("pipeline-controller", mgr, controller.Options{Reconciler: r})
@@ -100,6 +101,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch Services since we're launching a various Agent Services
 	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &koaljav1alpha1.Pipeline{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch ServiceAccounts since we're launching a various ServiceAccounts as identify for the pipeline
+	// components.
+	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &koaljav1alpha1.Pipeline{},
 	})
@@ -157,11 +168,29 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		r.eventRecorder.Event(instance, "Normal", "PipelineValidation", "Pipeline is valid")
 	}
 
-	// Ensure pipeline agent is created
+	// Ensure all resources are created
 	result := reconcile.Result{
 		Requeue:      true,
 		RequeueAfter: time.Minute,
 	}
+
+	// Ensure agents ServiceAccount is created
+	if lresult, err := r.ensureAgentsServiceAccount(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensureAgentsServiceAccount failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
+	// Ensure agents Role & RoleBinding are created
+	if lresult, err := r.ensureAgentsRoleAndBinding(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensureAgentsRoleAndBinding failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
+	// Ensure pipeline agent is created
 	if lresult, err := r.ensurePipelineAgent(ctx, instance); err != nil {
 		log.Error().Err(err).Msg("ensurePipelineAgent failed")
 		return lresult, err
@@ -190,6 +219,99 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	return result, nil
+}
+
+// ensureAgentsServiceAccount ensures that a service account exists that is the identity
+// for all pipeline, link & task agents.
+// +kubebuilder:rbac:groups=v1,resources=serviceaccounts,verbs=get;create;update;patch;delete
+func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	serviceAccountName := CreatePipelineAgentsServiceAccountName(instance.Name)
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: instance.Namespace,
+		},
+	}
+
+	log := r.log.With().
+		Str("name", serviceAccount.Name).
+		Str("namespace", serviceAccount.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, serviceAccount, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents ServiceAccount already exists
+	if err := util.EnsureServiceAccount(ctx, log, r.Client, serviceAccount, "Pipeline Agents ServiceAccount"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensureAgentsRoleAndBinding ensures that a Role & RoleBinding exists for the service account that is the identity
+// for all pipeline, link & task agents.
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;update;patch;delete
+func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	// Role
+	roleName := CreatePipelineAgentsRoleName(instance.Name)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: instance.Namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+			},
+		},
+	}
+	log := r.log.With().
+		Str("name", role.Name).
+		Str("namespace", role.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents Role already exists
+	if err := util.EnsureRole(ctx, log, r.Client, role, "Pipeline Agents Role"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// RoleBinding
+	roleBindingName := CreatePipelineAgentsRoleBindingName(instance.Name)
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindingName,
+			Namespace: instance.Namespace,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      CreatePipelineAgentsServiceAccountName(instance.Name),
+				Namespace: instance.Namespace,
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents RoleBinding already exists
+	if err := util.EnsureRoleBinding(ctx, log, r.Client, roleBinding, "Pipeline Agents RoleBinding"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
 
 // ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
@@ -260,7 +382,8 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{agentCont, evtRegistryCont},
+					Containers:         []corev1.Container{agentCont, evtRegistryCont},
+					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
 				},
 			},
 		},
@@ -273,27 +396,9 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		return reconcile.Result{}, err
 	}
 
-	{
-		// Check if the pipeline agent Deployment already exists
-		found := &appsv1.StatefulSet{}
-		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Pipeline Agent StatefulSet")
-			if err := r.Create(ctx, deploy); err != nil {
-				log.Error().Err(err).Msg("Failed to create Pipeline Agent StatefulSet")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
-			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.StatefulSetEqual(*deploy, *found); len(diff) > 0 {
-				found.Spec = deploy.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Pipeline Agent StatefulSet")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-		}
+	// Check if the pipeline agent StatefulSet already exists
+	if err := util.EnsureStatefulSet(ctx, log, r.Client, deploy, "Pipeline Agent StatefulSet"); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	{
@@ -334,25 +439,8 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		}
 
 		// Check if the pipeline agent Service already exists
-		found := &corev1.Service{}
-		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Pipeline Agent Service")
-			if err := r.Create(ctx, service); err != nil {
-				log.Error().Err(err).Msg("Failed to create Pipeline Agent Service")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
+		if err := util.EnsureService(ctx, log, r.Client, service, "Pipeline Agent Service"); err != nil {
 			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.ServiceEqual(*service, *found); len(diff) > 0 {
-				service.Spec.ClusterIP = found.Spec.ClusterIP
-				found.Spec = service.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Pipeline Agent Service")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
 		}
 	}
 
@@ -407,7 +495,8 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{c},
+					Containers:         []corev1.Container{c},
+					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
 				},
 			},
 		},
@@ -420,27 +509,9 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		return reconcile.Result{}, err
 	}
 
-	{
-		// Check if the link agent StatefulSet already exists
-		found := &appsv1.StatefulSet{}
-		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Link Agent StatefulSet")
-			if err := r.Create(ctx, deploy); err != nil {
-				log.Error().Err(err).Msg("Failed to create Link Agent StatefulSet")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
-			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.StatefulSetEqual(*deploy, *found); len(diff) > 0 {
-				found.Spec = deploy.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Link Agent StatefulSet")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-		}
+	// Check if the link agent StatefulSet already exists
+	if err := util.EnsureStatefulSet(ctx, log, r.Client, deploy, "Link Agent StatefulSet"); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	{
@@ -469,25 +540,8 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 		}
 
 		// Check if the link agent Service already exists
-		found := &corev1.Service{}
-		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Link Agent Service")
-			if err := r.Create(ctx, service); err != nil {
-				log.Error().Err(err).Msg("Failed to create Link Agent Service")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
+		if err := util.EnsureService(ctx, log, r.Client, service, "Link Agent Service"); err != nil {
 			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.ServiceEqual(*service, *found); len(diff) > 0 {
-				service.Spec.ClusterIP = found.Spec.ClusterIP
-				found.Spec = service.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Link Agent Service")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
 		}
 	}
 
@@ -630,7 +684,8 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{c},
+					Containers:         []corev1.Container{c},
+					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
 				},
 			},
 		},
@@ -643,27 +698,9 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		return reconcile.Result{}, err
 	}
 
-	{
-		// Check if the task agent StatefulSet already exists
-		found := &appsv1.StatefulSet{}
-		if err := r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Task Agent StatefulSet")
-			if err := r.Create(ctx, deploy); err != nil {
-				log.Error().Err(err).Msg("Failed to create Task Agent StatefulSet")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
-			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.StatefulSetEqual(*deploy, *found); len(diff) > 0 {
-				found.Spec = deploy.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Task Agent StatefulSet")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-		}
+	// Check if the task agent StatefulSet already exists
+	if err := util.EnsureStatefulSet(ctx, log, r.Client, deploy, "Task Agent StatefulSet"); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	{
@@ -692,25 +729,8 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		}
 
 		// Check if the task agent Service already exists
-		found := &corev1.Service{}
-		if err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found); err != nil && errors.IsNotFound(err) {
-			log.Info().Msg("Creating Task Agent Service")
-			if err := r.Create(ctx, service); err != nil {
-				log.Error().Err(err).Msg("Failed to create Task Agent Service")
-				return reconcile.Result{}, err
-			}
-		} else if err != nil {
+		if err := util.EnsureService(ctx, log, r.Client, service, "Task Agent Service"); err != nil {
 			return reconcile.Result{}, err
-		} else {
-			// Update the found object and write the result back if there are any changes
-			if diff := util.ServiceEqual(*service, *found); len(diff) > 0 {
-				service.Spec.ClusterIP = found.Spec.ClusterIP
-				found.Spec = service.Spec
-				log.Info().Interface("diff", diff).Msg("Updating Task Agent Service")
-				if err := r.Update(ctx, found); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
 		}
 	}
 
