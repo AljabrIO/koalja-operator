@@ -1,3 +1,9 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: koalja-local-fs-service
+  namespace: system
+---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -100,4 +106,5 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+      serviceAccountName: koalja-local-fs-service
       terminationGracePeriodSeconds: 10
