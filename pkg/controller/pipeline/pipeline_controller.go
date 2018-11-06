@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -435,19 +434,17 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=eventregistries,verbs=get;list;watch
 func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	// Search for pipeline agent resource
-	var plAgentList agentsv1alpha1.PipelineList
-	if err := r.List(ctx, &client.ListOptions{}, &plAgentList); err != nil {
+	plAgent, err := selectPipelineAgent(ctx, r.log, r.Client, instance.Namespace)
+	if err != nil {
 		return reconcile.Result{}, err
-	}
-	if len(plAgentList.Items) == 0 {
+	} else if plAgent == nil {
 		// No pipeline agent resource found
-		r.log.Warn().Msg("No Pipeline Agents found")
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, nil
 	}
-	agentCont := *plAgentList.Items[0].Spec.Container
+	agentCont := *plAgent.Spec.Container
 	SetAgentContainerDefaults(&agentCont, true)
 	SetContainerEnvVars(&agentCont, map[string]string{
 		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
@@ -460,19 +457,17 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	})
 
 	// Search for event registry resource
-	var evtRegistryList agentsv1alpha1.EventRegistryList
-	if err := r.List(ctx, &client.ListOptions{}, &evtRegistryList); err != nil {
+	eventRegistry, err := selectEventRegistry(ctx, r.log, r.Client, instance.Namespace)
+	if err != nil {
 		return reconcile.Result{}, err
-	}
-	if len(evtRegistryList.Items) == 0 {
+	} else if eventRegistry == nil {
 		// No event registry resource found
-		r.log.Warn().Msg("No Event Registries found")
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, nil
 	}
-	evtRegistryCont := *evtRegistryList.Items[0].Spec.Container
+	evtRegistryCont := *eventRegistry.Spec.Container
 	SetEventRegistryContainerDefaults(&evtRegistryCont)
 	SetContainerEnvVars(&evtRegistryCont, map[string]string{
 		constants.EnvAPIPort:      strconv.Itoa(constants.EventRegistryAPIPort),
@@ -567,19 +562,17 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=links,verbs=get;list;watch
 func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, link koaljav1alpha1.LinkSpec) (reconcile.Result, error) {
 	// Search for link agent resource
-	var linkAgentList agentsv1alpha1.LinkList
-	if err := r.List(ctx, &client.ListOptions{}, &linkAgentList); err != nil {
+	linkAgent, err := selectLinkAgent(ctx, r.log, r.Client, instance.Namespace)
+	if err != nil {
 		return reconcile.Result{}, err
-	}
-	if len(linkAgentList.Items) == 0 {
+	} else if linkAgent == nil {
 		// No link agent resource found
-		r.log.Warn().Msg("No Link Agents found")
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, nil
 	}
-	c := *linkAgentList.Items[0].Spec.Container
+	c := *linkAgent.Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
@@ -692,47 +685,37 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	// Search for matching taskexecutor (if needed)
 	var annTaskExecutorContainer string
 	if task.Type != "" {
-		var taskExecList agentsv1alpha1.TaskExecutorList
-		if err := r.List(ctx, &client.ListOptions{Namespace: instance.Namespace}, &taskExecList); err != nil {
+		taskExecutor, err := selectTaskExecutor(ctx, r.log, r.Client, string(task.Type), instance.Namespace)
+		if err != nil {
 			return reconcile.Result{}, err
-		}
-		found := false
-		for _, entry := range taskExecList.Items {
-			if string(entry.Spec.Type) == string(task.Type) {
-				// Found
-				found = true
-				encoded, err := json.Marshal(entry.Spec.Container)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				annTaskExecutorContainer = string(encoded)
-				break
-			}
-		}
-		if !found {
+		} else if taskExecutor == nil {
+			// No task executor found
 			r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "No TaskExecutor of type '%s' found for task '%s'", task.Type, task.Name)
-			r.log.Warn().Msgf("No TaskExecutor of type '%s' found", task.Type)
 			return reconcile.Result{
 				Requeue:      true,
 				RequeueAfter: time.Second * 10,
 			}, nil
 		}
+		// Marshal spec into annotation
+		encoded, err := json.Marshal(taskExecutor.Spec.Container)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		annTaskExecutorContainer = string(encoded)
 	}
 
 	// Search for task agent resource
-	var taskAgentList agentsv1alpha1.TaskList
-	if err := r.List(ctx, &client.ListOptions{}, &taskAgentList); err != nil {
+	taskAgent, err := selectTaskAgent(ctx, r.log, r.Client, instance.Namespace)
+	if err != nil {
 		return reconcile.Result{}, err
-	}
-	if len(taskAgentList.Items) == 0 {
+	} else if taskAgent == nil {
 		// No task agent resource found
-		r.log.Warn().Msg("No Task Agents found")
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, nil
 	}
-	c := *taskAgentList.Items[0].Spec.Container
+	c := *taskAgent.Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),

@@ -124,6 +124,10 @@ const (
 	// LabelSpecHash is the label key used to contain a hash of its
 	// entire specification. This is used for improved change detection.
 	LabelSpecHash = "koalja.aljabr.io/specHash"
+
+	// NamespaceKoaljaSystem is the name of the namespace containing the Koalja
+	// system components.
+	NamespaceKoaljaSystem = "koalja-system"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name
