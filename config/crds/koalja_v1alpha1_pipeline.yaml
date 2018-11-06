@@ -95,6 +95,9 @@ spec:
               type: array
           type: object
         status:
+          properties:
+            domain:
+              type: string
           type: object
   version: v1alpha1
 status:

@@ -35,8 +35,8 @@ type PipelineSpec struct {
 
 // PipelineStatus defines the observed state of Pipeline
 type PipelineStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Domain name used for the pipeline
+	Domain string `json:"domain,omitempty" protobuf:"bytes,1,opt,name=domain"`
 }
 
 // +genclient

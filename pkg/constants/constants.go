@@ -128,6 +128,10 @@ const (
 	// NamespaceKoaljaSystem is the name of the namespace containing the Koalja
 	// system components.
 	NamespaceKoaljaSystem = "koalja-system"
+
+	// ConfigMapDomain is the name of the configmap that holds the domain
+	// name configuration.
+	ConfigMapDomain = "koalja-domain-config"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

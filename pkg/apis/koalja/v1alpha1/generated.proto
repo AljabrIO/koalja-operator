@@ -88,6 +88,8 @@ message PipelineSpec {
 
 // PipelineStatus defines the observed state of Pipeline
 message PipelineStatus {
+  // Domain name used for the pipeline
+  optional string domain = 1 [(gogoproto.customname) = "Domain", (gogoproto.nullable) = false];
 }
 
 // TaskInputSpec holds the specification of a single input of a task

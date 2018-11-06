@@ -45,6 +45,7 @@ import (
 
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline/config"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/rs/zerolog"
 )
@@ -165,6 +166,19 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, nil
 	} else {
 		r.eventRecorder.Event(instance, "Normal", "PipelineValidation", "Pipeline is valid")
+	}
+
+	// Set domain (if needed)
+	if instance.Status.Domain == "" {
+		domainCfg, err := config.NewDomain(ctx, r.Client, instance.Namespace)
+		if err != nil {
+			return reconcile.Result{}, nil
+		}
+		instance.Status.Domain = domainCfg.LookupDomain(instance.GetLabels())
+		if err := r.Client.Update(ctx, instance); err != nil {
+			log.Error().Err(err).Msg("Failed to update domain name in status")
+			return reconcile.Result{}, nil
+		}
 	}
 
 	// Ensure all resources are created
