@@ -23,7 +23,7 @@ import (
 const (
 	// TimeoutK8sClient is the timeout of creating a k8s client.
 	// This is a bit long since it is often done early in the lifetime of a process.
-	TimeoutK8sClient = time.Second * 30
+	TimeoutK8sClient = time.Second * 45
 	// TimeoutAPIServer is the timeout of a API server call. (assuming 3 attempts)
 	TimeoutAPIServer = time.Second * 15
 	// TimeoutRegisterAgent is the timeout of a register agent call.

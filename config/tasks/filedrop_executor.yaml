@@ -21,3 +21,7 @@ spec:
     - "{{(index .outputs ((index .task.Outputs 0).Name)).nodeName}}"
     - --output-name
     - "{{(index .task.Outputs 0).Name}}"
+  routes:
+  - name: "upload"
+    port: 8080
+    prefixRewrite: "/upload"

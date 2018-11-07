@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -43,6 +45,10 @@ func init() {
 }
 
 func cmdTaskAgentRun(cmd *cobra.Command, args []string) {
+	env := os.Environ()
+	sort.Strings(env)
+	cliLog.Debug().Strs("env", env).Msg("Environment")
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {

@@ -25,15 +25,15 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
+	"github.com/rs/zerolog"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -43,26 +43,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	agentsapi "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	koaljav1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline/config"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
-	"github.com/rs/zerolog"
 )
 
 // Add creates a new Pipeline Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	if globalNetworkReconciler == nil {
+		return fmt.Errorf("Global network reconciler not set")
+	}
+	return add(mgr, newReconciler(mgr, globalNetworkReconciler))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, network NetworkReconciler) reconcile.Reconciler {
 	return &ReconcilePipeline{
 		log:           util.MustCreateLogger(),
 		Client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
 		eventRecorder: mgr.GetRecorder("controller"),
+		network:       network,
 	}
 }
 
@@ -129,6 +133,7 @@ type ReconcilePipeline struct {
 	client.Client
 	scheme        *runtime.Scheme
 	eventRecorder record.EventRecorder
+	network       NetworkReconciler
 }
 
 // Reconcile reads that state of the cluster for a Pipeline object and makes changes based on the state read
@@ -174,7 +179,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		if err != nil {
 			return reconcile.Result{}, nil
 		}
-		instance.Status.Domain = domainCfg.LookupDomain(instance.GetLabels())
+		instance.Status.Domain = fmt.Sprintf("%s.%s.%s", instance.Name, instance.Namespace, domainCfg.LookupDomain(instance.GetLabels()))
 		if err := r.Client.Update(ctx, instance); err != nil {
 			log.Error().Err(err).Msg("Failed to update domain name in status")
 			return reconcile.Result{}, nil
@@ -185,6 +190,10 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	result := reconcile.Result{
 		Requeue:      true,
 		RequeueAfter: time.Minute,
+	}
+	networkReq := NetworkReconcileRequest{
+		Request:  request,
+		Pipeline: instance,
 	}
 
 	// Ensure agents ServiceAccount is created
@@ -220,11 +229,12 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Ensure pipeline agent is created
-	if lresult, err := r.ensurePipelineAgent(ctx, instance); err != nil {
+	if lresult, frontend, err := r.ensurePipelineAgent(ctx, instance); err != nil {
 		log.Error().Err(err).Msg("ensurePipelineAgent failed")
 		return lresult, err
 	} else {
 		result = MergeReconcileResult(result, lresult)
+		networkReq.Frontend = frontend
 	}
 
 	// Ensure link agents are created
@@ -239,12 +249,21 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Ensure task agents are created
 	for _, t := range instance.Spec.Tasks {
-		if lresult, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
+		if lresult, ltaskExecutors, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
 			log.Error().Err(err).Msg("ensureTaskAgent failed")
 			return lresult, err
 		} else {
 			result = MergeReconcileResult(result, lresult)
+			networkReq.TaskExecutors = append(networkReq.TaskExecutors, ltaskExecutors...)
 		}
+	}
+
+	// Ensure network resources are created
+	if lresult, err := r.network.Reconcile(ctx, log, networkReq); err != nil {
+		log.Error().Err(err).Msg("network Reconcile failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
 	}
 
 	return result, nil
@@ -390,12 +409,6 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
-			// Allow creating services
-			rbacv1.PolicyRule{
-				APIGroups: []string{""},
-				Resources: []string{"services"},
-				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
-			},
 		},
 	}
 	log := r.log.With().
@@ -446,17 +459,27 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 // ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=eventregistries,verbs=get;list;watch
-func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, Frontend, error) {
+	deplName := CreatePipelineAgentName(instance.Name)
+	frontend := Frontend{
+		ServiceName: deplName,
+		Route: &agentsapi.NetworkRoute{
+			Name:             "http",
+			Port:             constants.AgentAPIHTTPPort,
+			EnableWebsockets: true,
+		},
+	}
+
 	// Search for pipeline agent resource
 	plAgent, err := selectPipelineAgent(ctx, r.log, r.Client, instance.Namespace)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, frontend, err
 	} else if plAgent == nil {
 		// No pipeline agent resource found
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
-		}, nil
+		}, frontend, nil
 	}
 	agentCont := *plAgent.Spec.Container
 	SetAgentContainerDefaults(&agentCont, true)
@@ -473,13 +496,13 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	// Search for event registry resource
 	eventRegistry, err := selectEventRegistry(ctx, r.log, r.Client, instance.Namespace)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, frontend, err
 	} else if eventRegistry == nil {
 		// No event registry resource found
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
-		}, nil
+		}, frontend, nil
 	}
 	evtRegistryCont := *eventRegistry.Spec.Container
 	SetEventRegistryContainerDefaults(&evtRegistryCont)
@@ -489,7 +512,6 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	})
 
 	// Define the desired Deployment object for pipeline agent
-	deplName := CreatePipelineAgentName(instance.Name)
 	createDeplLabels := func() map[string]string {
 		return map[string]string{
 			"statefulset": deplName,
@@ -505,7 +527,9 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 				MatchLabels: createDeplLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: createDeplLabels(),
+				},
 				Spec: corev1.PodSpec{
 					Containers:         []corev1.Container{agentCont, evtRegistryCont},
 					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
@@ -513,17 +537,18 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			},
 		},
 	}
+	r.network.SetPodAnnotations(&deploy.Spec.Template.ObjectMeta)
 	log := r.log.With().
 		Str("name", deploy.Name).
 		Str("namespace", deploy.Namespace).
 		Logger()
 	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, frontend, err
 	}
 
 	// Check if the pipeline agent StatefulSet already exists
 	if err := util.EnsureStatefulSet(ctx, log, r.Client, deploy, "Pipeline Agent StatefulSet"); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, frontend, err
 	}
 
 	{
@@ -560,16 +585,16 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 			},
 		}
 		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, frontend, err
 		}
 
 		// Check if the pipeline agent Service already exists
 		if err := util.EnsureService(ctx, log, r.Client, service, "Pipeline Agent Service"); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, frontend, err
 		}
 	}
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, frontend, nil
 }
 
 // ensureLinkAgent ensures that a link agent is launched for the given link in given pipeline instance.
@@ -616,7 +641,9 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 				MatchLabels: createDeplLabels(),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: createDeplLabels()},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: createDeplLabels(),
+				},
 				Spec: corev1.PodSpec{
 					Containers:         []corev1.Container{c},
 					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
@@ -624,6 +651,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 			},
 		},
 	}
+	r.network.SetPodAnnotations(&deploy.Spec.Template.ObjectMeta)
 	log := r.log.With().
 		Str("name", deploy.Name).
 		Str("namespace", deploy.Namespace).
@@ -674,17 +702,17 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 // ensureTaskAgent ensures that a task agent is launched for the given task in given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=tasks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=taskexecutors,verbs=get;list;watch
-func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, error) {
+func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, []TaskExecutor, error) {
 	// Search for FileSystem service
 	var svcList corev1.ServiceList
 	labelSel, err := labels.Parse(constants.LabelServiceType + "=" + constants.ServiceTypeFilesystem)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil, err
 	}
 	if err := r.List(ctx, &client.ListOptions{
 		LabelSelector: labelSel,
 	}, &svcList); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil, err
 	}
 	if len(svcList.Items) == 0 {
 		// No task agent resource found
@@ -692,42 +720,52 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
-		}, nil
+		}, nil, nil
 	}
 	filesystemServiceAddress := CreateServiceAddress(svcList.Items[0])
 
 	// Search for matching taskexecutor (if needed)
 	var annTaskExecutorContainer string
+	var taskExecutorRoutes []agentsapi.NetworkRoute
+	var taskExecutorsResult []TaskExecutor
 	if task.Type != "" {
 		taskExecutor, err := selectTaskExecutor(ctx, r.log, r.Client, string(task.Type), instance.Namespace)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, nil, err
 		} else if taskExecutor == nil {
 			// No task executor found
 			r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "No TaskExecutor of type '%s' found for task '%s'", task.Type, task.Name)
 			return reconcile.Result{
 				Requeue:      true,
 				RequeueAfter: time.Second * 10,
-			}, nil
+			}, nil, nil
 		}
 		// Marshal spec into annotation
 		encoded, err := json.Marshal(taskExecutor.Spec.Container)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, nil, err
 		}
 		annTaskExecutorContainer = string(encoded)
+		taskExecutorRoutes = taskExecutor.Spec.Routes
+		taskExecutorsResult = []TaskExecutor{
+			TaskExecutor{
+				TaskName:    task.Name,
+				ServiceName: CreateTaskExecutorServiceName(instance.Name, task.Name),
+				Routes:      taskExecutorRoutes,
+			},
+		}
 	}
 
 	// Search for task agent resource
 	taskAgent, err := selectTaskAgent(ctx, r.log, r.Client, instance.Namespace)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, taskExecutorsResult, err
 	} else if taskAgent == nil {
 		// No task agent resource found
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
-		}, nil
+		}, taskExecutorsResult, nil
 	}
 	c := *taskAgent.Spec.Container
 	SetAgentContainerDefaults(&c, false)
@@ -751,6 +789,11 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			"task":        task.Name,
 		}
 	}
+	createExecutorLabels := func() map[string]string {
+		m := createDeplLabels()
+		m["role"] = "executor"
+		return m
+	}
 	// Create annotations to pass address of input links
 	annotations := make(map[string]string)
 	for _, tis := range task.Inputs {
@@ -759,7 +802,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		link, found := instance.Spec.LinkByDestinationRef(ref)
 		if !found {
 			r.log.Error().Str("ref", ref).Msg("No link found for DestinationRef")
-			return reconcile.Result{}, fmt.Errorf("No link found with DestinationRef '%s'", ref)
+			return reconcile.Result{}, taskExecutorsResult, fmt.Errorf("No link found with DestinationRef '%s'", ref)
 		}
 		annotations[annKey] = CreateLinkAgentEventSourceAddress(instance.Name, link.Name, instance.Namespace)
 	}
@@ -782,7 +825,12 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	// Create annotation containing task executor container (if any)
 	if annTaskExecutorContainer != "" {
 		annotations[constants.AnnTaskExecutorContainer] = annTaskExecutorContainer
+
+		// Marshal labels
+		encodedLabels, _ := json.Marshal(createExecutorLabels())
+		annotations[constants.AnnTaskExecutorLabels] = string(encodedLabels)
 	}
+	// Create deployment
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deplName,
@@ -804,17 +852,18 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			},
 		},
 	}
+	r.network.SetPodAnnotations(&deploy.Spec.Template.ObjectMeta)
 	log := r.log.With().
 		Str("name", deploy.Name).
 		Str("namespace", deploy.Namespace).
 		Logger()
 	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, taskExecutorsResult, err
 	}
 
 	// Check if the task agent StatefulSet already exists
 	if err := util.EnsureStatefulSet(ctx, log, r.Client, deploy, "Task Agent StatefulSet"); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, taskExecutorsResult, err
 	}
 
 	{
@@ -839,14 +888,44 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			},
 		}
 		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, taskExecutorsResult, err
 		}
 
 		// Check if the task agent Service already exists
 		if err := util.EnsureService(ctx, log, r.Client, service, "Task Agent Service"); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, taskExecutorsResult, err
 		}
 	}
 
-	return reconcile.Result{}, nil
+	// Create Task Executor Service (if needed)
+	if len(taskExecutorRoutes) > 0 {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      CreateTaskExecutorServiceName(instance.Name, task.Name),
+				Namespace: instance.Namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Type:     corev1.ServiceTypeClusterIP,
+				Selector: createExecutorLabels(),
+			},
+		}
+		for _, r := range taskExecutorRoutes {
+			service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
+				Name:       r.Name,
+				Port:       int32(r.Port),
+				TargetPort: intstr.FromInt(r.Port),
+				Protocol:   corev1.ProtocolTCP,
+			})
+		}
+		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+			return reconcile.Result{}, taskExecutorsResult, err
+		}
+
+		// Check if the task executor Service already exists
+		if err := util.EnsureService(ctx, log, r.Client, service, "Task Executor Service"); err != nil {
+			return reconcile.Result{}, taskExecutorsResult, err
+		}
+	}
+
+	return reconcile.Result{}, taskExecutorsResult, nil
 }

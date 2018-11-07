@@ -51,7 +51,7 @@ func TestReconcileWithPipelineAgent(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
 
-	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	recFn, requests := SetupTestReconcile(newReconciler(mgr, &testNetworkReconciler{}))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 	defer close(StartTestManager(mgr, g))
 
@@ -97,5 +97,4 @@ func TestReconcileWithPipelineAgent(t *testing.T) {
 
 	// Manually delete Deployment since GC isn't enabled in the test control plane
 	g.Expect(c.Delete(context.TODO(), deploy)).To(gomega.Succeed())
-
 }

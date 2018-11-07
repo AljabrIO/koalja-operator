@@ -41,7 +41,7 @@ func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int)
 		return maskAny(err)
 	}
 	// Frontend
-	mux.Handle("GET", parsePattern("/"), createAssetFileHandler(frontend.Assets.Files["index.html"]))
+	mux.Handle("GET", parsePattern("/"), createRedirectRootHandler())
 	mux.Handle("GET", parsePattern("/v1/updates"), s.frontendHub.CreateHandler())
 	for path, file := range frontend.Assets.Files {
 		localPath := "/" + strings.TrimPrefix(path, "/")
@@ -66,6 +66,13 @@ func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int)
 func createAssetFileHandler(file *assets.File) func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 		http.ServeContent(w, r, file.Name(), file.ModTime(), file)
+	}
+}
+
+// createRedirectRootHandler creates a gin handler to serve the '/' path and redirect to 'index.html'.
+func createRedirectRootHandler() func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		http.Redirect(w, r, "/index.html", http.StatusFound)
 	}
 }
 

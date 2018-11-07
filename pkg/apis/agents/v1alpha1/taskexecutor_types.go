@@ -27,6 +27,22 @@ type TaskExecutorSpec struct {
 	Type TaskType `json:"type"`
 	// Container used to run the executor
 	Container *core.Container `json:"container"`
+	// HTTP routes provided by this executor
+	Routes []NetworkRoute `json:"routes,omitempty"`
+}
+
+// NetworkRoute defines a single network route.
+// If a task uses a task type, a Service will be created for the executor
+// and all routes will be configured.
+type NetworkRoute struct {
+	// Name of the route
+	Name string `json:"name"`
+	// Port is the port on the container that this route forwards to.
+	Port int `json:"port"`
+	// EnableWebsockets configures websocket support on this route
+	EnableWebsockets bool `json:"enableWebsockets,omitempty"`
+	// Indicates that during forwarding, the matched prefix (or path) should be swapped with this value
+	PrefixRewrite string `json:"prefixRewrite,omitempty"`
 }
 
 // TaskExecutorStatus defines the observed state of TaskExecutor
