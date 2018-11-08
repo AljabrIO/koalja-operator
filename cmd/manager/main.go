@@ -19,16 +19,19 @@ package main
 import (
 	"context"
 
-	"github.com/AljabrIO/koalja-operator/pkg/constants"
-
-	"github.com/AljabrIO/koalja-operator/pkg/apis"
-	"github.com/AljabrIO/koalja-operator/pkg/controller"
-	"github.com/AljabrIO/koalja-operator/pkg/util"
-	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
+	contourapi "github.com/heptio/contour/apis/contour/v1beta1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"github.com/AljabrIO/koalja-operator/pkg/apis"
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	"github.com/AljabrIO/koalja-operator/pkg/controller"
+	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline"
+	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline/contour"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
+	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
 var (
@@ -58,6 +61,17 @@ func main() {
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
+	}
+	if err := contourapi.AddToScheme(mgr.GetScheme()); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to add Contour to scheme")
+	}
+
+	// Setup network reconciler
+	// TODO make this configurable
+	if networkReconciler, err := contour.New(mgr); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to create Contour Network Reconciler")
+	} else {
+		pipeline.SetGlobalNetworkReconciler(networkReconciler)
 	}
 
 	// Setup all Controllers

@@ -24,6 +24,23 @@ spec:
           properties:
             container:
               type: object
+            routes:
+              items:
+                properties:
+                  enableWebsockets:
+                    type: boolean
+                  name:
+                    type: string
+                  port:
+                    format: int64
+                    type: integer
+                  prefixRewrite:
+                    type: string
+                required:
+                - name
+                - port
+                type: object
+              type: array
             type:
               type: string
           required:

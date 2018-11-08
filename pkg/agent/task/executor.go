@@ -87,6 +87,14 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		}
 		taskExecContainer = &c
 	}
+	// Get task labels annotation (if any)
+	annTaskExecutorLabels := pod.GetAnnotations()[constants.AnnTaskExecutorLabels]
+	var taskExecLabels map[string]string
+	if annTaskExecutorLabels != "" {
+		if err := json.Unmarshal([]byte(annTaskExecutorLabels), &taskExecLabels); err != nil {
+			return nil, maskAny(err)
+		}
+	}
 
 	return &executor{
 		Client:                  client,
@@ -97,6 +105,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		pipeline:                pipeline,
 		outputAddressesMap:      outputAddressesMap,
 		taskExecContainer:       taskExecContainer,
+		taskExecLabels:          taskExecLabels,
 		executorServiceName:     executorServiceName,
 		myPod:                   pod,
 		dnsName:                 dnsName,
@@ -118,6 +127,7 @@ type executor struct {
 	pipeline                *koalja.Pipeline
 	outputAddressesMap      map[string][]string
 	taskExecContainer       *corev1.Container
+	taskExecLabels          map[string]string
 	executorServiceName     string
 	myPod                   *corev1.Pod
 	dnsName                 string
@@ -199,16 +209,20 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		execCont.Name = "executor"
 	}
 	ownerRef := *metav1.NewControllerRef(e.myPod, gvkPod)
+	podLabels := map[string]string{
+		"pipeline": e.pipeline.GetName(),
+		"task":     e.taskSpec.Name,
+		"uid":      uid,
+	}
+	for k, v := range e.taskExecLabels {
+		podLabels[k] = v
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            podName,
 			Namespace:       e.namespace,
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
-			Labels: map[string]string{
-				"pipeline": e.pipeline.GetName(),
-				"task":     e.taskSpec.Name,
-				"uid":      uid,
-			},
+			Labels:          podLabels,
 		},
 		Spec: corev1.PodSpec{
 			Containers:         []corev1.Container{*execCont},
@@ -216,6 +230,7 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 			ServiceAccountName: e.executorServiceName,
 		},
 	}
+	//util.SetIstioPodAnnotations(&pod.ObjectMeta, true)
 	resources, outputProcessors, err := e.configureExecContainer(ctx, args, &pod.Spec.Containers[0], pod, ownerRef)
 	defer func() {
 		// Cleanup resources

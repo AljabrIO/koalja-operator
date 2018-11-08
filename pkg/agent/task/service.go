@@ -96,10 +96,12 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		c, err = client.New(config, client.Options{Scheme: scheme})
 		return err
 	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
+		log.Error().Err(err).Msg("attempt to create k8s client failed")
 		return nil, err
 	}
 	cache, err := cache.New(config, cache.Options{Scheme: scheme, Namespace: ns})
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create k8s cache")
 		return nil, maskAny(err)
 	}
 	fileSystem, err := fs.CreateFileSystemClient()

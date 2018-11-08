@@ -37,6 +37,14 @@ func BoolEqual(prefix string, spec, actual bool) []Diff {
 	return []Diff{Diff(prefix + fmt.Sprintf(" expected %v got %v", spec, actual))}
 }
 
+// IntEqual returns zero-length result when the given ints are the same.
+func IntEqual(prefix string, spec, actual int) []Diff {
+	if spec == actual {
+		return nil
+	}
+	return []Diff{Diff(prefix + fmt.Sprintf(" expected %d got %d", spec, actual))}
+}
+
 // Int32Equal returns zero-length result when the given ints are the same.
 func Int32Equal(prefix string, spec, actual int32) []Diff {
 	if spec == actual {
@@ -69,6 +77,21 @@ func LabelsEqual(prefix string, spec, actual map[string]string) []Diff {
 		if sv != av {
 			result = append(result, Diff(fmt.Sprintf("%s.%s expected '%s' got '%s'", prefix, sk, sv, av)))
 		}
+	}
+	return result
+}
+
+// SelectorEqual returns zero-length result when the given selectors are the same.
+func SelectorEqual(prefix string, spec, actual map[string]string) []Diff {
+	var result []Diff
+	for sk, sv := range spec {
+		av := actual[sk]
+		if sv != av {
+			result = append(result, Diff(fmt.Sprintf("%s.%s expected '%s' got '%s'", prefix, sk, sv, av)))
+		}
+	}
+	if len(actual) > len(spec) {
+		result = append(result, Diff(fmt.Sprintf("additional selectors found in %s", prefix)))
 	}
 	return result
 }

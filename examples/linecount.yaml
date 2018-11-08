@@ -2,7 +2,7 @@ apiVersion: koalja.aljabr.io/v1alpha1
 kind: Pipeline
 metadata:
   name: linecount
-  namespace: koalja-dev
+  namespace: default
 spec:
   tasks:
   - name: fileDropInput

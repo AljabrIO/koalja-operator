@@ -114,6 +114,10 @@ const (
 	// the container (as JSON) of the executor of the task to the task.
 	AnnTaskExecutorContainer = "koalja.aljabr.io/task-executor-container"
 
+	// AnnTaskExecutorLabels is the annotation key used to pass
+	// the labels (as JSON) of the executor pod of the task to the task.
+	AnnTaskExecutorLabels = "koalja.aljabr.io/task-executor-labels"
+
 	// LabelServiceType is the label key used to pass the type of service
 	// to a Service.
 	LabelServiceType = "koalja.aljabr.io/serviceType"
@@ -128,6 +132,10 @@ const (
 	// NamespaceKoaljaSystem is the name of the namespace containing the Koalja
 	// system components.
 	NamespaceKoaljaSystem = "koalja-system"
+
+	// ConfigMapDomain is the name of the configmap that holds the domain
+	// name configuration.
+	ConfigMapDomain = "koalja-domain-config"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name
