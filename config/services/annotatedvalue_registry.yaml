@@ -1,0 +1,14 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: AnnotatedValueRegistry
+metadata:
+  name: stub-annotatedvalue-registry
+  namespace: default
+spec:
+  container:
+    image: koalja-services:latest
+    command:
+    - /apps/services
+    - annotated
+    - value
+    - registry
+    - --registry=stub

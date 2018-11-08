@@ -26,10 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/frontend"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
@@ -39,10 +39,10 @@ type Service struct {
 	log zerolog.Logger
 	client.Client
 	Namespace      string
-	eventPublisher event.EventPublisherServer
+	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
 	agentRegistry  AgentRegistryServer
 	statisticsSink tracking.StatisticsSinkServer
-	eventRegistry  registry.EventRegistryClient
+	avRegistry     registry.AnnotatedValueRegistryClient
 	frontend       FrontendServer
 	frontendHub    *frontend.Hub
 }
@@ -53,8 +53,8 @@ type APIDependencies struct {
 	client.Client
 	// Namespace in which this link is running
 	Namespace string
-	// EventRegister client
-	EventRegistry registry.EventRegistryClient
+	// AnnotatedValueRegister client
+	AnnotatedValueRegistry registry.AnnotatedValueRegistryClient
 	// The pipeline
 	Pipeline *koalja.Pipeline
 	// Access to the frontend hub
@@ -69,8 +69,8 @@ type FrontendHub interface {
 
 // APIBuilder is an interface provided by an Link implementation
 type APIBuilder interface {
-	// NewEventPublisher creates an implementation of an EventPublisher used to capture output events.
-	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
+	// NewEventPublisher creates an implementation of an AnnotatedValuePublisher used to capture output annotated values.
+	NewAnnotatedValuePublisher(deps APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error)
 	// NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
 	NewAgentRegistry(deps APIDependencies) (AgentRegistryServer, error)
 	// NewStatisticsSink creates an implementation of an StatisticsSink.
@@ -105,19 +105,19 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		return nil, maskAny(err)
 	}
 
-	evtReg, err := registry.CreateEventRegistryClient()
+	avReg, err := registry.CreateAnnotatedValueRegistryClient()
 	if err != nil {
 		return nil, maskAny(err)
 	}
 	frontendHub := frontend.NewHub(log)
 	deps := APIDependencies{
-		Client:        c,
-		Namespace:     ns,
-		EventRegistry: evtReg,
-		Pipeline:      &pipeline,
-		FrontendHub:   frontendHub,
+		Client:                 c,
+		Namespace:              ns,
+		AnnotatedValueRegistry: avReg,
+		Pipeline:               &pipeline,
+		FrontendHub:            frontendHub,
 	}
-	eventPublisher, err := builder.NewEventPublisher(deps)
+	avPublisher, err := builder.NewAnnotatedValuePublisher(deps)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -138,8 +138,8 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		log:            log,
 		Client:         c,
 		Namespace:      ns,
-		eventPublisher: eventPublisher,
-		eventRegistry:  evtReg,
+		avPublisher:    avPublisher,
+		avRegistry:     avReg,
 		agentRegistry:  agentRegistry,
 		statisticsSink: statisticsSink,
 		frontend:       frontendSvr,

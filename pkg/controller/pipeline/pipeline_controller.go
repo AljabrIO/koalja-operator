@@ -568,30 +568,30 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	agentCont := *plAgent.Spec.Container
 	SetAgentContainerDefaults(&agentCont, true)
 	SetContainerEnvVars(&agentCont, map[string]string{
-		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvAPIHTTPPort:           strconv.Itoa(constants.AgentAPIHTTPPort),
-		constants.EnvPipelineName:          instance.Name,
-		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress:  net.JoinHostPort("localhost", strconv.Itoa(constants.EventRegistryAPIPort)),
-		constants.EnvDNSName:               CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
+		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvAPIHTTPPort:                   strconv.Itoa(constants.AgentAPIHTTPPort),
+		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvAnnotatedValueRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.AnnotatedValueRegistryAPIPort)),
+		constants.EnvDNSName:                       CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
 	})
 
-	// Search for event registry resource
-	eventRegistry, err := selectEventRegistry(ctx, r.log, r.Client, instance.Namespace)
+	// Search for annotated value registry resource
+	annotatedValueRegistry, err := selectAnnotatedValueRegistry(ctx, r.log, r.Client, instance.Namespace)
 	if err != nil {
 		return reconcile.Result{}, frontend, err
-	} else if eventRegistry == nil {
-		// No event registry resource found
+	} else if annotatedValueRegistry == nil {
+		// No annotated value registry resource found
 		return reconcile.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, frontend, nil
 	}
-	evtRegistryCont := *eventRegistry.Spec.Container
-	SetEventRegistryContainerDefaults(&evtRegistryCont)
-	SetContainerEnvVars(&evtRegistryCont, map[string]string{
-		constants.EnvAPIPort:      strconv.Itoa(constants.EventRegistryAPIPort),
+	avRegistryCont := *annotatedValueRegistry.Spec.Container
+	SetAnnotatedValueRegistryContainerDefaults(&avRegistryCont)
+	SetContainerEnvVars(&avRegistryCont, map[string]string{
+		constants.EnvAPIPort:      strconv.Itoa(constants.AnnotatedValueRegistryAPIPort),
 		constants.EnvPipelineName: instance.Name,
 	})
 
@@ -615,7 +615,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 					Labels: createDeplLabels(),
 				},
 				Spec: corev1.PodSpec{
-					Containers:         []corev1.Container{agentCont, evtRegistryCont},
+					Containers:         []corev1.Container{agentCont, avRegistryCont},
 					ServiceAccountName: CreatePipelineAgentsServiceAccountName(instance.Name),
 				},
 			},
@@ -660,9 +660,9 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 						Protocol:   corev1.ProtocolTCP,
 					},
 					corev1.ServicePort{
-						Name:       "grpc-event-registry-api",
-						Port:       constants.EventRegistryAPIPort,
-						TargetPort: intstr.FromInt(constants.EventRegistryAPIPort),
+						Name:       "grpc-annotatedvalue-registry-api",
+						Port:       constants.AnnotatedValueRegistryAPIPort,
+						TargetPort: intstr.FromInt(constants.AnnotatedValueRegistryAPIPort),
 						Protocol:   corev1.ProtocolTCP,
 					},
 				},
@@ -698,13 +698,13 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	c := *linkAgent.Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvPipelineName:          instance.Name,
-		constants.EnvLinkName:              link.Name,
-		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress:  CreateEventRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvDNSName:               CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
+		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvLinkName:                      link.Name,
+		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvAnnotatedValueRegistryAddress: CreateAnnotatedValueRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvDNSName:                       CreateLinkAgentDNSName(instance.Name, link.Name, instance.Namespace),
 	})
 
 	// Define the desired StatefulSet object for link agent
@@ -854,15 +854,15 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	c := *taskAgent.Spec.Container
 	SetAgentContainerDefaults(&c, false)
 	SetContainerEnvVars(&c, map[string]string{
-		constants.EnvAPIPort:               strconv.Itoa(constants.AgentAPIPort),
-		constants.EnvPipelineName:          instance.Name,
-		constants.EnvTaskName:              task.Name,
-		constants.EnvAgentRegistryAddress:  CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvStatisticsSinkAddress: CreateAgentRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvEventRegistryAddress:  CreateEventRegistryAddress(instance.Name, instance.Namespace),
-		constants.EnvFileSystemAddress:     filesystemServiceAddress,
-		constants.EnvDNSName:               CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
-		constants.EnvServiceAccountName:    CreatePipelineExecutorsServiceAccountName(instance.Name),
+		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
+		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvTaskName:                      task.Name,
+		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvAnnotatedValueRegistryAddress: CreateAnnotatedValueRegistryAddress(instance.Name, instance.Namespace),
+		constants.EnvFileSystemAddress:             filesystemServiceAddress,
+		constants.EnvDNSName:                       CreateTaskAgentDNSName(instance.Name, task.Name, instance.Namespace),
+		constants.EnvServiceAccountName:            CreatePipelineExecutorsServiceAccountName(instance.Name),
 	})
 
 	// Define the desired StatefulSet object for task agent

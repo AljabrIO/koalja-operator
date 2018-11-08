@@ -1,8 +1,0 @@
-apiVersion: agents.aljabr.io/v1alpha1
-kind: EventRegistry
-metadata:
-  name: stub-event-registry
-  namespace: default
-spec:
-  container:
-    image: koalja-stub-event-registry:latest

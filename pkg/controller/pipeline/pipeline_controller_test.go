@@ -64,14 +64,14 @@ func TestReconcileWithPipelineAgent(t *testing.T) {
 	}
 	g.Expect(c.Create(context.TODO(), plAgentInstance)).Should(gomega.Succeed())
 
-	// Create Event Registry
-	evtRegistryInstance := &agentsv1alpha1.EventRegistry{
-		ObjectMeta: metav1.ObjectMeta{Name: "def-evt-registry", Namespace: "default"},
-		Spec: agentsv1alpha1.EventRegistrySpec{
+	// Create AnnotatedValue Registry
+	avRegistryInstance := &agentsv1alpha1.AnnotatedValueRegistry{
+		ObjectMeta: metav1.ObjectMeta{Name: "def-av-registry", Namespace: "default"},
+		Spec: agentsv1alpha1.AnnotatedValueRegistrySpec{
 			Container: &corev1.Container{Image: "myimage"},
 		},
 	}
-	g.Expect(c.Create(context.TODO(), evtRegistryInstance)).Should(gomega.Succeed())
+	g.Expect(c.Create(context.TODO(), avRegistryInstance)).Should(gomega.Succeed())
 
 	// Create the Pipeline object and expect the Reconcile and Deployment to be created
 	err = c.Create(context.TODO(), instance)

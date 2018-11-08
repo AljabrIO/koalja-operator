@@ -86,9 +86,9 @@ func selectTaskAgent(ctx context.Context, log zerolog.Logger, c client.Client, n
 	return &list.Items[0], nil
 }
 
-// selectEventRegistry selects the event registry to use for the given namespace.
-func selectEventRegistry(ctx context.Context, log zerolog.Logger, c client.Client, ns string) (*agentsapi.EventRegistry, error) {
-	var list agentsapi.EventRegistryList
+// selectAnnotatedValueRegistry selects the annotated value registry to use for the given namespace.
+func selectAnnotatedValueRegistry(ctx context.Context, log zerolog.Logger, c client.Client, ns string) (*agentsapi.AnnotatedValueRegistry, error) {
+	var list agentsapi.AnnotatedValueRegistryList
 	if err := c.List(ctx, &client.ListOptions{Namespace: ns}, &list); err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func selectEventRegistry(ctx context.Context, log zerolog.Logger, c client.Clien
 	}
 	if len(list.Items) == 0 {
 		// No agents found
-		log.Warn().Msg("No Event Registries found")
+		log.Warn().Msg("No Annotated Value Registries found")
 		return nil, nil
 	}
 	return &list.Items[0], nil

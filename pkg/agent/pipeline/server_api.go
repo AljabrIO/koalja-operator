@@ -24,7 +24,7 @@ import (
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/AljabrIO/koalja-operator/pkg/event"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
 )
 
@@ -39,7 +39,7 @@ func (s *Service) runAPIServer(ctx context.Context, port int) error {
 	}
 	svr := grpc.NewServer()
 	defer svr.GracefulStop()
-	event.RegisterEventPublisherServer(svr, s.eventPublisher)
+	annotatedvalue.RegisterAnnotatedValuePublisherServer(svr, s.avPublisher)
 	RegisterAgentRegistryServer(svr, s.agentRegistry)
 	tracking.RegisterStatisticsSinkServer(svr, s.statisticsSink)
 	RegisterFrontendServer(svr, s.frontend)

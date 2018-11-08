@@ -27,76 +27,76 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
-	"github.com/AljabrIO/koalja-operator/pkg/event/tree"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/tree"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/rs/zerolog"
 )
 
-// outputStore is an in-memory implementation of an event queue.
+// outputStore is an in-memory implementation of an annotated value queue.
 type outputStore struct {
-	log           zerolog.Logger
-	agentRegistry *agentRegistry
-	eventRegistry registry.EventRegistryClient
-	pipeline      *koalja.Pipeline
-	events        []*tree.EventTree
-	eventsMutex   sync.Mutex
+	log                  zerolog.Logger
+	agentRegistry        *agentRegistry
+	avRegistry           registry.AnnotatedValueRegistryClient
+	pipeline             *koalja.Pipeline
+	annotatedValues      []*tree.AnnotatedValueTree
+	annotatedValuesMutex sync.Mutex
 }
 
 // newOutputStore creates a new output store
-func newOutputStore(log zerolog.Logger, r registry.EventRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
+func newOutputStore(log zerolog.Logger, r registry.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
 	return &outputStore{
 		log:           log,
-		eventRegistry: r,
+		avRegistry:    r,
 		pipeline:      pipeline,
 		agentRegistry: agentRegistry,
 	}
 }
 
 // Publish an event
-func (s *outputStore) Publish(ctx context.Context, req *event.PublishRequest) (*event.PublishResponse, error) {
-	s.log.Debug().Interface("event", req.Event).Msg("Publish request")
-	// Try to record event in registry
-	e := *req.GetEvent()
-	e.Link = "" // the end
+func (s *outputStore) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) (*annotatedvalue.PublishResponse, error) {
+	s.log.Debug().Interface("annotatedvalue", req.AnnotatedValue).Msg("Publish request")
+	// Try to record annotated value in registry
+	av := *req.GetAnnotatedValue()
+	av.Link = "" // the end
 	if err := retry.Do(ctx, func(ctx context.Context) error {
 		s.log.Debug().Msg("RecordEvent attempt start")
-		if _, err := s.eventRegistry.RecordEvent(ctx, &e); err != nil {
-			s.log.Debug().Err(err).Msg("RecordEvent attempt failed")
+		if _, err := s.avRegistry.Record(ctx, &av); err != nil {
+			s.log.Debug().Err(err).Msg("Record attempt failed")
 			return maskAny(err)
 		}
 		return nil
-	}, retry.Timeout(constants.TimeoutRecordEvent)); err != nil {
-		s.log.Error().Err(err).Msg("Failed to record event")
+	}, retry.Timeout(constants.TimeoutRecordAnnotatedValue)); err != nil {
+		s.log.Error().Err(err).Msg("Failed to record annotated value")
 		return nil, maskAny(err)
 	}
 
-	// Build event tree
-	evtTree, err := tree.Build(ctx, e, s.eventRegistry)
+	// Build annotated value tree
+	avTree, err := tree.Build(ctx, av, s.avRegistry)
 	if err != nil {
 		return nil, maskAny(err)
 	}
 
 	// Now put event in in-memory list
-	s.eventsMutex.Lock()
-	defer s.eventsMutex.Unlock()
-	s.events = append(s.events, evtTree)
-	return &event.PublishResponse{}, nil
+	s.annotatedValuesMutex.Lock()
+	defer s.annotatedValuesMutex.Unlock()
+	s.annotatedValues = append(s.annotatedValues, avTree)
+	return &annotatedvalue.PublishResponse{}, nil
 }
 
-// GetOutputEvents returns all events (resulting from task outputs that
+// GetOutputAnnotatedValues returns all annotated values (resulting from task outputs that
 // are not connected to inputs of other tasks) that match the given filter.
-func (s *outputStore) GetOutputEvents(ctx context.Context, req *pipeline.OutputEventsRequest) (*pipeline.OutputEvents, error) {
-	s.log.Debug().Interface("req", req).Msg("GetOutputEvents request")
-	s.eventsMutex.Lock()
-	defer s.eventsMutex.Unlock()
+func (s *outputStore) GetOutputAnnotatedValues(ctx context.Context, req *pipeline.OutputAnnotatedValuesRequest) (*pipeline.OutputAnnotatedValues, error) {
+	s.log.Debug().Interface("req", req).Msg("GetOutputAnnotatedValues request")
+	s.annotatedValuesMutex.Lock()
+	defer s.annotatedValuesMutex.Unlock()
 
-	resp := &pipeline.OutputEvents{}
-	for _, tree := range s.events {
+	resp := &pipeline.OutputAnnotatedValues{}
+	for _, tree := range s.annotatedValues {
 		if isMatch(tree, req) {
-			evt := tree.Event // Create clone
-			resp.Events = append(resp.Events, &evt)
+			av := tree.AnnotatedValue // Create clone
+			resp.AnnotatedValues = append(resp.AnnotatedValues, &av)
 		}
 	}
 
@@ -127,8 +127,8 @@ func (s *outputStore) GetTaskStatistics(ctx context.Context, req *pipeline.GetTa
 }
 
 // isMatch returns true when the given event tree matches the given request.
-func isMatch(e *tree.EventTree, req *pipeline.OutputEventsRequest) bool {
-	createdAt, _ := ptypes.TimestampFromProto(e.Event.GetCreatedAt())
+func isMatch(e *tree.AnnotatedValueTree, req *pipeline.OutputAnnotatedValuesRequest) bool {
+	createdAt, _ := ptypes.TimestampFromProto(e.AnnotatedValue.GetCreatedAt())
 	if tsPB := req.GetCreatedAfter(); tsPB != nil {
 		ts, _ := ptypes.TimestampFromProto(tsPB)
 		if createdAt.Before(ts) {
@@ -144,7 +144,7 @@ func isMatch(e *tree.EventTree, req *pipeline.OutputEventsRequest) bool {
 	if taskNames := req.GetTaskNames(); len(taskNames) > 0 {
 		found := false
 		for _, name := range taskNames {
-			if e.Event.GetSourceTask() == name {
+			if e.AnnotatedValue.GetSourceTask() == name {
 				found = true
 				break
 			}
@@ -153,7 +153,7 @@ func isMatch(e *tree.EventTree, req *pipeline.OutputEventsRequest) bool {
 			return false
 		}
 	}
-	if ids := req.GetEventIDs(); len(ids) > 0 {
+	if ids := req.GetAnnotatedValueIDs(); len(ids) > 0 {
 		found := false
 		for _, id := range ids {
 			if e.ContainsID(id) {

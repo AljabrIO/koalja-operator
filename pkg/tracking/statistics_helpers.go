@@ -26,9 +26,9 @@ func (target *LinkStatistics) Add(source LinkStatistics) {
 	if target.URI == "" {
 		target.URI = source.URI
 	}
-	target.EventsWaiting += source.EventsWaiting
-	target.EventsInProgress += source.EventsInProgress
-	target.EventsAcknowledged += source.EventsAcknowledged
+	target.AnnotatedValuesWaiting += source.AnnotatedValuesWaiting
+	target.AnnotatedValuesInProgress += source.AnnotatedValuesInProgress
+	target.AnnotatedValuesAcknowledged += source.AnnotatedValuesAcknowledged
 }
 
 // InputByName returns the statistic for the input with given name,
@@ -88,10 +88,10 @@ func (target *TaskInputStatistics) Add(source TaskInputStatistics) {
 	if target.Name == "" {
 		target.Name = source.Name
 	}
-	target.EventsReceived += source.EventsReceived
-	target.EventsInProgress += source.EventsInProgress
-	target.EventsProcessed += source.EventsProcessed
-	target.EventsSkipped += source.EventsSkipped
+	target.AnnotatedValuesReceived += source.AnnotatedValuesReceived
+	target.AnnotatedValuesInProgress += source.AnnotatedValuesInProgress
+	target.AnnotatedValuesProcessed += source.AnnotatedValuesProcessed
+	target.AnnotatedValuesSkipped += source.AnnotatedValuesSkipped
 }
 
 // Add the values of the source statistic to the target statistic.
@@ -99,5 +99,5 @@ func (target *TaskOutputStatistics) Add(source TaskOutputStatistics) {
 	if target.Name == "" {
 		target.Name = source.Name
 	}
-	target.EventsPublished += source.EventsPublished
+	target.AnnotatedValuesPublished += source.AnnotatedValuesPublished
 }

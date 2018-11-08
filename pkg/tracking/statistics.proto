@@ -36,12 +36,12 @@ message LinkStatistics {
     string name = 1 [(gogoproto.customname) = "Name"];
     // URI of the link
     string uri = 2 [(gogoproto.customname) = "URI"];
-    // Number of events waiting in this link before being processed
-    int64 events_waiting = 3 [(gogoproto.customname) = "EventsWaiting"];
-    // Number of events that are in progress but have not been acknowledged
-    int64 events_in_progress = 4 [(gogoproto.customname) = "EventsInProgress"];
-    // Number of events that have been processed and acknowledged
-    int64 events_acknowledged = 5 [(gogoproto.customname) = "EventsAcknowledged"];
+    // Number of annotated values waiting in this link before being processed
+    int64 annotatedvalues_waiting = 3 [(gogoproto.customname) = "AnnotatedValuesWaiting"];
+    // Number of annotated values that are in progress but have not been acknowledged
+    int64 annotatedvalues_in_progress = 4 [(gogoproto.customname) = "AnnotatedValuesInProgress"];
+    // Number of annotated values that have been processed and acknowledged
+    int64 annotatedvalues_acknowledged = 5 [(gogoproto.customname) = "AnnotatedValuesAcknowledged"];
 }
 
 message TaskStatistics {
@@ -66,20 +66,20 @@ message TaskStatistics {
 message TaskInputStatistics {
     // Name of the task input
     string name = 1 [(gogoproto.customname) = "Name"];
-    // Number of events that have been received from the link
-    int64 events_received = 2 [(gogoproto.customname) = "EventsReceived"];
-    // Number of events that are in progress in an executor but have not been acknowledged
-    int64 events_in_progress = 3 [(gogoproto.customname) = "EventsInProgress"];
-    // Number of events that have been processed and acknowledged
-    int64 events_processed = 4 [(gogoproto.customname) = "EventsProcessed"];
-    // Number of events that have been skipped and acknowledged
-    int64 events_skipped = 5 [(gogoproto.customname) = "EventsSkipped"];
+    // Number of annotated values that have been received from the link
+    int64 annotatedvalues_received = 2 [(gogoproto.customname) = "AnnotatedValuesReceived"];
+    // Number of annotated values that are in progress in an executor but have not been acknowledged
+    int64 annotatedvalues_in_progress = 3 [(gogoproto.customname) = "AnnotatedValuesInProgress"];
+    // Number of annotated values that have been processed and acknowledged
+    int64 annotatedvalues_processed = 4 [(gogoproto.customname) = "AnnotatedValuesProcessed"];
+    // Number of annotated values that have been skipped and acknowledged
+    int64 annotatedvalues_skipped = 5 [(gogoproto.customname) = "AnnotatedValuesSkipped"];
 }
 
 message TaskOutputStatistics {
     // Name of the task output
     string name = 1 [(gogoproto.customname) = "Name"];
-    // Number of events that have been published to the link
-    int64 events_published = 2 [(gogoproto.customname) = "EventsPublished"];
+    // Number of annotated values that have been published to the link
+    int64 annotatedvalues_published = 2 [(gogoproto.customname) = "AnnotatedValuesPublished"];
 }
 

@@ -19,9 +19,9 @@ package stub
 import (
 	"sync"
 
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/rs/zerolog"
 
@@ -54,7 +54,7 @@ func (s *stub) getOrCreateAgentRegistry(hub pipeline.FrontendHub) *agentRegistry
 }
 
 // getOrCreateOutputStore returns the output store, creating one if needed.
-func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
+func (s *stub) getOrCreateOutputStore(r registry.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
 	agentRegistry := s.getOrCreateAgentRegistry(hub)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -64,9 +64,9 @@ func (s *stub) getOrCreateOutputStore(r registry.EventRegistryClient, pipeline *
 	return s.outputStore
 }
 
-// NewEventPublisher "builds" a new publisher
-func (s *stub) NewEventPublisher(deps pipeline.APIDependencies) (event.EventPublisherServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline, deps.FrontendHub), nil
+// NewAnnotatedValuePublisher "builds" a new publisher
+func (s *stub) NewAnnotatedValuePublisher(deps pipeline.APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error) {
+	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub), nil
 }
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
@@ -81,5 +81,5 @@ func (s *stub) NewStatisticsSink(deps pipeline.APIDependencies) (tracking.Statis
 
 // NewFrontend creates an implementation of an Frontend, used to query results of the pipeline.
 func (s *stub) NewFrontend(deps pipeline.APIDependencies) (pipeline.FrontendServer, error) {
-	return s.getOrCreateOutputStore(deps.EventRegistry, deps.Pipeline, deps.FrontendHub), nil
+	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub), nil
 }

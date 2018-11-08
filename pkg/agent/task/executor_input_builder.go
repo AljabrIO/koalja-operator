@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	"github.com/rs/zerolog"
 )
@@ -44,8 +44,8 @@ type ExecutorInputBuilderConfig struct {
 	TaskSpec koalja.TaskSpec
 	// Pipeline (containing TaskSpec) to build for
 	Pipeline *koalja.Pipeline
-	// Event on input specified by InputSpec
-	Event *event.Event
+	// AnnotatedValue on input specified by InputSpec
+	AnnotatedValue *annotatedvalue.AnnotatedValue
 	// Owner reference for created resources
 	OwnerRef metav1.OwnerReference
 }

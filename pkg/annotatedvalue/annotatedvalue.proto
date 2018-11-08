@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package annotatedvalue;
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue";
+
+import "github.com/golang/protobuf/ptypes/duration/duration.proto";
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
+
+// AnnotatedValuePublisher is the API used to publish annotated values
+service AnnotatedValuePublisher {
+    rpc Publish(PublishRequest) returns (PublishResponse);
+}
+
+message PublishRequest {
+    AnnotatedValue AnnotatedValue = 1;
+}
+
+message PublishResponse {
+}
+
+// AnnotatedValueSource is the API used to subscribe to annotated values
+service AnnotatedValueSource {
+    // Subscribe to events
+    rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+    // Ping keeps a subscription alive
+    rpc Ping(PingRequest) returns (google.protobuf.Empty);
+    // Close a subscription
+    rpc Close(CloseRequest) returns (google.protobuf.Empty);
+    // Ask for the next annotated value on a subscription
+    rpc Next(NextRequest) returns (NextResponse);
+    // Acknowledge the processing of an annotated value
+    rpc Ack(AckRequest) returns (google.protobuf.Empty);
+}
+
+message SubscribeRequest {
+    string ClientID = 1;
+}
+
+message Subscription {
+    int64 ID = 1;
+}
+
+message SubscribeResponse {
+    Subscription Subscription = 1;
+    google.protobuf.Duration TTL = 2;
+}
+
+message PingRequest {
+    Subscription Subscription = 1;
+}
+
+message CloseRequest {
+    Subscription Subscription = 1;
+}
+
+message NextRequest {
+    Subscription Subscription = 1;
+    google.protobuf.Duration WaitTimeout = 2;
+}
+
+message NextResponse {
+    AnnotatedValue AnnotatedValue = 1;
+    bool NoAnnotatedValueYet = 2;
+}
+
+message AckRequest {
+    Subscription Subscription = 1;
+    string AnnotatedValueID = 2;
+}
+
+message AnnotatedValue {
+    // ID is a unique ID of this annotated value
+    string ID = 1;
+    // SourceTask contains the URI of the task that created the annotated value
+    string SourceTask = 2;
+    // SourceTaskOutput contains the name of the output of the task that created the annotated value
+    string SourceTaskOutput = 3;
+    // Link contains the URI of the Link that published the annotated value
+    string Link = 4;
+    // SourceInputs contains zero or more URI's of annotated values that resulted in this annotated value
+    repeated AnnotatedValueSourceInput SourceInputs = 5;
+    // Data contains a URI of the data (payload) of the message
+    string Data = 6;
+    // CreatedAt is the creation timestamp of the annotated value
+    google.protobuf.Timestamp CreatedAt = 7;
+}
+
+message AnnotatedValueSourceInput {
+    // ID of the source annotated value
+    string ID = 1; 
+    // Name of the task input on which this event came in
+    string InputName = 2;
+}
+
+// AnnotatedValueTuple is a tuple of N named annotated values.
+message AnnotatedValueTuple {
+    map<string, AnnotatedValue> Members = 1;
+}
+
+// AnnotatedValueRegistry is a persistent annotated value store
+service AnnotatedValueRegistry {
+    // Record the given event in the registry
+    rpc Record(AnnotatedValue) returns (google.protobuf.Empty);
+    // GetByID returns the annotated value with given ID.
+    rpc GetByID(GetByIDRequest) returns (GetResponse);
+    // GetByTaskAndData returns the annotated value with given task & data.
+    rpc GetByTaskAndData(GetByTaskAndDataRequest) returns (GetResponse);
+}
+
+message GetByIDRequest {
+    string ID = 1;
+}
+
+message GetByTaskAndDataRequest {
+    string SourceTask = 1;
+    string Data = 2;
+}
+
+message GetResponse {
+    AnnotatedValue AnnotatedValue = 1;
+}
