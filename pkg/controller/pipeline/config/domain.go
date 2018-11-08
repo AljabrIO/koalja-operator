@@ -32,6 +32,7 @@ import (
 // NewDomain loads domain configuration for a pipeline in the given namespace.
 // If no domain config is found in that namespace, the koalja-system
 // namespace is used.
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch
 func NewDomain(ctx context.Context, c client.Reader, ns string) (*Domain, error) {
 	var configMap corev1.ConfigMap
 	key := client.ObjectKey{
@@ -51,7 +52,7 @@ func NewDomain(ctx context.Context, c client.Reader, ns string) (*Domain, error)
 		} else if err != nil {
 			return nil, maskAny(err)
 		}
-	} else {
+	} else if err != nil {
 		return nil, maskAny(err)
 	}
 	// Parse config map

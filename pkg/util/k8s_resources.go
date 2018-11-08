@@ -81,6 +81,59 @@ func EnsureRoleBinding(ctx context.Context, log zerolog.Logger, client client.Cl
 	return nil
 }
 
+// EnsureClusterRole creates of updates a Role.
+func EnsureClusterRole(ctx context.Context, log zerolog.Logger, client client.Client, role *rbacv1.ClusterRole, description string) error {
+	// Check if Role already exists
+	found := &rbacv1.ClusterRole{}
+	if err := client.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, role); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := ClusterRoleEqual(*role, *found); len(diff) > 0 {
+			found.Rules = role.Rules
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// EnsureClusterRoleBinding creates of updates a RoleBinding.
+func EnsureClusterRoleBinding(ctx context.Context, log zerolog.Logger, client client.Client, roleBinding *rbacv1.ClusterRoleBinding, description string) error {
+	// Check if RoleBinding already exists
+	found := &rbacv1.ClusterRoleBinding{}
+	if err := client.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: roleBinding.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, roleBinding); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := ClusterRoleBindingEqual(*roleBinding, *found); len(diff) > 0 {
+			found.Subjects = roleBinding.Subjects
+			found.RoleRef = roleBinding.RoleRef
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // EnsureService creates of updates a Service.
 func EnsureService(ctx context.Context, log zerolog.Logger, client client.Client, service *corev1.Service, description string) error {
 	// Check if Service already exists

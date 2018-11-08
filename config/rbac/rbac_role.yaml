@@ -5,6 +5,26 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - contour.heptio.com
+  resources:
+  - ingressroutes
+  verbs:
+  - get
+  - create
+  - list
+  - watch
+  - patch
+  - update
+  - delete
+- apiGroups:
   - v1
   resources:
   - serviceaccounts
@@ -36,7 +56,19 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - v1
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
   resources:
   - services
   verbs:
@@ -60,6 +92,30 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - koalja.aljabr.io
   resources:
   - pipelines
@@ -72,22 +128,26 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - v1
+  - ""
   resources:
   - serviceaccounts
   verbs:
   - get
   - create
+  - list
+  - watch
   - update
   - patch
   - delete
 - apiGroups:
-  - v1
+  - ""
   resources:
   - serviceaccounts
   verbs:
   - get
   - create
+  - list
+  - watch
   - update
   - patch
   - delete
@@ -98,6 +158,8 @@ rules:
   verbs:
   - get
   - create
+  - list
+  - watch
   - update
   - patch
   - delete
@@ -108,6 +170,32 @@ rules:
   verbs:
   - get
   - create
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - get
+  - create
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - get
+  - create
+  - list
+  - watch
   - update
   - patch
   - delete
@@ -118,6 +206,8 @@ rules:
   verbs:
   - get
   - create
+  - list
+  - watch
   - update
   - patch
   - delete
@@ -128,6 +218,8 @@ rules:
   verbs:
   - get
   - create
+  - list
+  - watch
   - update
   - patch
   - delete

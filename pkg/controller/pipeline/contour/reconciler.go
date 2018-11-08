@@ -46,6 +46,7 @@ type reconciler struct {
 }
 
 // Reconcile network resources for the given pipeline.
+// +kubebuilder:rbac:groups=contour.heptio.com,resources=ingressroutes,verbs=get;create;list;watch;patch;update;delete
 func (r *reconciler) Reconcile(ctx context.Context, log zerolog.Logger, req pipeline.NetworkReconcileRequest) (reconcile.Result, error) {
 	// Create IngressRoute
 	ingressRt := &contour.IngressRoute{

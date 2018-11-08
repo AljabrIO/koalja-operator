@@ -141,8 +141,11 @@ type ReconcilePipeline struct {
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=v1,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=events,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelines,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	ctx := context.Background()
@@ -220,6 +223,14 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		result = MergeReconcileResult(result, lresult)
 	}
 
+	// Ensure agents ClusterRole & ClusterRoleBinding are created
+	if lresult, err := r.ensureAgentsClusterRoleAndBinding(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensureAgentsClusterRoleAndBinding failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
+	}
+
 	// Ensure executors Role & RoleBinding are created
 	if lresult, err := r.ensureExecutorsRoleAndBinding(ctx, instance); err != nil {
 		log.Error().Err(err).Msg("ensureExecutorsRoleAndBinding failed")
@@ -271,7 +282,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 
 // ensureAgentsServiceAccount ensures that a service account exists that is the identity
 // for all pipeline, link & task agents.
-// +kubebuilder:rbac:groups=v1,resources=serviceaccounts,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	serviceAccountName := CreatePipelineAgentsServiceAccountName(instance.Name)
 	serviceAccount := &corev1.ServiceAccount{
@@ -299,7 +310,7 @@ func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, inst
 
 // ensureExecutorsServiceAccount ensures that a service account exists that is the identity
 // for all task executors.
-// +kubebuilder:rbac:groups=v1,resources=serviceaccounts,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensureExecutorsServiceAccount(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	serviceAccountName := CreatePipelineExecutorsServiceAccountName(instance.Name)
 	serviceAccount := &corev1.ServiceAccount{
@@ -327,10 +338,10 @@ func (r *ReconcilePipeline) ensureExecutorsServiceAccount(ctx context.Context, i
 
 // ensureAgentsRoleAndBinding ensures that a Role & RoleBinding exists for the service account that is the identity
 // for all pipeline, link & task agents.
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
-	// Role
+	// ClusterRole
 	roleName := CreatePipelineAgentsRoleName(instance.Name)
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
@@ -338,10 +349,17 @@ func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, inst
 			Namespace: instance.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
+			// Allow agents R/W access to pods & services
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
-				Resources: []string{"pods", "services"},
+				Resources: []string{"pods", "services", "persistentvolumeclaims"},
 				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+			},
+			// Allow agents R access to pipelines
+			rbacv1.PolicyRule{
+				APIGroups: []string{"koalja.aljabr.io"},
+				Resources: []string{"pipelines"},
+				Verbs:     []string{"get", "list", "watch"},
 			},
 		},
 	}
@@ -353,7 +371,7 @@ func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, inst
 		return reconcile.Result{}, err
 	}
 
-	// Check if the pipeline agents Role already exists
+	// Check if the pipeline agents ClusterRole already exists
 	if err := util.EnsureRole(ctx, log, r.Client, role, "Pipeline Agents Role"); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -390,10 +408,76 @@ func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, inst
 	return reconcile.Result{}, nil
 }
 
+// ensureAgentsClusterRoleAndBinding ensures that a ClusterRole & ClusterRoleBinding exists for the service account that is the identity
+// for all pipeline, link & task agents.
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;create;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;list;watch;update;patch;delete
+func (r *ReconcilePipeline) ensureAgentsClusterRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	// ClusterRole
+	roleName := CreatePipelineAgentsClusterRoleName(instance.Name, instance.Namespace)
+	role := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: "",
+		},
+		Rules: []rbacv1.PolicyRule{
+			// Allow agents R access to persistentvolumes
+			rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"persistentvolumes"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+		},
+	}
+	log := r.log.With().
+		Str("name", role.Name).
+		Str("namespace", role.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents ClusterRole already exists
+	if err := util.EnsureClusterRole(ctx, log, r.Client, role, "Pipeline Agents ClusterRole"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// RoleBinding
+	roleBindingName := CreatePipelineAgentsClusterRoleBindingName(instance.Name, instance.Namespace)
+	roleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindingName,
+			Namespace: "",
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      CreatePipelineAgentsServiceAccountName(instance.Name),
+				Namespace: instance.Namespace,
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(instance, role, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline agents RoleBinding already exists
+	if err := util.EnsureClusterRoleBinding(ctx, log, r.Client, roleBinding, "Pipeline Agents ClusterRoleBinding"); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
 // ensureExecutorsRoleAndBinding ensures that a Role & RoleBinding exists for the service account that is the identity
 // for all task executors.
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	// Role
 	roleName := CreatePipelineExecutorsRoleName(instance.Name)

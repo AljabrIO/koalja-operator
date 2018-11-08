@@ -223,6 +223,13 @@ func CreatePipelineAgentsRoleName(pipelineName string) string {
 	return util.FixupKubernetesName(pipelineName + "-agents")
 }
 
+// CreatePipelineAgentsClusterRoleName returns the name of the ClusterRole
+// that provides permissions for to the ServiceAccount that is used as identity of all
+// pipeline, link & task agents of the pipeline.
+func CreatePipelineAgentsClusterRoleName(pipelineName, namespace string) string {
+	return util.FixupKubernetesName(pipelineName + "-agents-" + namespace)
+}
+
 // CreatePipelineExecutorsRoleName returns the name of the Role
 // that provides permissions for to the ServiceAccount that is used as identity of all
 // task executors of the pipeline.
@@ -237,7 +244,14 @@ func CreatePipelineAgentsRoleBindingName(pipelineName string) string {
 	return util.FixupKubernetesName(pipelineName + "-agents")
 }
 
-// CreatePipelineExecutorsRoleBindingName returns the name of the RoleBinding
+// CreatePipelineAgentsClusterRoleBindingName returns the name of the ClusterRoleBinding
+// that provides permissions for to the ServiceAccount that is used as identity of all
+// pipeline, link & task agents of the pipeline.
+func CreatePipelineAgentsClusterRoleBindingName(pipelineName, namespace string) string {
+	return util.FixupKubernetesName(pipelineName + "-agents-" + namespace)
+}
+
+// CreatePipelineExecutorsRoleBindingName returns the name of the ClusterRoleBinding
 // that provides permissions for to the ServiceAccount that is used as identity of all
 // task executors of the pipeline.
 func CreatePipelineExecutorsRoleBindingName(pipelineName string) string {

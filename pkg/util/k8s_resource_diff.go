@@ -116,6 +116,12 @@ func RoleEqual(spec, actual rbacv1.Role) []Diff {
 		PolicyRulesEqual("rules", spec.Rules, actual.Rules)...)
 }
 
+// ClusterRoleEqual returns zero-length result when the given objects have the same specs.
+func ClusterRoleEqual(spec, actual rbacv1.ClusterRole) []Diff {
+	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		PolicyRulesEqual("rules", spec.Rules, actual.Rules)...)
+}
+
 // PolicyRulesEqual returns zero-length result when the given objects have the same specs.
 func PolicyRulesEqual(prefix string, spec, actual []rbacv1.PolicyRule) []Diff {
 	for i, sr := range spec {
@@ -153,6 +159,13 @@ func PolicyRuleEqual(prefix string, spec, actual rbacv1.PolicyRule) []Diff {
 
 // RoleBindingEqual returns zero-length result when the given objects have the same specs.
 func RoleBindingEqual(spec, actual rbacv1.RoleBinding) []Diff {
+	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		append(SubjectsEqual("subjects", spec.Subjects, actual.Subjects),
+			RoleRefEqual("roleRef", spec.RoleRef, actual.RoleRef)...)...)
+}
+
+// ClusterRoleBindingEqual returns zero-length result when the given objects have the same specs.
+func ClusterRoleBindingEqual(spec, actual rbacv1.ClusterRoleBinding) []Diff {
 	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
 		append(SubjectsEqual("subjects", spec.Subjects, actual.Subjects),
 			RoleRefEqual("roleRef", spec.RoleRef, actual.RoleRef)...)...)
