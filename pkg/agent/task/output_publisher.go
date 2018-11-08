@@ -159,23 +159,23 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputReadyRequest) (*ptask.OutputReadyResponse, error) {
 	log := op.log.With().
 		Str("output", req.GetOutputName()).
-		Str("data", limitDataLength(req.GetEventData())).
+		Str("data", limitDataLength(req.GetAnnotatedValueData())).
 		Logger()
 	log.Debug().Msg("Received OutputReady request")
 
 	av := annotatedvalue.AnnotatedValue{
-		Data: req.GetEventData(),
+		Data: req.GetAnnotatedValueData(),
 	}
 	publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, nil)
 	if err != nil {
 		return nil, maskAny(err)
 	}
 	return &ptask.OutputReadyResponse{
-		EventID: publishedAv.GetID(),
+		AnnotatedValueID: publishedAv.GetID(),
 	}, nil
 }
 
-// runForOutput keeps publishing events for the given output until the given context is canceled.
+// runForOutput keeps publishing annotated values for the given output until the given context is canceled.
 func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, avChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
 	defer close(avChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
@@ -190,7 +190,7 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 		for {
 			select {
 			case av := <-avChan:
-				// Publish event
+				// Publish annotated value
 				if err := retry.Do(ctx, func(ctx context.Context) error {
 					if _, err := avpClient.Publish(ctx, &annotatedvalue.PublishRequest{AnnotatedValue: av}); err != nil {
 						log.Debug().Err(err).Str("id", av.ID).Msg("published annotated value attempt failed")

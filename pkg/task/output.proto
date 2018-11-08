@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package event;
+package task;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/task";
 
@@ -11,13 +11,13 @@ service OutputReadyNotifier {
 }
 
 message OutputReadyRequest {
-    // Data (content) of the event.
-    string EventData = 1;
+    // Data (content) of the annotated value.
+    string AnnotatedValueData = 1;
     // Name of the task output that is data belongs to.
     string OutputName = 2;
 }
 
 message OutputReadyResponse {
-    // ID of the published event
-    string EventID = 1;
+    // ID of the published annotated value
+    string AnnotatedValueID = 1;
 }
