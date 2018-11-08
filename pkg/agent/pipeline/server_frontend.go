@@ -75,6 +75,8 @@ func createHandler(mux *gwruntime.ServeMux, rootHandler gwruntime.HandlerFunc) h
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		if path == "" {
 			rootHandler(w, r, nil)
+		} else if strings.ToLower(path) == "index.html" {
+			http.Redirect(w, r, "/", http.StatusFound)
 		} else {
 			mux.ServeHTTP(w, r)
 		}
