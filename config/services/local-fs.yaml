@@ -41,7 +41,7 @@ roleRef:
   name: koalja-local-fs-service
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: koalja-local-fs-service
   namespace: system
 ---
 apiVersion: v1
