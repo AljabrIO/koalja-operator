@@ -41,16 +41,21 @@ func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int)
 		return maskAny(err)
 	}
 	// Frontend
-	mux.Handle("GET", parsePattern("/"), createRedirectRootHandler())
+	var rootHandlerFunc gwruntime.HandlerFunc
 	mux.Handle("GET", parsePattern("/v1/updates"), s.frontendHub.CreateHandler())
 	for path, file := range frontend.Assets.Files {
+		handler := createAssetFileHandler(file)
+		if path == "index.html" {
+			rootHandlerFunc = handler
+		}
 		localPath := "/" + strings.TrimPrefix(path, "/")
-		mux.Handle("GET", parsePattern(localPath), createAssetFileHandler(file))
+		mux.Handle("GET", parsePattern(localPath), handler)
 	}
 
 	httpAddr := fmt.Sprintf("0.0.0.0:%d", httpPort)
+	handler := createHandler(mux, rootHandlerFunc)
 	go func() {
-		if err := http.ListenAndServe(httpAddr, mux); err != nil {
+		if err := http.ListenAndServe(httpAddr, handler); err != nil {
 			s.log.Fatal().Err(err).Msg("Failed to serve HTTP gateway")
 		}
 	}()
@@ -61,18 +66,27 @@ func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int)
 	return nil
 }
 
-// createAssetFileHandler creates a gin handler to serve the content
-// of the given asset file.
-func createAssetFileHandler(file *assets.File) func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-		http.ServeContent(w, r, file.Name(), file.ModTime(), file)
+// createHandler builds a HTTP request handler.
+func createHandler(mux *gwruntime.ServeMux, rootHandler gwruntime.HandlerFunc) http.Handler {
+	if rootHandler == nil {
+		panic("no rootHandler found")
 	}
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path == "" {
+			rootHandler(w, r, nil)
+		} else {
+			mux.ServeHTTP(w, r)
+		}
+	}
+	return http.HandlerFunc(handler)
 }
 
-// createRedirectRootHandler creates a gin handler to serve the '/' path and redirect to 'index.html'.
-func createRedirectRootHandler() func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+// createAssetFileHandler creates a gin handler to serve the content
+// of the given asset file.
+func createAssetFileHandler(file *assets.File) gwruntime.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-		http.Redirect(w, r, "/index.html", http.StatusFound)
+		http.ServeContent(w, r, file.Name(), file.ModTime(), file)
 	}
 }
 
