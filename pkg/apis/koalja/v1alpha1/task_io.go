@@ -24,21 +24,21 @@ type TaskInputSpec struct {
 	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Reference to the type of the input
 	TypeRef string `json:"typeRef" protobuf:"bytes,2,req,name=typeRef"`
-	// SnapshotPolicy determines how to sample events into a tuple
+	// SnapshotPolicy determines how to sample annotated values into a tuple
 	// that is the input for task execution.
 	// Defaults to "All".
 	SnapshotPolicy InputSnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,3,opt,name=snapshotPolicy"`
 }
 
-// InputSnapshotPolicy determines how to sample events into a tuple
+// InputSnapshotPolicy determines how to sample annotated values into a tuple
 // that is the input for task execution.
 type InputSnapshotPolicy string
 
 const (
-	// InputSnapshotPolicyAll indicates that all events of this input
+	// InputSnapshotPolicyAll indicates that all annotated values of this input
 	// must yield the execution of the task.
 	InputSnapshotPolicyAll InputSnapshotPolicy = "All"
-	// InputSnapshotPolicyLatest indicates that all the latest event of this input
+	// InputSnapshotPolicyLatest indicates that all the latest annotated value of this input
 	// is used for the execution of the task.
 	InputSnapshotPolicyLatest InputSnapshotPolicy = "Latest"
 )

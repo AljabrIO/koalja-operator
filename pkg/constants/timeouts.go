@@ -28,10 +28,10 @@ const (
 	TimeoutAPIServer = time.Second * 15
 	// TimeoutRegisterAgent is the timeout of a register agent call.
 	TimeoutRegisterAgent = time.Minute
-	// TimeoutAckEvent is the timeout for calling the acknowlodging an event.
-	TimeoutAckEvent = time.Second * 15
-	// TimeoutPublishEvent is the timeout for calling the publish event api.
-	TimeoutPublishEvent = time.Minute
-	// TimeoutRecordEvent is the timeout for calling the event registry api.
-	TimeoutRecordEvent = time.Second * 15
+	// TimeoutAckAnnotatedValue is the timeout for calling the acknowlodging an annotated value.
+	TimeoutAckAnnotatedValue = time.Second * 15
+	// TimeoutPublishAnnotatedValue is the timeout for calling the publish annotated value api.
+	TimeoutPublishAnnotatedValue = time.Minute
+	// TimeoutRecordAnnotatedValue is the timeout for calling the annotated value registry api.
+	TimeoutRecordAnnotatedValue = time.Second * 15
 )

@@ -23,7 +23,7 @@ option go_package = "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline";
 import "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1/generated.proto";
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
-import "github.com/AljabrIO/koalja-operator/pkg/event/event.proto";
+import "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/annotatedvalue.proto";
 import "github.com/AljabrIO/koalja-operator/pkg/tracking/statistics.proto";
 import "google/api/annotations.proto";
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
@@ -58,11 +58,11 @@ service Frontend {
             get: "/v1/pipeline"
         };
     }
-    // GetOutputEvents returns all events (resulting from task outputs that
+    // GetOutputAnnotatedValues returns all annotated values (resulting from task outputs that
     // are not connected to inputs of other tasks) that match the given filter.
-    rpc GetOutputEvents(OutputEventsRequest) returns (OutputEvents) {
+    rpc GetOutputAnnotatedValues(OutputAnnotatedValuesRequest) returns (OutputAnnotatedValues) {
         option (google.api.http) = {
-            post: "/v1/output/events"
+            post: "/v1/output/annotatedvalues"
             body: "*"
         };
     }
@@ -82,23 +82,23 @@ service Frontend {
     }
 }
 
-message OutputEventsRequest {
-    // EventIDs is a list of event IDs.
-    // The response will include only events that are (indirectly) related
-    // to any of these event IDs. 
-    repeated string event_ids = 1 [(gogoproto.customname) = "EventIDs"];
+message OutputAnnotatedValuesRequest {
+    // AnnotatedValueIDs is a list of annotated value IDs.
+    // The response will include only annotated values that are (indirectly) related
+    // to any of these annotated value IDs. 
+    repeated string annotatedvalue_ids = 1 [(gogoproto.customname) = "AnnotatedValueIDs"];
     // TaskNames is a list of names of tasks.
-    // The response will include only events that are created by one of these tasks.
+    // The response will include only annotated values that are created by one of these tasks.
     repeated string task_names = 2 [(gogoproto.customname) = "TaskNames"];
-    // If set, only events created after this timestamp are returned.
+    // If set, only annotated values created after this timestamp are returned.
     google.protobuf.Timestamp created_after = 3 [(gogoproto.customname) = "CreatedAfter"];
-    // If set, only events created before this timestamp are returned.
+    // If set, only annotated values created before this timestamp are returned.
     google.protobuf.Timestamp created_before = 4 [(gogoproto.customname) = "CreatedBefore"];
 }
 
-message OutputEvents {
-    // The selected events
-    repeated event.Event events = 1 [(gogoproto.customname) = "Events"];
+message OutputAnnotatedValues {
+    // The selected annotated values
+    repeated annotatedvalue.AnnotatedValue annotatedvalues = 1 [(gogoproto.customname) = "AnnotatedValues"];
 }
 
 message GetLinkStatisticsRequest {

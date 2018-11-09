@@ -65,7 +65,7 @@ class Graph extends Component {
         value: 2,
         lineStyle: {
           curveness: 0.1,
-          width: Math.min((stats.events_waiting || 0) + 1, 20),
+          width: Math.min((stats.annotatedvalues_waiting || 0) + 1, 20),
         },
         symbol: ['none', 'arrow'],
         stats: stats
@@ -198,7 +198,7 @@ let formatTaskNodeLabel = (n) => {
 };
 let formatLinkLabel = (n) => {
   const stats = n.stats || {};
-  return `${stats.events_waiting || 0} / ${stats.events_in_progress || 0} / ${stats.events_acknowledged || 0}`;
+  return `${stats.annotatedvalues_waiting || 0} / ${stats.annotatedvalues_in_progress || 0} / ${stats.annotatedvalues_acknowledged || 0}`;
 };
 
 let formatTooltip = (e) => {
@@ -229,29 +229,29 @@ let formatInputNodeTooltip = (n) => {
   const stats = n.stats || {};
   return [
     `<b>${n.name}</b>`,
-    "Events:",
-    `- Received ${stats.events_received || 0}`,
-    `- In progress ${stats.events_in_progress || 0}`,
-    `- Processed ${stats.events_processed || 0}`,
-    `- Skipped ${stats.events_skipped || 0}`,
+    "Annotated values:",
+    `- Received ${stats.annotatedvalues_received || 0}`,
+    `- In progress ${stats.annotatedvalues_in_progress || 0}`,
+    `- Processed ${stats.annotatedvalues_processed || 0}`,
+    `- Skipped ${stats.annotatedvalues_skipped || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 let formatOutputNodeTooltip = (n) => {
   const stats = n.stats || {};
   return [
     `<b>${n.name}</b>`,
-    "Events:",
-    `- Published ${stats.events_published || 0}`,
+    "Annotated values:",
+    `- Published ${stats.annotatedvalues_published || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 let formatLinkTooltip = (n) => {
   const stats = n.stats || {};
   return [
     `<b>${n.name}</b>`,
-    "Events:",
-    `- Waiting ${stats.events_waiting || 0}`,
-    `- In progress ${stats.events_in_progress || 0}`,
-    `- Acknowledged ${stats.events_acknowledged || 0}`,
+    "Annotated values:",
+    `- Waiting ${stats.annotatedvalues_waiting || 0}`,
+    `- In progress ${stats.annotatedvalues_in_progress || 0}`,
+    `- Acknowledged ${stats.annotatedvalues_acknowledged || 0}`,
   ].filter(x => (typeof x === 'string')).join("<br/>");
 };
 

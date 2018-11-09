@@ -31,8 +31,8 @@ const (
 	// AgentAPIHTTPPort is the TCP port used to serve the HTTP API of agents.
 	AgentAPIHTTPPort = 8080
 
-	// EventRegistryAPIPort is the TCP port used to serve the API of an event registry.
-	EventRegistryAPIPort = 6276
+	// AnnotatedValueRegistryAPIPort is the TCP port used to serve the API of an annotated value registry.
+	AnnotatedValueRegistryAPIPort = 6276
 
 	// EnvAPIPort is the name of the environment variable used to pass the
 	// TCP port the agent should list on for its API.
@@ -66,9 +66,9 @@ const (
 	// address of the StatisticsSink to a container.
 	EnvStatisticsSinkAddress = "KOALJA_STATISTICS_SINK_ADDRESS"
 
-	// EnvEventRegistryAddress is the name of the environment variable used to pass the
-	// address of the EventRegistry to a container.
-	EnvEventRegistryAddress = "KOALJA_EVENT_REGISTRY_ADDRESS"
+	// EnvAnnotatedValueRegistryAddress is the name of the environment variable used to pass the
+	// address of the AnnotatedValueRegistry to a container.
+	EnvAnnotatedValueRegistryAddress = "KOALJA_ANNOTATED_VALUE_REGISTRY_ADDRESS"
 
 	// EnvFileSystemAddress is the name of the environment variable used to pass the
 	// address of the FileSystem to a container.

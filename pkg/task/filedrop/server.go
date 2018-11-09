@@ -102,13 +102,13 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("uri", resp.GetURI()).Msg("signaling output ready")
 	result := make(map[string]interface{})
 	if resp, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
-		EventData:  resp.GetURI(),
-		OutputName: s.OutputName,
+		AnnotatedValueData: resp.GetURI(),
+		OutputName:         s.OutputName,
 	}); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	} else {
-		result["event-id"] = resp.GetEventID()
+		result["annotatedvalue-id"] = resp.GetAnnotatedValueID()
 	}
 	encodedResult, _ := json.Marshal(result)
 	w.WriteHeader(http.StatusOK)

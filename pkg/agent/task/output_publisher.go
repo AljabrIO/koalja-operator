@@ -29,9 +29,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
@@ -39,23 +39,23 @@ import (
 
 // OutputPublisher specifies the API of the output publisher
 type OutputPublisher interface {
-	// PublishEvent pushes the given event onto the application output channel.
-	PublishEvent(ctx context.Context, outputName string, evt event.Event, snapshot *InputSnapshot) (*event.Event, error)
+	// Publish pushes the given annotated value onto the application output channel.
+	Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (*annotatedvalue.AnnotatedValue, error)
 }
 
 // outputPublisher is responsible for publishing events to one or more EventPublishers.
 type outputPublisher struct {
 	log                zerolog.Logger
 	spec               *koalja.TaskSpec
-	outputAddressesMap map[string][]string            // map[outputName]eventPublisherAddresses
-	eventChannels      map[string][]chan *event.Event // map[outputName][]chan event
+	outputAddressesMap map[string][]string                              // map[outputName]eventPublisherAddresses
+	avChannels         map[string][]chan *annotatedvalue.AnnotatedValue // map[outputName][]chan annotatedvalue
 	statistics         *tracking.TaskStatistics
 }
 
 // newOutputPublisher initializes a new outputPublisher.
 func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *tracking.TaskStatistics) (*outputPublisher, error) {
 	outputAddressesMap := make(map[string][]string)
-	eventChannels := make(map[string][]chan *event.Event)
+	avChannels := make(map[string][]chan *annotatedvalue.AnnotatedValue)
 	for _, tos := range spec.Outputs {
 		annKey := constants.CreateOutputLinkAddressesAnnotationName(tos.Name)
 		addressesStr := pod.GetAnnotations()[annKey]
@@ -64,17 +64,17 @@ func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.P
 		}
 		addresses := strings.Split(addressesStr, ",")
 		outputAddressesMap[tos.Name] = addresses
-		eventChans := make([]chan *event.Event, 0, len(addresses))
+		avChans := make([]chan *annotatedvalue.AnnotatedValue, 0, len(addresses))
 		for range addresses {
-			eventChans = append(eventChans, make(chan *event.Event))
+			avChans = append(avChans, make(chan *annotatedvalue.AnnotatedValue))
 		}
-		eventChannels[tos.Name] = eventChans
+		avChannels[tos.Name] = avChans
 	}
 	return &outputPublisher{
 		log:                log,
 		spec:               spec,
 		outputAddressesMap: outputAddressesMap,
-		eventChannels:      eventChannels,
+		avChannels:         avChannels,
 		statistics:         statistics,
 	}, nil
 }
@@ -85,13 +85,13 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 	for _, tos := range op.spec.Outputs {
 		tos := tos // bring into scope
 		addresses := op.outputAddressesMap[tos.Name]
-		eventChans := op.eventChannels[tos.Name]
+		avChans := op.avChannels[tos.Name]
 		outputStats := op.statistics.OutputByName(tos.Name)
-		for i, eventChan := range eventChans {
-			eventChan := eventChan // bring into scope
+		for i, avChan := range avChans {
+			avChan := avChan // bring into scope
 			addr := addresses[i]
 			g.Go(func() error {
-				if err := op.runForOutput(lctx, tos, addr, eventChan, outputStats); err != nil {
+				if err := op.runForOutput(lctx, tos, addr, avChan, outputStats); err != nil {
 					return maskAny(err)
 				}
 				return nil
@@ -104,43 +104,43 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 	return nil
 }
 
-// PublishEvent pushes the given event onto the application output channel.
-func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, evt event.Event, snapshot *InputSnapshot) (*event.Event, error) {
-	// Fill in the blanks of the event
-	if evt.GetID() == "" {
-		evt.ID = uniuri.New()
+// Publish pushes the given annotated value onto the application output channel.
+func (op *outputPublisher) Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (*annotatedvalue.AnnotatedValue, error) {
+	// Fill in the blanks of the annotated value
+	if av.GetID() == "" {
+		av.ID = uniuri.New()
 	}
-	if evt.GetCreatedAt() == nil {
-		evt.CreatedAt = ptypes.TimestampNow()
+	if av.GetCreatedAt() == nil {
+		av.CreatedAt = ptypes.TimestampNow()
 	}
-	if evt.GetSourceTask() == "" {
-		evt.SourceTask = op.spec.Name
+	if av.GetSourceTask() == "" {
+		av.SourceTask = op.spec.Name
 	}
-	if evt.GetSourceTaskOutput() == "" {
-		evt.SourceTaskOutput = outputName
+	if av.GetSourceTaskOutput() == "" {
+		av.SourceTaskOutput = outputName
 	}
-	if snapshot != nil && len(evt.SourceInputs) == 0 {
+	if snapshot != nil && len(av.SourceInputs) == 0 {
 		for _, inp := range op.spec.Inputs {
-			if inpEvt := snapshot.Get(inp.Name); inpEvt != nil {
-				evt.SourceInputs = append(evt.SourceInputs, &event.EventSourceInput{
-					ID:        inpEvt.GetID(),
+			if inpAv := snapshot.Get(inp.Name); inpAv != nil {
+				av.SourceInputs = append(av.SourceInputs, &annotatedvalue.AnnotatedValueSourceInput{
+					ID:        inpAv.GetID(),
 					InputName: inp.Name,
 				})
 			}
 		}
 	}
 
-	eventChans, found := op.eventChannels[outputName]
+	avChans, found := op.avChannels[outputName]
 	if !found {
 		return nil, fmt.Errorf("No channels found for output '%s'", outputName)
 	}
 
 	g, lctx := errgroup.WithContext(ctx)
-	for _, eventChan := range eventChans {
-		eventChan := eventChan // bring into scope
+	for _, avChan := range avChans {
+		avChan := avChan // bring into scope
 		g.Go(func() error {
 			select {
-			case eventChan <- &evt:
+			case avChan <- &av:
 				// Done
 				return nil
 			case <-lctx.Done():
@@ -152,57 +152,57 @@ func (op *outputPublisher) PublishEvent(ctx context.Context, outputName string, 
 	if err := g.Wait(); err != nil {
 		return nil, maskAny(err)
 	}
-	return &evt, nil
+	return &av, nil
 }
 
 // OutputReady implements the notification endpoint for tasks with an "Auto" ready setting.
 func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputReadyRequest) (*ptask.OutputReadyResponse, error) {
 	log := op.log.With().
 		Str("output", req.GetOutputName()).
-		Str("data", limitDataLength(req.GetEventData())).
+		Str("data", limitDataLength(req.GetAnnotatedValueData())).
 		Logger()
 	log.Debug().Msg("Received OutputReady request")
 
-	evt := event.Event{
-		Data: req.GetEventData(),
+	av := annotatedvalue.AnnotatedValue{
+		Data: req.GetAnnotatedValueData(),
 	}
-	publishedEvt, err := op.PublishEvent(ctx, req.GetOutputName(), evt, nil)
+	publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, nil)
 	if err != nil {
 		return nil, maskAny(err)
 	}
 	return &ptask.OutputReadyResponse{
-		EventID: publishedEvt.GetID(),
+		AnnotatedValueID: publishedAv.GetID(),
 	}, nil
 }
 
-// runForOutput keeps publishing events for the given output until the given context is canceled.
-func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, eventChan chan *event.Event, stats *tracking.TaskOutputStatistics) error {
-	defer close(eventChan)
+// runForOutput keeps publishing annotated values for the given output until the given context is canceled.
+func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, avChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
+	defer close(avChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
 
 	runUntilError := func() error {
-		epClient, err := CreateEventPublisherClient(addr)
+		avpClient, err := CreateAnnotatedValuePublisherClient(addr)
 		if err != nil {
 			return maskAny(err)
 		}
-		defer epClient.CloseConnection()
+		defer avpClient.CloseConnection()
 
 		for {
 			select {
-			case evt := <-eventChan:
-				// Publish event
+			case av := <-avChan:
+				// Publish annotated value
 				if err := retry.Do(ctx, func(ctx context.Context) error {
-					if _, err := epClient.Publish(ctx, &event.PublishRequest{Event: evt}); err != nil {
-						log.Debug().Err(err).Str("id", evt.ID).Msg("published event attempt failed")
+					if _, err := avpClient.Publish(ctx, &annotatedvalue.PublishRequest{AnnotatedValue: av}); err != nil {
+						log.Debug().Err(err).Str("id", av.ID).Msg("published annotated value attempt failed")
 						return maskAny(err)
 					}
 					return nil
-				}, retry.Timeout(constants.TimeoutPublishEvent)); err != nil {
-					log.Error().Err(err).Str("id", evt.ID).Msg("Failed to publish event")
+				}, retry.Timeout(constants.TimeoutPublishAnnotatedValue)); err != nil {
+					log.Error().Err(err).Str("id", av.ID).Msg("Failed to publish annotated value")
 					return maskAny(err)
 				}
-				log.Debug().Str("id", evt.ID).Msg("published event")
-				atomic.AddInt64(&stats.EventsPublished, 1)
+				log.Debug().Str("id", av.ID).Msg("published annotated value")
+				atomic.AddInt64(&stats.AnnotatedValuesPublished, 1)
 			case <-ctx.Done():
 				return ctx.Err()
 			}

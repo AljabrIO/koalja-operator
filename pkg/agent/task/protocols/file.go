@@ -21,14 +21,13 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -44,7 +43,7 @@ func init() {
 
 // Prepare input of a task for an input of File protocol.
 func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuilderConfig, deps task.ExecutorInputBuilderDependencies, target *task.ExecutorInputBuilderTarget) error {
-	uri := cfg.Event.GetData()
+	uri := cfg.AnnotatedValue.GetData()
 	deps.Log.Debug().
 		Str("uri", uri).
 		Str("input", cfg.InputSpec.Name).
@@ -254,16 +253,16 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 		log.Error().Err(err).Msg("Failed to create file URI")
 		return maskAny(err)
 	}
-	// Publish event
-	evt := event.Event{Data: resp.GetURI()}
-	publishedEvt, err := deps.OutputPublisher.PublishEvent(ctx, p.OutputName, evt, cfg.Snapshot)
+	// Publish annotated value
+	av := annotatedvalue.AnnotatedValue{Data: resp.GetURI()}
+	publishedAv, err := deps.OutputPublisher.Publish(ctx, p.OutputName, av, cfg.Snapshot)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create file URI")
 		return maskAny(err)
 	}
 	log.Debug().
-		Str("event-id", publishedEvt.GetID()).
-		Msg("published event")
+		Str("annotatedvalue-id", publishedAv.GetID()).
+		Msg("published annotated value")
 
 	return nil
 }

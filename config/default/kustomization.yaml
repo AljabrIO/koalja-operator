@@ -25,6 +25,6 @@ resources:
 - ../agents/link_agent.yaml
 - ../agents/task_agent.yaml
 - ../manager/manager.yaml
-- ../services/event_registry.yaml
+- ../services/annotatedvalue_registry.yaml
 - ../services/local-fs.yaml
 - ../tasks/filedrop_executor.yaml

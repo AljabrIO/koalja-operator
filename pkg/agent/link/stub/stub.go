@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	ptypes "github.com/gogo/protobuf/types"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
@@ -40,12 +40,12 @@ type subscription struct {
 	id        int64
 	clientID  string
 	expiresAt time.Time
-	inflight  []*event.Event
+	inflight  []*annotatedvalue.AnnotatedValue
 }
 
 // AsPB creates a protobuf Subscription from this subscription.
-func (s *subscription) AsPB() *event.Subscription {
-	return &event.Subscription{
+func (s *subscription) AsPB() *annotatedvalue.Subscription {
+	return &annotatedvalue.Subscription{
 		ID: s.id,
 	}
 }
@@ -55,14 +55,14 @@ func (s *subscription) RenewExpiresAt() {
 	s.expiresAt = time.Now().Add(subscriptionTTL)
 }
 
-// stub is an in-memory implementation of an event queue.
+// stub is an in-memory implementation of an annotated value queue.
 type stub struct {
 	log                zerolog.Logger
-	registry           registry.EventRegistryClient
+	registry           registry.AnnotatedValueRegistryClient
 	agentRegistry      pipeline.AgentRegistryClient
 	uri                string
-	queue              chan *event.Event
-	retryQueue         chan *event.Event
+	queue              chan *annotatedvalue.AnnotatedValue
+	retryQueue         chan *annotatedvalue.AnnotatedValue
 	subscriptions      map[int64]*subscription
 	subscriptionsMutex sync.Mutex
 	lastSubscriptionID int64
@@ -79,48 +79,48 @@ const (
 func NewStub(log zerolog.Logger) link.APIBuilder {
 	return &stub{
 		log:           log,
-		queue:         make(chan *event.Event, queueSize),
-		retryQueue:    make(chan *event.Event, retryQueueSize),
+		queue:         make(chan *annotatedvalue.AnnotatedValue, queueSize),
+		retryQueue:    make(chan *annotatedvalue.AnnotatedValue, retryQueueSize),
 		subscriptions: make(map[int64]*subscription),
 	}
 }
 
-// NewEventPublisher "builds" a new publisher
-func (s *stub) NewEventPublisher(deps link.APIDependencies) (event.EventPublisherServer, error) {
+// NewAnnotatedValuePublisher "builds" a new publisher
+func (s *stub) NewAnnotatedValuePublisher(deps link.APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error) {
 	s.uri = deps.URI
-	s.registry = deps.EventRegistry
+	s.registry = deps.AnnotatedValueRegistry
 	s.agentRegistry = deps.AgentRegistry
 	s.statistics = deps.Statistics
 	return s, nil
 }
 
-// NewEventSource "builds" a new source
-func (s *stub) NewEventSource(deps link.APIDependencies) (event.EventSourceServer, error) {
+// NewAnnotatedValueSource "builds" a new source
+func (s *stub) NewAnnotatedValueSource(deps link.APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error) {
 	return s, nil
 }
 
-// Publish an event
-func (s *stub) Publish(ctx context.Context, req *event.PublishRequest) (*event.PublishResponse, error) {
-	s.log.Debug().Interface("event", req.Event).Msg("Publish request")
-	// Try to record event in registry
-	e := *req.GetEvent()
-	e.Link = s.uri
-	if _, err := s.registry.RecordEvent(ctx, &e); err != nil {
+// Publish an annotated value
+func (s *stub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) (*annotatedvalue.PublishResponse, error) {
+	s.log.Debug().Interface("annotatedvalue", req.AnnotatedValue).Msg("Publish request")
+	// Try to record annotated value in registry
+	av := *req.GetAnnotatedValue()
+	av.Link = s.uri
+	if _, err := s.registry.Record(ctx, &av); err != nil {
 		return nil, maskAny(err)
 	}
-	atomic.AddInt64(&s.statistics.EventsWaiting, 1)
+	atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, 1)
 
-	// Now put event in in-memory queue
+	// Now put annotated value in in-memory queue
 	select {
-	case s.queue <- &e:
-		return &event.PublishResponse{}, nil
+	case s.queue <- &av:
+		return &annotatedvalue.PublishResponse{}, nil
 	case <-ctx.Done():
 		return nil, maskAny(ctx.Err())
 	}
 }
 
-// Subscribe to events
-func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*event.SubscribeResponse, error) {
+// Subscribe to annotated values
+func (s *stub) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeRequest) (*annotatedvalue.SubscribeResponse, error) {
 	s.log.Debug().Str("clientID", req.ClientID).Msg("Subscribe request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
@@ -129,7 +129,7 @@ func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*eve
 	for _, sub := range s.subscriptions {
 		if sub.clientID == req.ClientID {
 			sub.RenewExpiresAt()
-			return &event.SubscribeResponse{
+			return &annotatedvalue.SubscribeResponse{
 				Subscription: sub.AsPB(),
 				TTL:          ptypes.DurationProto(subscriptionTTL),
 			}, nil
@@ -149,15 +149,15 @@ func (s *stub) Subscribe(ctx context.Context, req *event.SubscribeRequest) (*eve
 		Str("clientID", req.ClientID).
 		Int64("id", id).
 		Msg("Subscribe response")
-	return &event.SubscribeResponse{
-		Subscription: &event.Subscription{
+	return &annotatedvalue.SubscribeResponse{
+		Subscription: &annotatedvalue.Subscription{
 			ID: id,
 		},
 	}, nil
 }
 
 // Ping keeps a subscription alive
-func (s *stub) Ping(ctx context.Context, req *event.PingRequest) (*google_protobuf1.Empty, error) {
+func (s *stub) Ping(ctx context.Context, req *annotatedvalue.PingRequest) (*google_protobuf1.Empty, error) {
 	s.log.Debug().Int64("id", req.GetSubscription().GetID()).Msg("Ping request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
@@ -172,7 +172,7 @@ func (s *stub) Ping(ctx context.Context, req *event.PingRequest) (*google_protob
 }
 
 // Close a subscription
-func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_protobuf1.Empty, error) {
+func (s *stub) Close(ctx context.Context, req *annotatedvalue.CloseRequest) (*google_protobuf1.Empty, error) {
 	s.log.Debug().Int64("id", req.GetSubscription().GetID()).Msg("Ping request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
@@ -182,13 +182,13 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 		if len(sub.inflight) != 0 {
 			// Put inflight events back into queue
 			inflight := sub.inflight
-			for _, e := range inflight {
+			for _, av := range inflight {
 				select {
-				case s.retryQueue <- e:
-					sub.inflight = sub.inflight[1:] // Remove inflight event
+				case s.retryQueue <- av:
+					sub.inflight = sub.inflight[1:] // Remove inflight annotated value
 					// Update statistics
-					atomic.AddInt64(&s.statistics.EventsInProgress, -1)
-					atomic.AddInt64(&s.statistics.EventsWaiting, 1)
+					atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, -1)
+					atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, 1)
 					// OK
 				case <-ctx.Done():
 					// Context expired
@@ -207,8 +207,8 @@ func (s *stub) Close(ctx context.Context, req *event.CloseRequest) (*google_prot
 	return &google_protobuf1.Empty{}, nil
 }
 
-// Ask for the next event on a subscription
-func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*event.NextEventResponse, error) {
+// Ask for the next annotated value on a subscription
+func (s *stub) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*annotatedvalue.NextResponse, error) {
 	id := req.GetSubscription().GetID()
 	err := func() error {
 		s.subscriptionsMutex.Lock()
@@ -230,12 +230,12 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 		return nil, maskAny(err)
 	}
 
-	// No event inflight, get one out of the queue(s)
+	// No annotated value inflight, get one out of the queue(s)
 	waitTimeout, err := ptypes.DurationFromProto(req.GetWaitTimeout())
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	setEventInflight := func(e *event.Event) (*event.NextEventResponse, error) {
+	setInflight := func(av *annotatedvalue.AnnotatedValue) (*annotatedvalue.NextResponse, error) {
 		s.subscriptionsMutex.Lock()
 		defer s.subscriptionsMutex.Unlock()
 
@@ -245,35 +245,35 @@ func (s *stub) NextEvent(ctx context.Context, req *event.NextEventRequest) (*eve
 			return nil, fmt.Errorf("Subscription %d no longer found", id)
 		} else {
 			sub.RenewExpiresAt()
-			sub.inflight = append(sub.inflight, e)
-			atomic.AddInt64(&s.statistics.EventsInProgress, 1)
-			atomic.AddInt64(&s.statistics.EventsWaiting, -1)
-			return &event.NextEventResponse{
-				Event:      e,
-				NoEventYet: false,
+			sub.inflight = append(sub.inflight, av)
+			atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, 1)
+			atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, -1)
+			return &annotatedvalue.NextResponse{
+				AnnotatedValue:      av,
+				NoAnnotatedValueYet: false,
 			}, nil
 		}
 	}
 	select {
 	case e := <-s.retryQueue:
-		// Found event in retry queue
-		return setEventInflight(e)
+		// Found annotated value in retry queue
+		return setInflight(e)
 	case e := <-s.queue:
-		// Found event in normal queue
-		return setEventInflight(e)
+		// Found annotated value in normal queue
+		return setInflight(e)
 	case <-time.After(waitTimeout):
-		// No event in time
-		return &event.NextEventResponse{
-			NoEventYet: true,
+		// No annotated value in time
+		return &annotatedvalue.NextResponse{
+			NoAnnotatedValueYet: true,
 		}, nil
 	case <-ctx.Done():
 		return nil, maskAny(ctx.Err())
 	}
 }
 
-// Acknowledge the processing of an event
-func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*google_protobuf1.Empty, error) {
-	s.log.Debug().Str("event", req.GetEventID()).Msg("AckEvent request")
+// Acknowledge the processing of an annotated value
+func (s *stub) Ack(ctx context.Context, req *annotatedvalue.AckRequest) (*google_protobuf1.Empty, error) {
+	s.log.Debug().Str("annotatedvalue", req.GetAnnotatedValueID()).Msg("Ack request")
 	s.subscriptionsMutex.Lock()
 	defer s.subscriptionsMutex.Unlock()
 
@@ -284,16 +284,16 @@ func (s *stub) AckEvent(ctx context.Context, req *event.AckEventRequest) (*googl
 		return nil, fmt.Errorf("Subscription %d not found", id)
 	} else {
 		sub.RenewExpiresAt()
-		for i, e := range sub.inflight {
-			if e.GetID() == req.GetEventID() {
-				// Found inflight event; Remove it.
+		for i, av := range sub.inflight {
+			if av.GetID() == req.GetAnnotatedValueID() {
+				// Found inflight annotated value; Remove it.
 				sub.inflight = append(sub.inflight[:i], sub.inflight[i+1:]...)
 				// Update statistics
-				atomic.AddInt64(&s.statistics.EventsInProgress, -1)
-				atomic.AddInt64(&s.statistics.EventsAcknowledged, 1)
+				atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, -1)
+				atomic.AddInt64(&s.statistics.AnnotatedValuesAcknowledged, 1)
 				return &google_protobuf1.Empty{}, nil
 			}
 		}
-		return nil, fmt.Errorf("Subscription %d does not have inflight event with ID '%s'", id, req.GetEventID())
+		return nil, fmt.Errorf("Subscription %d does not have inflight annotated value with ID '%s'", id, req.GetAnnotatedValueID())
 	}
 }

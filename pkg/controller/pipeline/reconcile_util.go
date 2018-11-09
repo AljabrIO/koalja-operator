@@ -68,8 +68,8 @@ func SetAgentContainerDefaults(c *corev1.Container, addHTTPPort bool) {
 	}
 }
 
-// SetEventRegistryContainerDefaults applies default values to a container used to run an event registry
-func SetEventRegistryContainerDefaults(c *corev1.Container) {
+// SetAnnotatedValueRegistryContainerDefaults applies default values to a container used to run an annotated value registry
+func SetAnnotatedValueRegistryContainerDefaults(c *corev1.Container) {
 	if c.Name == "" {
 		c.Name = "registry"
 	}
@@ -77,7 +77,7 @@ func SetEventRegistryContainerDefaults(c *corev1.Container) {
 		c.Ports = []corev1.ContainerPort{
 			corev1.ContainerPort{
 				Name:          "grpc-registry",
-				ContainerPort: constants.EventRegistryAPIPort,
+				ContainerPort: constants.AnnotatedValueRegistryAPIPort,
 			},
 		}
 	}
@@ -146,15 +146,15 @@ func CreateLinkAgentDNSName(pipelineName, linkName, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc", CreateLinkAgentName(pipelineName, linkName), namespace)
 }
 
-// CreateLinkAgentEventSourceAddress returns the address (host:port) of the event source
+// CreateLinkAgentAnnotatedValueSourceAddress returns the address (host:port) of the annotated value source
 // for the given link int the given pipeline.
-func CreateLinkAgentEventSourceAddress(pipelineName, linkName, namespace string) string {
+func CreateLinkAgentAnnotatedValueSourceAddress(pipelineName, linkName, namespace string) string {
 	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 
-// CreateLinkAgentEventPublisherAddress returns the address (host:port) of the event publisher
+// CreateLinkAgentAnnotatedValuePublisherAddress returns the address (host:port) of the annotated value publisher
 // for the given link int the given pipeline.
-func CreateLinkAgentEventPublisherAddress(pipelineName, linkName, namespace string) string {
+func CreateLinkAgentAnnotatedValuePublisherAddress(pipelineName, linkName, namespace string) string {
 	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 
@@ -182,15 +182,15 @@ func CreateAgentRegistryAddress(pipelineName, namespace string) string {
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 
-// CreateEventRegistryAddress returns the address (host:port) of the event registry
+// CreateAnnotatedValueRegistryAddress returns the address (host:port) of the annotated value registry
 // for the given pipeline.
-func CreateEventRegistryAddress(pipelineName, namespace string) string {
-	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.EventRegistryAPIPort))
+func CreateAnnotatedValueRegistryAddress(pipelineName, namespace string) string {
+	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AnnotatedValueRegistryAPIPort))
 }
 
-// CreatePipelineAgentEventPublisherAddress returns the address (host:port) of the event publisher of the pipeline agent
+// CreatePipelineAgentAnnotatedValuePublisherAddress returns the address (host:port) of the annotated value publisher of the pipeline agent
 // for the given pipeline.
-func CreatePipelineAgentEventPublisherAddress(pipelineName, namespace string) string {
+func CreatePipelineAgentAnnotatedValuePublisherAddress(pipelineName, namespace string) string {
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 

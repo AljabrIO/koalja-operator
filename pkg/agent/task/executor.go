@@ -37,9 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -429,7 +429,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 }
 
 // buildTaskInput creates a template data element for the given input.
-func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, evt *event.Event, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
+func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, av *annotatedvalue.AnnotatedValue, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
 	log := e.log.With().
 		Str("input", tis.Name).
 		Str("task", e.taskSpec.Name).
@@ -441,11 +441,11 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 		return fmt.Errorf("No input builder found for protocol '%s'", tisType.Protocol)
 	}
 	config := ExecutorInputBuilderConfig{
-		InputSpec: tis,
-		TaskSpec:  *e.taskSpec,
-		Pipeline:  e.pipeline,
-		Event:     evt,
-		OwnerRef:  ownerRef,
+		InputSpec:      tis,
+		TaskSpec:       *e.taskSpec,
+		Pipeline:       e.pipeline,
+		AnnotatedValue: av,
+		OwnerRef:       ownerRef,
 	}
 	deps := ExecutorInputBuilderDependencies{
 		Log:        e.log,

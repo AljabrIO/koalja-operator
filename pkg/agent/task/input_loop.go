@@ -30,20 +30,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/dchest/uniuri"
 )
 
 // inputLoop subscribes to all inputs of a task and build
-// snapshots of incoming events, according to the policy on each input.
+// snapshots of incoming annotated values, according to the policy on each input.
 type inputLoop struct {
 	log             zerolog.Logger
 	spec            *koalja.TaskSpec
-	inputAddressMap map[string]string // map[inputName]eventSourceAddress
+	inputAddressMap map[string]string // map[inputName]AnnotatedValueSourceAddress
 	clientID        string
 	snapshot        InputSnapshot
 	mutex           sync.Mutex
@@ -170,25 +170,25 @@ func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot
 		il.log.Debug().Err(err).Msg("executor.Execute failed")
 		return maskAny(err)
 	} else {
-		// Acknowledge all event in the snapshot
+		// Acknowledge all annotated values in the snapshot
 		atomic.AddInt64(&il.statistics.SnapshotsSucceeded, 1)
-		il.log.Debug().Msg("acknowledging all events in snapshot")
+		il.log.Debug().Msg("acknowledging all annotated values in snapshot")
 		if err := snapshot.AckAll(ctx); err != nil {
-			il.log.Error().Err(err).Msg("Failed to acknowledge events")
+			il.log.Error().Err(err).Msg("Failed to acknowledge annotated values")
 		}
 		return nil
 	}
 }
 
-// processEvent the event coming from the given input.
-func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics, ack func(context.Context, *event.Event) error) error {
+// processAnnotatedValue the annotated value coming from the given input.
+func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedvalue.AnnotatedValue, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
 	snapshotPolicy := tis.SnapshotPolicy
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
 	if snapshotPolicy.IsAll() {
-		// Wait until snapshot does not have an event for given input
+		// Wait until snapshot does not have an annotated value for given input
 		for {
-			if !il.snapshot.HasEvent(tis.Name) {
+			if !il.snapshot.HasAnnotatedValue(tis.Name) {
 				break
 			}
 			// Wait a bit
@@ -205,15 +205,15 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 		}
 	}
 
-	// Set the event in the snapshot
-	if err := il.snapshot.Set(ctx, tis.Name, e, stats, ack); err != nil {
+	// Set the annotated value in the snapshot
+	if err := il.snapshot.Set(ctx, tis.Name, av, stats, ack); err != nil {
 		return err
 	}
 
 	// See if we should execute the task now
 	tuple := il.snapshot.CreateTuple(len(il.spec.Inputs))
 	if tuple == nil || (il.executionCount > 0 && snapshotPolicy.IsLatest()) {
-		// Not all inputs have received an event yet or this event has a "Latest" policy and we've executed once or more
+		// Not all inputs have received an annotated value yet or this input has a "Latest" policy and we've executed once or more
 		return nil
 	}
 
@@ -224,10 +224,10 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 	// Prepare snapshot for next execution
 	for _, inp := range il.spec.Inputs {
 		if inp.SnapshotPolicy.IsAll() {
-			// Delete event
+			// Delete annotated value
 			il.snapshot.Delete(inp.Name)
 		} else {
-			// Remove need to acknowledge event
+			// Remove need to acknowledge annotated value
 			il.snapshot.RemoveAck(inp.Name)
 		}
 	}
@@ -243,15 +243,15 @@ func (il *inputLoop) processEvent(ctx context.Context, e *event.Event, tis koalj
 	return nil
 }
 
-// watchInput subscribes to the given input and gathers events until the given context is canceled.
+// watchInput subscribes to the given input and gathers annotated values until the given context is canceled.
 func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics) error {
 	// Create client
 	address := il.inputAddressMap[tis.Name]
 
 	// Prepare loop
-	subscribeAndReadEventLoop := func(ctx context.Context, c link.EventSourceClient) error {
+	subscribeAndReadLoop := func(ctx context.Context, c link.AnnotatedValueSourceClient) error {
 		defer c.CloseConnection()
-		resp, err := c.Subscribe(ctx, &event.SubscribeRequest{
+		resp, err := c.Subscribe(ctx, &annotatedvalue.SubscribeRequest{
 			ClientID: il.clientID,
 		})
 		if err != nil {
@@ -259,25 +259,25 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 		}
 		subscr := *resp.GetSubscription()
 
-		ack := func(ctx context.Context, e *event.Event) error {
+		ack := func(ctx context.Context, av *annotatedvalue.AnnotatedValue) error {
 			if err := retry.Do(ctx, func(ctx context.Context) error {
-				if _, err := c.AckEvent(ctx, &event.AckEventRequest{
-					Subscription: &subscr,
-					EventID:      e.GetID(),
+				if _, err := c.Ack(ctx, &annotatedvalue.AckRequest{
+					Subscription:     &subscr,
+					AnnotatedValueID: av.GetID(),
 				}); err != nil {
-					il.log.Debug().Err(err).Msg("Ack event attempt failed")
+					il.log.Debug().Err(err).Msg("Ack annotated value attempt failed")
 					return err
 				}
 				return nil
-			}, retry.Timeout(constants.TimeoutAckEvent)); err != nil {
-				il.log.Error().Err(err).Msg("Failed to ack event")
+			}, retry.Timeout(constants.TimeoutAckAnnotatedValue)); err != nil {
+				il.log.Error().Err(err).Msg("Failed to ack annotated value")
 				return maskAny(err)
 			}
 			return nil
 		}
 
 		for {
-			resp, err := c.NextEvent(ctx, &event.NextEventRequest{
+			resp, err := c.Next(ctx, &annotatedvalue.NextRequest{
 				Subscription: &subscr,
 				WaitTimeout:  ptypes.DurationProto(time.Second * 30),
 			})
@@ -285,13 +285,13 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 				return ctx.Err()
 			} else if err != nil {
 				// handle err
-				il.log.Error().Err(err).Msg("Failed to fetch next event")
+				il.log.Error().Err(err).Msg("Failed to fetch next annotated value")
 			} else {
-				// Process event (if any)
-				if e := resp.GetEvent(); e != nil {
-					atomic.AddInt64(&stats.EventsReceived, 1)
-					if err := il.processEvent(ctx, e, tis, stats, ack); err != nil {
-						il.log.Error().Err(err).Msg("Failed to process event")
+				// Process annotated value (if any)
+				if av := resp.GetAnnotatedValue(); av != nil {
+					atomic.AddInt64(&stats.AnnotatedValuesReceived, 1)
+					if err := il.processAnnotatedValue(ctx, av, tis, stats, ack); err != nil {
+						il.log.Error().Err(err).Msg("Failed to process annotated value")
 					}
 				}
 			}
@@ -300,17 +300,17 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 
 	// Keep creating connection, subscribe and loop
 	for {
-		c, err := link.CreateEventSourceClient(address)
+		c, err := link.CreateAnnotatedValueSourceClient(address)
 		if err == nil {
-			if err := subscribeAndReadEventLoop(ctx, c); ctx.Err() != nil {
+			if err := subscribeAndReadLoop(ctx, c); ctx.Err() != nil {
 				return ctx.Err()
 			} else if err != nil {
-				il.log.Error().Err(err).Msg("Failure in subscribe & read event loop")
+				il.log.Error().Err(err).Msg("Failure in subscribe & read annotated value loop")
 			}
 		} else if ctx.Err() != nil {
 			return ctx.Err()
 		} else {
-			il.log.Error().Err(err).Msg("Failed to create event source client")
+			il.log.Error().Err(err).Msg("Failed to create annotated value source client")
 		}
 		// Wait a bit
 		select {

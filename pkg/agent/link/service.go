@@ -32,9 +32,9 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	pipelinecl "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/client"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	"github.com/AljabrIO/koalja-operator/pkg/event"
-	"github.com/AljabrIO/koalja-operator/pkg/event/registry"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	trackingcl "github.com/AljabrIO/koalja-operator/pkg/tracking/client"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -49,9 +49,9 @@ type Service struct {
 	linkName       string
 	uri            string
 	statistics     *tracking.LinkStatistics
-	eventPublisher event.EventPublisherServer
-	eventSource    event.EventSourceServer
-	eventRegistry  registry.EventRegistryClient
+	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
+	avSource       annotatedvalue.AnnotatedValueSourceServer
+	avRegistry     registry.AnnotatedValueRegistryClient
 	agentRegistry  pipeline.AgentRegistryClient
 	statisticsSink tracking.StatisticsSinkClient
 }
@@ -67,7 +67,7 @@ type APIDependencies struct {
 	// URI of this link
 	URI string
 	// EventRegister client
-	EventRegistry registry.EventRegistryClient
+	AnnotatedValueRegistry registry.AnnotatedValueRegistryClient
 	// AgentRegistry client
 	AgentRegistry pipeline.AgentRegistryClient
 	// Statistics
@@ -76,8 +76,8 @@ type APIDependencies struct {
 
 // APIBuilder is an interface provided by an Link implementation
 type APIBuilder interface {
-	NewEventPublisher(deps APIDependencies) (event.EventPublisherServer, error)
-	NewEventSource(deps APIDependencies) (event.EventSourceServer, error)
+	NewAnnotatedValuePublisher(deps APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error)
+	NewAnnotatedValueSource(deps APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error)
 }
 
 // NewService creates a new Service instance.
@@ -122,9 +122,9 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		log.Error().Err(err).Msg("Failed to get own pod")
 		return nil, maskAny(err)
 	}
-	evtReg, err := registry.CreateEventRegistryClient()
+	avReg, err := registry.CreateAnnotatedValueRegistryClient()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create event registry client")
+		log.Error().Err(err).Msg("Failed to create annotated value registry client")
 		return nil, maskAny(err)
 	}
 	agentReg, err := pipelinecl.CreateAgentRegistryClient()
@@ -143,19 +143,19 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		URI:  uri,
 	}
 	deps := APIDependencies{
-		Client:        c,
-		Name:          linkName,
-		Namespace:     ns,
-		URI:           uri,
-		EventRegistry: evtReg,
-		AgentRegistry: agentReg,
-		Statistics:    statistics,
+		Client:                 c,
+		Name:                   linkName,
+		Namespace:              ns,
+		URI:                    uri,
+		AnnotatedValueRegistry: avReg,
+		AgentRegistry:          agentReg,
+		Statistics:             statistics,
 	}
-	eventPublisher, err := builder.NewEventPublisher(deps)
+	avPublisher, err := builder.NewAnnotatedValuePublisher(deps)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	eventSource, err := builder.NewEventSource(deps)
+	avSource, err := builder.NewAnnotatedValueSource(deps)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -165,9 +165,9 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		linkName:       linkName,
 		uri:            uri,
 		statistics:     statistics,
-		eventPublisher: eventPublisher,
-		eventSource:    eventSource,
-		eventRegistry:  evtReg,
+		avPublisher:    avPublisher,
+		avSource:       avSource,
+		avRegistry:     avReg,
 		agentRegistry:  agentReg,
 		statisticsSink: statsSink,
 	}, nil
@@ -175,7 +175,7 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
-	defer s.eventRegistry.Close()
+	defer s.avRegistry.Close()
 
 	// Start the registry update loop
 	agentRegistered := make(chan struct{})
@@ -199,8 +199,8 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 	svr := grpc.NewServer()
 	defer svr.GracefulStop()
-	event.RegisterEventPublisherServer(svr, s.eventPublisher)
-	event.RegisterEventSourceServer(svr, s.eventSource)
+	annotatedvalue.RegisterAnnotatedValuePublisherServer(svr, s.avPublisher)
+	annotatedvalue.RegisterAnnotatedValueSourceServer(svr, s.avSource)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {
