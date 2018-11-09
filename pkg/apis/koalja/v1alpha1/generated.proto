@@ -74,6 +74,25 @@ message PipelineList {
   repeated Pipeline items = 2 [(gogoproto.customname) = "Items", (gogoproto.nullable) = false];
 }
 
+// PipelineRevision stores the specification of a Pipeline at a specific moment in time.
+// +k8s:openapi-gen=true
+message PipelineRevision {
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1 [(gogoproto.customname) = "ObjectMeta", (gogoproto.nullable) = false];
+
+  // Hash of the specification
+  optional string hash = 2 [(gogoproto.customname) = "Hash", (gogoproto.nullable) = false];
+
+  // Specification of the pipeline at the time of this revision
+  optional PipelineSpec spec = 3 [(gogoproto.customname) = "Spec", (gogoproto.nullable) = false];
+}
+
+// PipelineRevisionList contains a list of PipelineRevision
+message PipelineRevisionList {
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1 [(gogoproto.customname) = "ListMeta", (gogoproto.nullable) = false];
+
+  repeated PipelineRevision items = 2 [(gogoproto.customname) = "Items", (gogoproto.nullable) = false];
+}
+
 // PipelineSpec defines the desired state of Pipeline
 message PipelineSpec {
   // Tasks of the pipeline
@@ -90,12 +109,16 @@ message PipelineSpec {
 message PipelineStatus {
   // Domain name used for the pipeline
   optional string domain = 1 [(gogoproto.customname) = "Domain", (gogoproto.nullable) = false];
+
+  // Revision hash of the current specification of the pipeline
+  optional string revision = 2 [(gogoproto.customname) = "Revision", (gogoproto.nullable) = false];
 }
 
 // TaskInputSpec holds the specification of a single input of a task.
 //
-// The task will execute when for every input of the task, the number
-// of fetched annotated values is >= MinSequenceLength.
+// The task will execute when for the following condition is met for every input of the task.
+// - The number of fetched annotated values is >= MinSequenceLength.
+//
 // If the number of fetched annotated values equals to MaxSequenceLength
 // the following behavior applies:
 // - If SnapshotPolicy == "All", fetching annotated values for this input is

@@ -29,5 +29,5 @@ func Hash(v interface{}) string {
 		return err.Error()
 	}
 	h := sha1.Sum(encoded)
-	return fmt.Sprintf("-%0x", h)[:8]
+	return fmt.Sprintf("%0x", h)[:8]
 }

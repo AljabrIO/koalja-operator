@@ -20,9 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // PipelineSpec defines the desired state of Pipeline
 type PipelineSpec struct {
 	// Tasks of the pipeline
@@ -37,6 +34,8 @@ type PipelineSpec struct {
 type PipelineStatus struct {
 	// Domain name used for the pipeline
 	Domain string `json:"domain,omitempty" protobuf:"bytes,1,opt,name=domain"`
+	// Revision hash of the current specification of the pipeline
+	Revision string `json:"revision,omitempty" protobuf:"bytes,2,opt,name=revision"`
 }
 
 // +genclient

@@ -58,6 +58,10 @@ const (
 	// name of the pipeline to an agent/sidecar.
 	EnvPipelineName = "KOALJA_PIPELINE_NAME"
 
+	// EnvPipelineRevision is the name of the environment variable used to pass the
+	// revision (hash of the pipeline specification) to an agent/sidecar.
+	EnvPipelineRevision = "KOALJA_PIPELINE_REVISION"
+
 	// EnvAgentRegistryAddress is the name of the environment variable used to pass the
 	// address of the AgentRegistry to a container.
 	EnvAgentRegistryAddress = "KOALJA_AGENT_REGISTRY_ADDRESS"

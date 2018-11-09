@@ -4,17 +4,19 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: pipelines.koalja.aljabr.io
+  name: pipelinerevisions.koalja.aljabr.io
 spec:
   group: koalja.aljabr.io
   names:
-    kind: Pipeline
-    plural: pipelines
+    kind: PipelineRevision
+    plural: pipelinerevisions
   scope: Namespaced
   validation:
     openAPIV3Schema:
       properties:
         apiVersion:
+          type: string
+        hash:
           type: string
         kind:
           type: string
@@ -100,13 +102,8 @@ spec:
                 type: object
               type: array
           type: object
-        status:
-          properties:
-            domain:
-              type: string
-            revision:
-              type: string
-          type: object
+      required:
+      - hash
   version: v1alpha1
 status:
   acceptedNames:
