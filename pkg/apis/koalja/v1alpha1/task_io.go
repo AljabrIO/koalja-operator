@@ -23,8 +23,9 @@ import (
 
 // TaskInputSpec holds the specification of a single input of a task.
 //
-// The task will execute when for every input of the task, the number
-// of fetched annotated values is >= MinSequenceLength.
+// The task will execute when for the following condition is met for every input of the task.
+// - The number of fetched annotated values is >= MinSequenceLength.
+//
 // If the number of fetched annotated values equals to MaxSequenceLength
 // the following behavior applies:
 // - If SnapshotPolicy == "All", fetching annotated values for this input is
