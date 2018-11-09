@@ -25,7 +25,7 @@ import (
 // AnnotatedValueTree is a tree of an annotated value with all is inputs (and inputs of those...)
 type AnnotatedValueTree struct {
 	AnnotatedValue annotatedvalue.AnnotatedValue
-	Inputs         map[string]*AnnotatedValueTree
+	Inputs         map[string][]*AnnotatedValueTree
 }
 
 // Build an annotated value tree for the given annotated value.
@@ -34,19 +34,23 @@ func Build(ctx context.Context, av annotatedvalue.AnnotatedValue, r annotatedval
 		AnnotatedValue: av,
 	}
 	if len(av.GetSourceInputs()) > 0 {
-		tree.Inputs = make(map[string]*AnnotatedValueTree)
+		tree.Inputs = make(map[string][]*AnnotatedValueTree)
 		for _, inp := range av.GetSourceInputs() {
 			inpName := inp.GetInputName()
-			resp, err := r.GetByID(ctx, &annotatedvalue.GetByIDRequest{ID: inp.GetID()})
-			if err != nil {
-				return nil, maskAny(err)
+			var childTreeSeq []*AnnotatedValueTree
+			for _, id := range inp.GetIDs() {
+				resp, err := r.GetByID(ctx, &annotatedvalue.GetByIDRequest{ID: id})
+				if err != nil {
+					return nil, maskAny(err)
+				}
+				av := resp.GetAnnotatedValue()
+				childTree, err := Build(ctx, *av, r)
+				if err != nil {
+					return nil, maskAny(err)
+				}
+				childTreeSeq = append(childTreeSeq, childTree)
 			}
-			av := resp.GetAnnotatedValue()
-			childTree, err := Build(ctx, *av, r)
-			if err != nil {
-				return nil, maskAny(err)
-			}
-			tree.Inputs[inpName] = childTree
+			tree.Inputs[inpName] = childTreeSeq
 		}
 	}
 	return tree, nil
@@ -57,9 +61,11 @@ func (t *AnnotatedValueTree) ContainsID(id string) bool {
 	if t.AnnotatedValue.ID == id {
 		return true
 	}
-	for _, child := range t.Inputs {
-		if child.ContainsID(id) {
-			return true
+	for _, childSeq := range t.Inputs {
+		for _, child := range childSeq {
+			if child.ContainsID(id) {
+				return true
+			}
 		}
 	}
 	return false
