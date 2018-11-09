@@ -210,7 +210,7 @@ func (s *InputSnapshot) AckAll(ctx context.Context) error {
 // of the annotated values in this snapshot.
 func (s *InputSnapshot) AddInProgressStatistics(delta int64) {
 	for _, v := range s.members {
-		atomic.AddInt64(&v.stats.AnnotatedValuesInProgress, delta)
+		atomic.AddInt64(&v.stats.AnnotatedValuesInProgress, delta*int64(len(v.sequence)))
 	}
 }
 
@@ -218,6 +218,6 @@ func (s *InputSnapshot) AddInProgressStatistics(delta int64) {
 // of the annotated values in this snapshot.
 func (s *InputSnapshot) AddProcessedStatistics(delta int64) {
 	for _, v := range s.members {
-		atomic.AddInt64(&v.stats.AnnotatedValuesProcessed, delta)
+		atomic.AddInt64(&v.stats.AnnotatedValuesProcessed, delta*int64(len(v.sequence)))
 	}
 }
