@@ -54,7 +54,7 @@ func newOutputStore(log zerolog.Logger, r registry.AnnotatedValueRegistryClient,
 	}
 }
 
-// Publish an event
+// Publish an annotated value
 func (s *outputStore) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) (*annotatedvalue.PublishResponse, error) {
 	s.log.Debug().Interface("annotatedvalue", req.AnnotatedValue).Msg("Publish request")
 	// Try to record annotated value in registry
@@ -78,7 +78,7 @@ func (s *outputStore) Publish(ctx context.Context, req *annotatedvalue.PublishRe
 		return nil, maskAny(err)
 	}
 
-	// Now put event in in-memory list
+	// Now put annotated value in in-memory list
 	s.annotatedValuesMutex.Lock()
 	defer s.annotatedValuesMutex.Unlock()
 	s.annotatedValues = append(s.annotatedValues, avTree)
@@ -126,7 +126,7 @@ func (s *outputStore) GetTaskStatistics(ctx context.Context, req *pipeline.GetTa
 	return result, nil
 }
 
-// isMatch returns true when the given event tree matches the given request.
+// isMatch returns true when the given annotated value tree matches the given request.
 func isMatch(e *tree.AnnotatedValueTree, req *pipeline.OutputAnnotatedValuesRequest) bool {
 	createdAt, _ := ptypes.TimestampFromProto(e.AnnotatedValue.GetCreatedAt())
 	if tsPB := req.GetCreatedAfter(); tsPB != nil {

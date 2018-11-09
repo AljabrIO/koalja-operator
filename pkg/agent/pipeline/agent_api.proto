@@ -83,16 +83,16 @@ service Frontend {
 }
 
 message OutputAnnotatedValuesRequest {
-    // AnnotatedValueIDs is a list of annotated event IDs.
-    // The response will include only annotated events that are (indirectly) related
-    // to any of these annotated event IDs. 
+    // AnnotatedValueIDs is a list of annotated value IDs.
+    // The response will include only annotated values that are (indirectly) related
+    // to any of these annotated value IDs. 
     repeated string annotatedvalue_ids = 1 [(gogoproto.customname) = "AnnotatedValueIDs"];
     // TaskNames is a list of names of tasks.
-    // The response will include only events that are created by one of these tasks.
+    // The response will include only annotated values that are created by one of these tasks.
     repeated string task_names = 2 [(gogoproto.customname) = "TaskNames"];
-    // If set, only events created after this timestamp are returned.
+    // If set, only annotated values created after this timestamp are returned.
     google.protobuf.Timestamp created_after = 3 [(gogoproto.customname) = "CreatedAfter"];
-    // If set, only events created before this timestamp are returned.
+    // If set, only annotated values created before this timestamp are returned.
     google.protobuf.Timestamp created_before = 4 [(gogoproto.customname) = "CreatedBefore"];
 }
 

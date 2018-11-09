@@ -43,7 +43,7 @@ func (m *RegisterLinkRequest) Reset()         { *m = RegisterLinkRequest{} }
 func (m *RegisterLinkRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterLinkRequest) ProtoMessage()    {}
 func (*RegisterLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{0}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{0}
 }
 func (m *RegisterLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -97,7 +97,7 @@ func (m *RegisterTaskRequest) Reset()         { *m = RegisterTaskRequest{} }
 func (m *RegisterTaskRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterTaskRequest) ProtoMessage()    {}
 func (*RegisterTaskRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{1}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{1}
 }
 func (m *RegisterTaskRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -141,16 +141,16 @@ func (m *RegisterTaskRequest) GetURI() string {
 }
 
 type OutputAnnotatedValuesRequest struct {
-	// AnnotatedValueIDs is a list of annotated event IDs.
-	// The response will include only annotated events that are (indirectly) related
-	// to any of these annotated event IDs.
+	// AnnotatedValueIDs is a list of annotated value IDs.
+	// The response will include only annotated values that are (indirectly) related
+	// to any of these annotated value IDs.
 	AnnotatedValueIDs []string `protobuf:"bytes,1,rep,name=annotatedvalue_ids,json=annotatedvalueIds" json:"annotatedvalue_ids,omitempty"`
 	// TaskNames is a list of names of tasks.
-	// The response will include only events that are created by one of these tasks.
+	// The response will include only annotated values that are created by one of these tasks.
 	TaskNames []string `protobuf:"bytes,2,rep,name=task_names,json=taskNames" json:"task_names,omitempty"`
-	// If set, only events created after this timestamp are returned.
+	// If set, only annotated values created after this timestamp are returned.
 	CreatedAfter *types.Timestamp `protobuf:"bytes,3,opt,name=created_after,json=createdAfter" json:"created_after,omitempty"`
-	// If set, only events created before this timestamp are returned.
+	// If set, only annotated values created before this timestamp are returned.
 	CreatedBefore *types.Timestamp `protobuf:"bytes,4,opt,name=created_before,json=createdBefore" json:"created_before,omitempty"`
 }
 
@@ -158,7 +158,7 @@ func (m *OutputAnnotatedValuesRequest) Reset()         { *m = OutputAnnotatedVal
 func (m *OutputAnnotatedValuesRequest) String() string { return proto.CompactTextString(m) }
 func (*OutputAnnotatedValuesRequest) ProtoMessage()    {}
 func (*OutputAnnotatedValuesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{2}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{2}
 }
 func (m *OutputAnnotatedValuesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -224,7 +224,7 @@ func (m *OutputAnnotatedValues) Reset()         { *m = OutputAnnotatedValues{} }
 func (m *OutputAnnotatedValues) String() string { return proto.CompactTextString(m) }
 func (*OutputAnnotatedValues) ProtoMessage()    {}
 func (*OutputAnnotatedValues) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{3}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{3}
 }
 func (m *OutputAnnotatedValues) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -270,7 +270,7 @@ func (m *GetLinkStatisticsRequest) Reset()         { *m = GetLinkStatisticsReque
 func (m *GetLinkStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsRequest) ProtoMessage()    {}
 func (*GetLinkStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{4}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{4}
 }
 func (m *GetLinkStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -315,7 +315,7 @@ func (m *GetLinkStatisticsResponse) Reset()         { *m = GetLinkStatisticsResp
 func (m *GetLinkStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsResponse) ProtoMessage()    {}
 func (*GetLinkStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{5}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{5}
 }
 func (m *GetLinkStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -361,7 +361,7 @@ func (m *GetTaskStatisticsRequest) Reset()         { *m = GetTaskStatisticsReque
 func (m *GetTaskStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsRequest) ProtoMessage()    {}
 func (*GetTaskStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{6}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{6}
 }
 func (m *GetTaskStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -406,7 +406,7 @@ func (m *GetTaskStatisticsResponse) Reset()         { *m = GetTaskStatisticsResp
 func (m *GetTaskStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsResponse) ProtoMessage()    {}
 func (*GetTaskStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_47d6379a90674fd3, []int{7}
+	return fileDescriptor_agent_api_f3030bcda7f30ff7, []int{7}
 }
 func (m *GetTaskStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2075,9 +2075,9 @@ var (
 	ErrIntOverflowAgentApi   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_47d6379a90674fd3) }
+func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_f3030bcda7f30ff7) }
 
-var fileDescriptor_agent_api_47d6379a90674fd3 = []byte{
+var fileDescriptor_agent_api_f3030bcda7f30ff7 = []byte{
 	// 827 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x55, 0xcf, 0x6f, 0xe3, 0x44,
 	0x14, 0xae, 0xd3, 0x15, 0x6a, 0xa6, 0x49, 0xbb, 0x99, 0xdd, 0x45, 0x5e, 0x6b, 0x89, 0x2b, 0x23,

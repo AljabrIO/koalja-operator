@@ -99,10 +99,10 @@ func (s *stub) NewAnnotatedValueSource(deps link.APIDependencies) (annotatedvalu
 	return s, nil
 }
 
-// Publish an event
+// Publish an annotated value
 func (s *stub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) (*annotatedvalue.PublishResponse, error) {
 	s.log.Debug().Interface("annotatedvalue", req.AnnotatedValue).Msg("Publish request")
-	// Try to record event in registry
+	// Try to record annotated value in registry
 	av := *req.GetAnnotatedValue()
 	av.Link = s.uri
 	if _, err := s.registry.Record(ctx, &av); err != nil {
@@ -110,7 +110,7 @@ func (s *stub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) 
 	}
 	atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, 1)
 
-	// Now put event in in-memory queue
+	// Now put annotated value in in-memory queue
 	select {
 	case s.queue <- &av:
 		return &annotatedvalue.PublishResponse{}, nil
@@ -119,7 +119,7 @@ func (s *stub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) 
 	}
 }
 
-// Subscribe to events
+// Subscribe to annotated values
 func (s *stub) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeRequest) (*annotatedvalue.SubscribeResponse, error) {
 	s.log.Debug().Str("clientID", req.ClientID).Msg("Subscribe request")
 	s.subscriptionsMutex.Lock()
@@ -230,7 +230,7 @@ func (s *stub) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*anno
 		return nil, maskAny(err)
 	}
 
-	// No event inflight, get one out of the queue(s)
+	// No annotated value inflight, get one out of the queue(s)
 	waitTimeout, err := ptypes.DurationFromProto(req.GetWaitTimeout())
 	if err != nil {
 		return nil, maskAny(err)

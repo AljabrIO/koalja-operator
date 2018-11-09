@@ -261,7 +261,7 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 		return maskAny(err)
 	}
 	log.Debug().
-		Str("event-id", publishedAv.GetID()).
+		Str("annotatedvalue-id", publishedAv.GetID()).
 		Msg("published annotated value")
 
 	return nil

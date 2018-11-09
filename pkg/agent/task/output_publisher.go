@@ -104,9 +104,9 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 	return nil
 }
 
-// Publish pushes the given event onto the application output channel.
+// Publish pushes the given annotated value onto the application output channel.
 func (op *outputPublisher) Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (*annotatedvalue.AnnotatedValue, error) {
-	// Fill in the blanks of the event
+	// Fill in the blanks of the annotated value
 	if av.GetID() == "" {
 		av.ID = uniuri.New()
 	}

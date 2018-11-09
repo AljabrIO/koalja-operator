@@ -28,7 +28,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 )
 
-// stub is an in-memory implementation of an event queue.
+// stub is an in-memory implementation of an annotated value queue.
 type stub struct {
 	agentRegistry *agentRegistry
 	outputStore   *outputStore

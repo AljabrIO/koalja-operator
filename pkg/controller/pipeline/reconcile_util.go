@@ -146,15 +146,15 @@ func CreateLinkAgentDNSName(pipelineName, linkName, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc", CreateLinkAgentName(pipelineName, linkName), namespace)
 }
 
-// CreateLinkAgentEventSourceAddress returns the address (host:port) of the event source
+// CreateLinkAgentAnnotatedValueSourceAddress returns the address (host:port) of the annotated value source
 // for the given link int the given pipeline.
-func CreateLinkAgentEventSourceAddress(pipelineName, linkName, namespace string) string {
+func CreateLinkAgentAnnotatedValueSourceAddress(pipelineName, linkName, namespace string) string {
 	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 
-// CreateLinkAgentEventPublisherAddress returns the address (host:port) of the event publisher
+// CreateLinkAgentAnnotatedValuePublisherAddress returns the address (host:port) of the annotated value publisher
 // for the given link int the given pipeline.
-func CreateLinkAgentEventPublisherAddress(pipelineName, linkName, namespace string) string {
+func CreateLinkAgentAnnotatedValuePublisherAddress(pipelineName, linkName, namespace string) string {
 	return net.JoinHostPort(CreateLinkAgentDNSName(pipelineName, linkName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 
@@ -188,9 +188,9 @@ func CreateAnnotatedValueRegistryAddress(pipelineName, namespace string) string 
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AnnotatedValueRegistryAPIPort))
 }
 
-// CreatePipelineAgentEventPublisherAddress returns the address (host:port) of the event publisher of the pipeline agent
+// CreatePipelineAgentAnnotatedValuePublisherAddress returns the address (host:port) of the annotated value publisher of the pipeline agent
 // for the given pipeline.
-func CreatePipelineAgentEventPublisherAddress(pipelineName, namespace string) string {
+func CreatePipelineAgentAnnotatedValuePublisherAddress(pipelineName, namespace string) string {
 	return net.JoinHostPort(CreatePipelineAgentDNSName(pipelineName, namespace), strconv.Itoa(constants.AgentAPIPort))
 }
 

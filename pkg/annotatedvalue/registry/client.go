@@ -59,17 +59,17 @@ type annotatedValueRegistryClient struct {
 	conn *grpc.ClientConn
 }
 
-// Record the given event in the registry
+// Record the given annotated value in the registry
 func (c *annotatedValueRegistryClient) Record(ctx context.Context, in *annotatedvalue.AnnotatedValue, opts ...grpc.CallOption) (*empty.Empty, error) {
 	return c.c.Record(ctx, in, opts...)
 }
 
-// GetByID returns the event with given ID.
+// GetByID returns the annotated value with given ID.
 func (c *annotatedValueRegistryClient) GetByID(ctx context.Context, in *annotatedvalue.GetByIDRequest, opts ...grpc.CallOption) (*annotatedvalue.GetResponse, error) {
 	return c.c.GetByID(ctx, in, opts...)
 }
 
-// GetByTaskAndData returns the event with given ID.
+// GetByTaskAndData returns the annotated value with given task and data.
 func (c *annotatedValueRegistryClient) GetByTaskAndData(ctx context.Context, in *annotatedvalue.GetByTaskAndDataRequest, opts ...grpc.CallOption) (*annotatedvalue.GetResponse, error) {
 	return c.c.GetByTaskAndData(ctx, in, opts...)
 }

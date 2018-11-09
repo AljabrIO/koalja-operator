@@ -22,7 +22,7 @@ message PublishResponse {
 
 // AnnotatedValueSource is the API used to subscribe to annotated values
 service AnnotatedValueSource {
-    // Subscribe to events
+    // Subscribe to annotated values
     rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
     // Ping keeps a subscription alive
     rpc Ping(PingRequest) returns (google.protobuf.Empty);
@@ -90,7 +90,7 @@ message AnnotatedValue {
 message AnnotatedValueSourceInput {
     // ID of the source annotated value
     string ID = 1; 
-    // Name of the task input on which this event came in
+    // Name of the task input on which this annotated value came in
     string InputName = 2;
 }
 
@@ -101,7 +101,7 @@ message AnnotatedValueTuple {
 
 // AnnotatedValueRegistry is a persistent annotated value store
 service AnnotatedValueRegistry {
-    // Record the given event in the registry
+    // Record the given annotated value in the registry
     rpc Record(AnnotatedValue) returns (google.protobuf.Empty);
     // GetByID returns the annotated value with given ID.
     rpc GetByID(GetByIDRequest) returns (GetResponse);

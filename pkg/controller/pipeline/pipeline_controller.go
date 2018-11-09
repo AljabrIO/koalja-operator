@@ -888,7 +888,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 			r.log.Error().Str("ref", ref).Msg("No link found for DestinationRef")
 			return reconcile.Result{}, taskExecutorsResult, fmt.Errorf("No link found with DestinationRef '%s'", ref)
 		}
-		annotations[annKey] = CreateLinkAgentEventSourceAddress(instance.Name, link.Name, instance.Namespace)
+		annotations[annKey] = CreateLinkAgentAnnotatedValueSourceAddress(instance.Name, link.Name, instance.Namespace)
 	}
 	// Create annotations to pass addresses of output links
 	for _, tos := range task.Outputs {
@@ -898,12 +898,12 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 		if len(links) > 0 {
 			addresses := make([]string, 0, len(links))
 			for _, link := range links {
-				addresses = append(addresses, CreateLinkAgentEventPublisherAddress(instance.Name, link.Name, instance.Namespace))
+				addresses = append(addresses, CreateLinkAgentAnnotatedValuePublisherAddress(instance.Name, link.Name, instance.Namespace))
 			}
 			annotations[annKey] = strings.Join(addresses, ",")
 		} else {
 			// Task output is not connected. Connect it to the pipeline agent
-			annotations[annKey] = CreatePipelineAgentEventPublisherAddress(instance.Name, instance.Namespace)
+			annotations[annKey] = CreatePipelineAgentAnnotatedValuePublisherAddress(instance.Name, instance.Namespace)
 		}
 	}
 	// Create annotation containing task executor container (if any)

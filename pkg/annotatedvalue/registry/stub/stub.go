@@ -48,7 +48,7 @@ func (s *stub) NewRegistry(deps registry.APIDependencies) (annotatedvalue.Annota
 	return s, nil
 }
 
-// Record the given annotatedvalue in the registry
+// Record the given annotated value in the registry
 func (s *stub) Record(ctx context.Context, e *annotatedvalue.AnnotatedValue) (*empty.Empty, error) {
 	s.log.Debug().Str("annotatedvalue", e.GetID()).Msg("Record request")
 	s.registryMutex.Lock()
@@ -58,7 +58,7 @@ func (s *stub) Record(ctx context.Context, e *annotatedvalue.AnnotatedValue) (*e
 	return &empty.Empty{}, nil
 }
 
-// GetByID returns the event with given ID.
+// GetByID returns the annotated value with given ID.
 func (s *stub) GetByID(ctx context.Context, req *annotatedvalue.GetByIDRequest) (*annotatedvalue.GetResponse, error) {
 	s.log.Debug().Str("annotatedvalue", req.GetID()).Msg("GetByID request")
 	s.registryMutex.Lock()
@@ -70,7 +70,7 @@ func (s *stub) GetByID(ctx context.Context, req *annotatedvalue.GetByIDRequest) 
 	return nil, fmt.Errorf("AnnotatedValue '%s' not found", req.GetID())
 }
 
-// GetByTaskAndData returns the event with given ID.
+// GetByTaskAndData returns the annotated value with given task and data.
 func (s *stub) GetByTaskAndData(ctx context.Context, req *annotatedvalue.GetByTaskAndDataRequest) (*annotatedvalue.GetResponse, error) {
 	s.log.Debug().
 		Str("task", req.GetSourceTask()).
