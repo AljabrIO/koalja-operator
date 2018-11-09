@@ -1,7 +1,7 @@
 apiVersion: koalja.aljabr.io/v1alpha1
 kind: Pipeline
 metadata:
-  name: linecount
+  name: linecount-batch2
   namespace: default
 spec:
   tasks:
@@ -15,6 +15,7 @@ spec:
     inputs:
     - name: inputFile
       typeRef: singleTextFile
+      minSequenceLength: 2
     outputs:
     - name: outputFile
       typeRef: singleTextFile
@@ -24,7 +25,7 @@ spec:
       command:
       - /bin/sh 
       - -c 
-      - "cat {{.inputs.inputFile.path }} | uniq > {{.outputs.outputFile.path}}"
+      - "cat {{ range .inputs.inputFile }} {{ .path }} {{ end }} | uniq > {{.outputs.outputFile.path}}"
   - name: countLines
     inputs:
     - name: inputFile

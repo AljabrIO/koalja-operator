@@ -350,7 +350,15 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		if err := e.buildTaskInput(ctx, tis, args.GetSequence(tis.Name), ownerRef, target); err != nil {
 			return resources, outputProcessors, maskAny(err)
 		}
-		inputs[tis.Name] = target.TemplateData
+		if tis.GetMaxSequenceLength() > 1 {
+			// Sequence with more than 1 annotated value is allowed.
+			// Template uses sequence
+			inputs[tis.Name] = target.TemplateData
+		} else {
+			// Only 1 annotated value at a time allowed.
+			// Template uses this value
+			inputs[tis.Name] = target.TemplateData[0]
+		}
 		nodeName = target.NodeName
 		resources = append(resources, target.Resources...)
 	}

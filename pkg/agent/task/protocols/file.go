@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
@@ -81,7 +82,7 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		}
 
 		// Create PVC
-		pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, uniuri.NewLen(6)))
+		pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%d-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, seqIndex, uniuri.NewLen(6)))
 		storageClassName := pv.Spec.StorageClassName
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -104,7 +105,7 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		target.Resources = append(target.Resources, &pvc)
 
 		// Add volume for the pod
-		volName := util.FixupKubernetesName(fmt.Sprintf("input-%s", cfg.InputSpec.Name))
+		volName := util.FixupKubernetesName(fmt.Sprintf("input-%s-%d", cfg.InputSpec.Name, seqIndex))
 		vol := corev1.Volume{
 			Name: volName,
 			VolumeSource: corev1.VolumeSource{
@@ -117,7 +118,7 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 
 		// Map volume in container fs namespace
-		mountPath := filepath.Join("/koalja", "inputs", cfg.InputSpec.Name)
+		mountPath := filepath.Join("/koalja", "inputs", cfg.InputSpec.Name, strconv.Itoa(seqIndex))
 		target.Container.VolumeMounts = append(target.Container.VolumeMounts, corev1.VolumeMount{
 			Name:      volName,
 			ReadOnly:  true,
