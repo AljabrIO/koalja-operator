@@ -35,6 +35,10 @@ ifndef DOCKERNAMESPACE
 endif
 	@echo "Using docker namespace: $(DOCKERNAMESPACE)"
 
+# Remove build results
+clean:
+	rm -Rf bin
+
 # Run tests
 test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
