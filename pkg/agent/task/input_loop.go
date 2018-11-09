@@ -186,9 +186,11 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
 	if snapshotPolicy.IsAll() {
-		// Wait until snapshot does not have an annotated value for given input
+		// Wait until snapshot has a place in the sequence of an annotated values for given input
 		for {
-			if !il.snapshot.HasAnnotatedValue(tis.Name) {
+			seqLen := il.snapshot.GetSequenceLengthForInput(tis.Name)
+			if seqLen < tis.GetMaxSequenceLength() {
+				// There is space available in the sequence to add at least 1 more annotated value
 				break
 			}
 			// Wait a bit
@@ -206,14 +208,18 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 	}
 
 	// Set the annotated value in the snapshot
-	if err := il.snapshot.Set(ctx, tis.Name, av, stats, ack); err != nil {
+	if err := il.snapshot.Set(ctx, tis.Name, av, tis.GetMinSequenceLength(), tis.GetMaxSequenceLength(), stats, ack); err != nil {
 		return err
 	}
 
 	// See if we should execute the task now
-	tuple := il.snapshot.CreateTuple(len(il.spec.Inputs))
-	if tuple == nil || (il.executionCount > 0 && snapshotPolicy.IsLatest()) {
-		// Not all inputs have received an annotated value yet or this input has a "Latest" policy and we've executed once or more
+	if !il.snapshot.IsReadyForExecution(len(il.spec.Inputs)) {
+		// Not all inputs have received sufficient annotated values yet
+		return nil
+	}
+	if il.executionCount > 0 && snapshotPolicy.IsLatest() {
+		// This input has a "Latest" policy and we've executed once or more,
+		// so no need to execute on this now.
 		return nil
 	}
 

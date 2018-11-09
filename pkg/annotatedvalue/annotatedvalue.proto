@@ -79,7 +79,7 @@ message AnnotatedValue {
     string SourceTaskOutput = 3;
     // Link contains the URI of the Link that published the annotated value
     string Link = 4;
-    // SourceInputs contains zero or more URI's of annotated values that resulted in this annotated value
+    // SourceInputs contains zero or more URI's of annotated values sequences that resulted in this annotated value
     repeated AnnotatedValueSourceInput SourceInputs = 5;
     // Data contains a URI of the data (payload) of the message
     string Data = 6;
@@ -88,15 +88,10 @@ message AnnotatedValue {
 }
 
 message AnnotatedValueSourceInput {
-    // ID of the source annotated value
-    string ID = 1; 
-    // Name of the task input on which this annotated value came in
+    // IDs of the all annotated values in the source sequence
+    repeated string IDs = 1; 
+    // Name of the task input on which this sequence of annotated values came in
     string InputName = 2;
-}
-
-// AnnotatedValueTuple is a tuple of N named annotated values.
-message AnnotatedValueTuple {
-    map<string, AnnotatedValue> Members = 1;
 }
 
 // AnnotatedValueRegistry is a persistent annotated value store

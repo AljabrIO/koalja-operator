@@ -44,6 +44,12 @@ spec:
                   inputs:
                     items:
                       properties:
+                        maxSequenceLength:
+                          format: int64
+                          type: integer
+                        minSequenceLength:
+                          format: int64
+                          type: integer
                         name:
                           type: string
                         snapshotPolicy:

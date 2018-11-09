@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
@@ -43,91 +44,94 @@ func init() {
 
 // Prepare input of a task for an input of File protocol.
 func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuilderConfig, deps task.ExecutorInputBuilderDependencies, target *task.ExecutorInputBuilderTarget) error {
-	uri := cfg.AnnotatedValue.GetData()
-	deps.Log.Debug().
-		Str("uri", uri).
-		Str("input", cfg.InputSpec.Name).
-		Str("task", cfg.TaskSpec.Name).
-		Msg("Preparing file input")
+	for seqIndex, av := range cfg.AnnotatedValues {
+		uri := av.GetData()
+		deps.Log.Debug().
+			Int("sequence-index", seqIndex).
+			Str("uri", uri).
+			Str("input", cfg.InputSpec.Name).
+			Str("task", cfg.TaskSpec.Name).
+			Msg("Preparing file input")
 
-	// Prepare readonly volume for URI
-	resp, err := deps.FileSystem.CreateVolumeForRead(ctx, &fs.CreateVolumeForReadRequest{
-		URI:   uri,
-		Owner: &cfg.OwnerRef,
-	})
-	if err != nil {
-		return maskAny(err)
-	}
-	// TODO handle case where node is different
-	if nodeName := resp.GetNodeName(); nodeName != "" {
-		target.NodeName = &nodeName
-	}
+		// Prepare readonly volume for URI
+		resp, err := deps.FileSystem.CreateVolumeForRead(ctx, &fs.CreateVolumeForReadRequest{
+			URI:   uri,
+			Owner: &cfg.OwnerRef,
+		})
+		if err != nil {
+			return maskAny(err)
+		}
+		// TODO handle case where node is different
+		if nodeName := resp.GetNodeName(); nodeName != "" {
+			target.NodeName = &nodeName
+		}
 
-	// Get created PersistentVolume
-	var pv corev1.PersistentVolume
-	pvKey := client.ObjectKey{
-		Name: resp.GetVolumeName(),
-	}
-	if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
-		deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
-		return maskAny(err)
-	}
+		// Get created PersistentVolume
+		var pv corev1.PersistentVolume
+		pvKey := client.ObjectKey{
+			Name: resp.GetVolumeName(),
+		}
+		if err := deps.Client.Get(ctx, pvKey, &pv); err != nil {
+			deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolume")
+			return maskAny(err)
+		}
 
-	// Add PV to resources for deletion list (if needed)
-	if resp.DeleteAfterUse {
-		target.Resources = append(target.Resources, &pv)
-	}
+		// Add PV to resources for deletion list (if needed)
+		if resp.DeleteAfterUse {
+			target.Resources = append(target.Resources, &pv)
+		}
 
-	// Create PVC
-	pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, uniuri.NewLen(6)))
-	storageClassName := pv.Spec.StorageClassName
-	pvc := corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            pvcName,
-			Namespace:       cfg.Pipeline.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{cfg.OwnerRef},
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: pv.Spec.AccessModes,
-			VolumeName:  resp.GetVolumeName(),
-			Resources: corev1.ResourceRequirements{
-				Requests: pv.Spec.Capacity,
+		// Create PVC
+		pvcName := util.FixupKubernetesName(fmt.Sprintf("%s-%s-%s-%d-%s", cfg.Pipeline.GetName(), cfg.TaskSpec.Name, cfg.InputSpec.Name, seqIndex, uniuri.NewLen(6)))
+		storageClassName := pv.Spec.StorageClassName
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            pvcName,
+				Namespace:       cfg.Pipeline.GetNamespace(),
+				OwnerReferences: []metav1.OwnerReference{cfg.OwnerRef},
 			},
-			StorageClassName: &storageClassName,
-		},
-	}
-	if err := deps.Client.Create(ctx, &pvc); err != nil {
-		return maskAny(err)
-	}
-	target.Resources = append(target.Resources, &pvc)
-
-	// Add volume for the pod
-	volName := util.FixupKubernetesName(fmt.Sprintf("input-%s", cfg.InputSpec.Name))
-	vol := corev1.Volume{
-		Name: volName,
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pvcName,
-				ReadOnly:  true,
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: pv.Spec.AccessModes,
+				VolumeName:  resp.GetVolumeName(),
+				Resources: corev1.ResourceRequirements{
+					Requests: pv.Spec.Capacity,
+				},
+				StorageClassName: &storageClassName,
 			},
-		},
-	}
-	target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+		}
+		if err := deps.Client.Create(ctx, &pvc); err != nil {
+			return maskAny(err)
+		}
+		target.Resources = append(target.Resources, &pvc)
 
-	// Map volume in container fs namespace
-	mountPath := filepath.Join("/koalja", "inputs", cfg.InputSpec.Name)
-	target.Container.VolumeMounts = append(target.Container.VolumeMounts, corev1.VolumeMount{
-		Name:      volName,
-		ReadOnly:  true,
-		MountPath: mountPath,
-	})
+		// Add volume for the pod
+		volName := util.FixupKubernetesName(fmt.Sprintf("input-%s-%d", cfg.InputSpec.Name, seqIndex))
+		vol := corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+					ReadOnly:  true,
+				},
+			},
+		}
+		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 
-	// Create template data
-	target.TemplateData = map[string]interface{}{
-		"volumeName": resp.GetVolumeName(),
-		"mountPath":  mountPath,
-		"nodeName":   resp.GetNodeName(),
-		"path":       filepath.Join(mountPath, resp.GetLocalPath()),
+		// Map volume in container fs namespace
+		mountPath := filepath.Join("/koalja", "inputs", cfg.InputSpec.Name, strconv.Itoa(seqIndex))
+		target.Container.VolumeMounts = append(target.Container.VolumeMounts, corev1.VolumeMount{
+			Name:      volName,
+			ReadOnly:  true,
+			MountPath: mountPath,
+		})
+
+		// Create template data
+		target.TemplateData = append(target.TemplateData, map[string]interface{}{
+			"volumeName": resp.GetVolumeName(),
+			"mountPath":  mountPath,
+			"nodeName":   resp.GetNodeName(),
+			"path":       filepath.Join(mountPath, resp.GetLocalPath()),
+		})
 	}
 
 	return nil
