@@ -140,6 +140,14 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - koalja.aljabr.io
+  resources:
+  - pipelinerevisions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - serviceaccounts

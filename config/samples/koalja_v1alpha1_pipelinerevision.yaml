@@ -1,0 +1,9 @@
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: PipelineRevision
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: pipelinerevision-sample
+spec:
+  # Add fields here
+  foo: bar

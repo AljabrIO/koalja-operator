@@ -128,6 +128,12 @@ func CreatePipelineAgentName(pipelineName string) string {
 	return util.FixupKubernetesName(pipelineName + "-p")
 }
 
+// CreatePipelineRevisionName returns the name of the PipelineRevision
+// for the pipeline with given name and specification hash.
+func CreatePipelineRevisionName(pipelineName, hash string) string {
+	return util.FixupKubernetesName(pipelineName + "-" + hash)
+}
+
 // CreatePipelineAgentDNSName returns the DNS of the pipeline agent
 // for the given pipeline.
 func CreatePipelineAgentDNSName(pipelineName, namespace string) string {

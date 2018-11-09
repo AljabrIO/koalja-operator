@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -173,20 +174,32 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		r.eventRecorder.Eventf(instance, "Warning", "PipelineValidation", "Pipeline is not valid: %s", err)
 		return reconcile.Result{}, nil
 	} else {
-		r.eventRecorder.Event(instance, "Normal", "PipelineValidation", "Pipeline is valid")
+		// Valid event will be recorded later (if needed)
 	}
 
 	// Set domain (if needed)
+	updatePipelineNeeded := false
 	if instance.Status.Domain == "" {
 		domainCfg, err := config.NewDomain(ctx, r.Client, instance.Namespace)
 		if err != nil {
 			return reconcile.Result{}, nil
 		}
 		instance.Status.Domain = fmt.Sprintf("%s.%s.%s", instance.Name, instance.Namespace, domainCfg.LookupDomain(instance.GetLabels()))
+		updatePipelineNeeded = true
+	}
+	// Set revision (if needed)
+	if h := util.Hash(instance.Spec); h != instance.Status.Revision {
+		instance.Status.Revision = h
+		updatePipelineNeeded = true
+		r.eventRecorder.Event(instance, "Normal", "PipelineRevision", "Detected new specification with revision "+h)
+	}
+
+	if updatePipelineNeeded {
 		if err := r.Client.Update(ctx, instance); err != nil {
-			log.Error().Err(err).Msg("Failed to update domain name in status")
+			log.Error().Err(err).Msg("Failed to update Pipeline status")
 			return reconcile.Result{}, nil
 		}
+		r.eventRecorder.Event(instance, "Normal", "PipelineValidation", "Pipeline is valid")
 	}
 
 	// Ensure all resources are created
@@ -197,6 +210,14 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	networkReq := NetworkReconcileRequest{
 		Request:  request,
 		Pipeline: instance,
+	}
+
+	// Ensure pipeline revision is created
+	if lresult, err := r.ensurePipelineRevision(ctx, instance); err != nil {
+		log.Error().Err(err).Msg("ensurePipelineRevision failed")
+		return lresult, err
+	} else {
+		result = MergeReconcileResult(result, lresult)
 	}
 
 	// Ensure agents ServiceAccount is created
@@ -303,6 +324,58 @@ func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, inst
 	// Check if the pipeline agents ServiceAccount already exists
 	if err := util.EnsureServiceAccount(ctx, log, r.Client, serviceAccount, "Pipeline Agents ServiceAccount"); err != nil {
 		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensureAgentsServiceAccount ensures that a service account exists that is the identity
+// for all pipeline, link & task agents.
+// +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelinerevisions,verbs=get;list;watch
+func (r *ReconcilePipeline) ensurePipelineRevision(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
+	hash := instance.Status.Revision
+	revisionName := CreatePipelineRevisionName(instance.Name, hash)
+	revision := &koaljav1alpha1.PipelineRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      revisionName,
+			Namespace: instance.Namespace,
+			Labels: map[string]string{
+				koaljav1alpha1.LabelPipeline: instance.Name,
+				koaljav1alpha1.LabelHash:     hash,
+			},
+		},
+		Hash: hash,
+		Spec: instance.Spec,
+	}
+
+	log := r.log.With().
+		Str("name", revision.Name).
+		Str("namespace", revision.Namespace).
+		Logger()
+	if err := controllerutil.SetControllerReference(instance, revision, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if the pipeline revision already exists
+	found := &koaljav1alpha1.PipelineRevision{}
+	if err := r.Get(ctx, client.ObjectKey{Name: revision.Name, Namespace: revision.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating Pipeline Revision %s", instance.Name)
+		if err := r.Create(ctx, revision); err != nil {
+			log.Error().Err(err).Msg("Failed to create Pipeline Revision")
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if found.Hash != revision.Hash || !reflect.DeepEqual(found.Spec, revision.Spec) {
+			found.Hash = revision.Hash
+			found.Spec = revision.Spec
+			log.Info().Msgf("Updating Pipeline Revision")
+			if err := r.Update(ctx, found); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -571,6 +644,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvAPIHTTPPort:                   strconv.Itoa(constants.AgentAPIHTTPPort),
 		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvPipelineRevision:              instance.Status.Revision,
 		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvAnnotatedValueRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.AnnotatedValueRegistryAPIPort)),
@@ -700,6 +774,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvPipelineRevision:              instance.Status.Revision,
 		constants.EnvLinkName:                      link.Name,
 		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
@@ -856,6 +931,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	SetContainerEnvVars(&c, map[string]string{
 		constants.EnvAPIPort:                       strconv.Itoa(constants.AgentAPIPort),
 		constants.EnvPipelineName:                  instance.Name,
+		constants.EnvPipelineRevision:              instance.Status.Revision,
 		constants.EnvTaskName:                      task.Name,
 		constants.EnvAgentRegistryAddress:          CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
