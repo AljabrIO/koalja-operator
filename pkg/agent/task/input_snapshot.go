@@ -18,7 +18,6 @@ package task
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
@@ -27,100 +26,159 @@ import (
 
 // InputSnapshot holds a single annotated value for every input of a task.
 type InputSnapshot struct {
-	members map[string]avActPair
-	mutex   sync.Mutex
+	members map[string]*inputPair
+}
+
+type inputPair struct {
+	sequence  []avActPair
+	stats     *tracking.TaskInputStatistics
+	minSeqLen int
 }
 
 type avActPair struct {
-	av    *annotatedvalue.AnnotatedValue
-	stats *tracking.TaskInputStatistics
-	ack   func(context.Context, *annotatedvalue.AnnotatedValue) error
+	av  *annotatedvalue.AnnotatedValue
+	ack func(context.Context, *annotatedvalue.AnnotatedValue) error
 }
 
-// CreateTuple copies all annotated values into a new tuple, if the number of annotated values
-// is equal to the given expected number.
-// Returns nil if number of annotated values is different from given expected number.
-func (s *InputSnapshot) CreateTuple(expectedAnnotatedEvents int) *annotatedvalue.AnnotatedValueTuple {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+// IsReadyForExecution returns true when the length of the sequence
+// of annotated values is equal to or above the minimum.
+func (ip *inputPair) IsReadyForExecution() bool {
+	return len(ip.sequence) >= ip.minSeqLen
+}
 
-	if len(s.members) != expectedAnnotatedEvents {
-		return nil
-	}
-	result := &annotatedvalue.AnnotatedValueTuple{}
-	result.Members = make(map[string]*annotatedvalue.AnnotatedValue)
-	for k, v := range s.members {
-		result.Members[k] = v.av
+// GetSequence returns the annotated value sequence.
+func (ip *inputPair) GetSequence() []*annotatedvalue.AnnotatedValue {
+	result := make([]*annotatedvalue.AnnotatedValue, len(ip.sequence))
+	for i, x := range ip.sequence {
+		result[i] = x.av
 	}
 	return result
 }
 
-// HasAnnotatedValue returns true if the snapshot has an annotated value for the input with given name.
-func (s *InputSnapshot) HasAnnotatedValue(inputName string) bool {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	_, found := s.members[inputName]
-	return found
+// Clone the given pair
+func (ip *inputPair) Clone() *inputPair {
+	return &inputPair{
+		sequence: append([]avActPair{}, ip.sequence...),
+		stats:    ip.stats,
+	}
 }
 
-// Get returns the annotated value for the input with given name.
-func (s *InputSnapshot) Get(inputName string) *annotatedvalue.AnnotatedValue {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+// Add the annotated value to the given sequence.
+// This will acknowledge any existing annotated value when the sequence
+// overflows.
+func (ip *inputPair) Add(ctx context.Context, av *annotatedvalue.AnnotatedValue, maxLen int, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
+	// Remove existing entry if sequence is full.
+	for {
+		if l := len(ip.sequence); l == 0 || l < maxLen {
+			break
+		}
+		// Remove first entry of existing sequence
+		first := ip.sequence[0]
+		if first.ack != nil {
+			if err := first.ack(ctx, first.av); err != nil {
+				// Return error
+				return err
+			}
+		}
+		// Remove first from sequence
+		ip.sequence = ip.sequence[1:]
+		// Update statistics reflecting that we're skipping an annotated value
+		atomic.AddInt64(&stats.AnnotatedValuesSkipped, 1)
+	}
 
-	return s.members[inputName].av
+	// Add annotated value to sequence (if not nil)
+	if av != nil {
+		ip.sequence = append(ip.sequence, avActPair{av, ack})
+	}
+	return nil
+}
+
+// AckAll acknowledges all annotated values that need it.
+func (ip *inputPair) AckAll(ctx context.Context) error {
+	for _, v := range ip.sequence {
+		if v.ack != nil {
+			if err := v.ack(ctx, v.av); err != nil {
+				return err
+			}
+			// Acknowledge no longer needed
+			v.ack = nil
+		}
+	}
+	return nil
+}
+
+// RemoveAck removes the acknowledge callback for all annotated values in the sequence.
+func (ip *inputPair) RemoveAck() {
+	for i := range ip.sequence {
+		ip.sequence[i].ack = nil
+	}
+}
+
+// IsReadyForExecution returns true when the number of inputs is equal
+// to the expected number of inputs and all inputs are ready for execution.
+func (s *InputSnapshot) IsReadyForExecution(expectedInputs int) bool {
+	if len(s.members) != expectedInputs {
+		return false
+	}
+	for _, ip := range s.members {
+		if !ip.IsReadyForExecution() {
+			return false
+		}
+	}
+	return true
+}
+
+// GetSequenceLengthForInput returns the length of the sequence for the given input
+// or 0 if no such input is found.
+func (s *InputSnapshot) GetSequenceLengthForInput(inputName string) int {
+	if ip, found := s.members[inputName]; found {
+		return len(ip.sequence)
+	}
+	return 0
+}
+
+// GetSequence returns the annotated value sequence for the input with given name.
+func (s *InputSnapshot) GetSequence(inputName string) []*annotatedvalue.AnnotatedValue {
+	if ip, found := s.members[inputName]; found {
+		return ip.GetSequence()
+	}
+	return nil
 }
 
 // Clone the snapshot
 func (s *InputSnapshot) Clone() *InputSnapshot {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	result := &InputSnapshot{}
 	for k, v := range s.members {
-		result.m()[k] = v
+		result.m()[k] = v.Clone()
 	}
 	return result
 }
 
 // m returns the members map, initializing it when needed.
 // Requires a locked mutex.
-func (s *InputSnapshot) m() map[string]avActPair {
+func (s *InputSnapshot) m() map[string]*inputPair {
 	if s.members == nil {
-		s.members = make(map[string]avActPair)
+		s.members = make(map[string]*inputPair)
 	}
 	return s.members
 }
 
 // Set the annotated value at the given input name.
 // This will acknowledge any existing annotated value.
-func (s *InputSnapshot) Set(ctx context.Context, inputName string, av *annotatedvalue.AnnotatedValue, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
-	s.mutex.Lock()
-	previous, found := s.m()[inputName]
-	delete(s.m(), inputName)
-	s.mutex.Unlock()
-	if found {
-		// Ack previous (if needed)
-		if previous.ack != nil {
-			if err := previous.ack(ctx, previous.av); err != nil {
-				// Restore previous
-				s.mutex.Lock()
-				s.m()[inputName] = previous
-				s.mutex.Unlock()
-				// Return error
-				return err
-			}
+func (s *InputSnapshot) Set(ctx context.Context, inputName string, av *annotatedvalue.AnnotatedValue, minSeqLen, maxSeqLen int, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
+	m := s.m()
+	ip, found := m[inputName]
+	if !found {
+		ip = &inputPair{
+			stats:     stats,
+			minSeqLen: minSeqLen,
 		}
-		// Update statistics reflecting that we're skipping an annotated value
-		atomic.AddInt64(&previous.stats.AnnotatedValuesSkipped, 1)
+		m[inputName] = ip
 	}
 
-	// Set new entry if not nil
-	if av != nil {
-		s.mutex.Lock()
-		s.m()[inputName] = avActPair{av, stats, ack}
-		s.mutex.Unlock()
+	// Add to inputPair
+	if err := ip.Add(ctx, av, maxSeqLen, stats, ack); err != nil {
+		return err
 	}
 	return nil
 }
@@ -128,31 +186,21 @@ func (s *InputSnapshot) Set(ctx context.Context, inputName string, av *annotated
 // Delete the annotated value at the given input name.
 // Does not acnowledge the annotated value!
 func (s *InputSnapshot) Delete(inputName string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	delete(s.m(), inputName)
 }
 
 // RemoveAck removes the acknowledge callback for the annotated value at the given input name.
 func (s *InputSnapshot) RemoveAck(inputName string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if x, found := s.m()[inputName]; found {
-		s.members[inputName] = avActPair{av: x.av, stats: x.stats, ack: nil}
+		x.RemoveAck()
 	}
 }
 
 // AckAll acknowledges all annotated values that need it.
 func (s *InputSnapshot) AckAll(ctx context.Context) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	for _, v := range s.members {
-		if v.ack != nil {
-			if err := v.ack(ctx, v.av); err != nil {
-				return err
-			}
+		if err := v.AckAll(ctx); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -161,9 +209,6 @@ func (s *InputSnapshot) AckAll(ctx context.Context) error {
 // AddInProgressStatistics adds the given delta to all AnnotatedValuesInProgress statistics
 // of the annotated values in this snapshot.
 func (s *InputSnapshot) AddInProgressStatistics(delta int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	for _, v := range s.members {
 		atomic.AddInt64(&v.stats.AnnotatedValuesInProgress, delta)
 	}
@@ -172,9 +217,6 @@ func (s *InputSnapshot) AddInProgressStatistics(delta int64) {
 // AddProcessedStatistics adds the given delta to all AnnotatedValuesProcessed statistics
 // of the annotated values in this snapshot.
 func (s *InputSnapshot) AddProcessedStatistics(delta int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	for _, v := range s.members {
 		atomic.AddInt64(&v.stats.AnnotatedValuesProcessed, delta)
 	}

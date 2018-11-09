@@ -347,7 +347,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			Pod:       pod,
 			NodeName:  nodeName,
 		}
-		if err := e.buildTaskInput(ctx, tis, args.Get(tis.Name), ownerRef, target); err != nil {
+		if err := e.buildTaskInput(ctx, tis, args.GetSequence(tis.Name), ownerRef, target); err != nil {
 			return resources, outputProcessors, maskAny(err)
 		}
 		inputs[tis.Name] = target.TemplateData
@@ -429,7 +429,7 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 }
 
 // buildTaskInput creates a template data element for the given input.
-func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, av *annotatedvalue.AnnotatedValue, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
+func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, avSeq []*annotatedvalue.AnnotatedValue, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
 	log := e.log.With().
 		Str("input", tis.Name).
 		Str("task", e.taskSpec.Name).
@@ -441,11 +441,11 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 		return fmt.Errorf("No input builder found for protocol '%s'", tisType.Protocol)
 	}
 	config := ExecutorInputBuilderConfig{
-		InputSpec:      tis,
-		TaskSpec:       *e.taskSpec,
-		Pipeline:       e.pipeline,
-		AnnotatedValue: av,
-		OwnerRef:       ownerRef,
+		InputSpec:       tis,
+		TaskSpec:        *e.taskSpec,
+		Pipeline:        e.pipeline,
+		AnnotatedValues: avSeq,
+		OwnerRef:        ownerRef,
 	}
 	deps := ExecutorInputBuilderDependencies{
 		Log:        e.log,

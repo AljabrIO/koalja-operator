@@ -92,7 +92,20 @@ message PipelineStatus {
   optional string domain = 1 [(gogoproto.customname) = "Domain", (gogoproto.nullable) = false];
 }
 
-// TaskInputSpec holds the specification of a single input of a task
+// TaskInputSpec holds the specification of a single input of a task.
+//
+// The task will execute when for every input of the task, the number
+// of fetched annotated values is >= MinSequenceLength.
+// If the number of fetched annotated values equals to MaxSequenceLength
+// the following behavior applies:
+// - If SnapshotPolicy == "All", fetching annotated values for this input is
+//   paused (to be resumed after execution of the task).
+// - If SnapshotPolicy == "Latest", newly fetched annotated values replace
+//   the ones that have been fetched before.
+//   For example (MinSequenceLength=3, MaxSequenceLength=3, SnapshotPolicy="Latest"):
+//   If the sequence (of annotated values) for this input is A1,A2,A3
+//   then the arrival of A4 will change the sequence for this input to A2,A3,A4
+//   and A1 will be acknowledged.
 message TaskInputSpec {
   // Name of the input
   optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
@@ -104,6 +117,16 @@ message TaskInputSpec {
   // that is the input for task execution.
   // Defaults to "All".
   optional string snapshotPolicy = 3 [(gogoproto.casttype) = "InputSnapshotPolicy", (gogoproto.customname) = "SnapshotPolicy", (gogoproto.nullable) = false];
+
+  // MinSequenceLength determines the minimum number of annotated values to fetch
+  // before this input is considered ready for execution.
+  // Defaults to 1.
+  optional int64 minSequenceLength = 4 [(gogoproto.customname) = "MinSequenceLength"];
+
+  // MaxSequenceLength determines the maximum number of annotated values to fetch
+  // before this input is considered ready for execution.
+  // Defaults to MinSequenceLength.
+  optional int64 maxSequenceLength = 5 [(gogoproto.customname) = "MaxSequenceLength"];
 }
 
 // TaskOutputSpec holds the specification of a single output of a task

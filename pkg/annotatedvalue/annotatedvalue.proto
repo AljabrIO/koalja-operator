@@ -94,9 +94,14 @@ message AnnotatedValueSourceInput {
     string InputName = 2;
 }
 
-// AnnotatedValueTuple is a tuple of N named annotated values.
+// AnnotatedValueSequence is a sequences annotated values.
+message AnnotatedValueSequence {
+    repeated AnnotatedValue Items = 1;
+}
+
+// AnnotatedValueTuple is a tuple of N named annotated value sequences.
 message AnnotatedValueTuple {
-    map<string, AnnotatedValue> Members = 1;
+    map<string, AnnotatedValueSequence> Members = 1;
 }
 
 // AnnotatedValueRegistry is a persistent annotated value store

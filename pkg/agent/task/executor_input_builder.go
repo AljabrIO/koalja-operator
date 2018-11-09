@@ -45,7 +45,7 @@ type ExecutorInputBuilderConfig struct {
 	// Pipeline (containing TaskSpec) to build for
 	Pipeline *koalja.Pipeline
 	// AnnotatedValue on input specified by InputSpec
-	AnnotatedValue *annotatedvalue.AnnotatedValue
+	AnnotatedValues []*annotatedvalue.AnnotatedValue
 	// Owner reference for created resources
 	OwnerRef metav1.OwnerReference
 }
@@ -68,7 +68,7 @@ type ExecutorInputBuilderTarget struct {
 	// Name of the Node on which the Pod must execute (optional). Set by input builders.
 	NodeName *string
 	// Template data used when executing argument & command templates. Set by input builders.
-	TemplateData map[string]interface{}
+	TemplateData []map[string]interface{}
 	// Resources created for this input. Will be removed after execution.
 	Resources []runtime.Object
 }

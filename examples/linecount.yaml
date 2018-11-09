@@ -24,7 +24,7 @@ spec:
       command:
       - /bin/sh 
       - -c 
-      - "cat {{.inputs.inputFile.path }} | uniq > {{.outputs.outputFile.path}}"
+      - "cat {{(index .inputs.inputFile 0).path }} | uniq > {{.outputs.outputFile.path}}"
   - name: countLines
     inputs:
     - name: inputFile
@@ -38,7 +38,7 @@ spec:
       command:
       - /bin/sh 
       - -c 
-      - "cat {{.inputs.inputFile.path }} | wc -l > {{.outputs.outputFile.path}}"
+      - "cat {{(index .inputs.inputFile 0).path }} | wc -l > {{.outputs.outputFile.path}}"
   links:
   - name: fromToToUniq
     sourceRef: fileDropInput/droppedFile

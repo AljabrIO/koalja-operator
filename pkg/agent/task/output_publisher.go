@@ -121,7 +121,8 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 	}
 	if snapshot != nil && len(av.SourceInputs) == 0 {
 		for _, inp := range op.spec.Inputs {
-			if inpAv := snapshot.Get(inp.Name); inpAv != nil {
+			inpAvSeq := snapshot.GetSequence(inp.Name)
+			for _, inpAv := range inpAvSeq {
 				av.SourceInputs = append(av.SourceInputs, &annotatedvalue.AnnotatedValueSourceInput{
 					ID:        inpAv.GetID(),
 					InputName: inp.Name,
