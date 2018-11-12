@@ -39,7 +39,6 @@ var (
 	fileSystemOptions struct {
 		Type             string
 		StorageClassName string
-		Scheme           string
 		LocalPathPrefix  string
 	}
 )
@@ -48,7 +47,6 @@ func init() {
 	cmdMain.AddCommand(cmdFileSystem)
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Type, "filesystem", "", "Set filesystem type: local")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.StorageClassName, "storageClassName", "", "Name of the StorageClass")
-	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Scheme, "scheme", "koalja-file", "Name of the StorageClass")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.LocalPathPrefix, "localPathPrefix", "/var/lib/koalja/local-fs", "Path prefix on nodes for volume storage")
 }
 
@@ -66,7 +64,7 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 		if fileSystemOptions.StorageClassName == "" {
 			fileSystemOptions.StorageClassName = "koalja-local-storage"
 		}
-		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, fileSystemOptions.LocalPathPrefix, fileSystemOptions.StorageClassName, fileSystemOptions.Scheme)
+		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, fileSystemOptions.LocalPathPrefix, fileSystemOptions.StorageClassName)
 	default:
 		cliLog.Fatal().Str("filesystem", fileSystemOptions.Type).Msg("Unknown filesystem type")
 	}

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
+
 	"github.com/rs/zerolog"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -47,6 +49,7 @@ type Service struct {
 	Config
 	log       zerolog.Logger
 	fsClient  fs.FileSystemClient
+	fsScheme  string
 	ornClient taskclient.OutputReadyNotifierClient
 	scheme    *runtime.Scheme
 }
@@ -71,9 +74,14 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	}
 
 	// Create service clients
-	fsClient, err := fs.CreateFileSystemClient()
+	fsClient, err := fs.NewFileSystemClient()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create filesystem client")
+		return nil, maskAny(err)
+	}
+	fsScheme, err := constants.GetFileSystemScheme()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to load FileSystem scheme")
 		return nil, maskAny(err)
 	}
 	ornClient, err := taskclient.CreateOutputReadyNotifierClient()
@@ -85,6 +93,7 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 		Config:    cfg,
 		log:       log,
 		fsClient:  fsClient,
+		fsScheme:  fsScheme,
 		ornClient: ornClient,
 		scheme:    scheme,
 	}, nil

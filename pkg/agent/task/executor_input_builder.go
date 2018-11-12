@@ -45,7 +45,9 @@ type ExecutorInputBuilderConfig struct {
 	// Pipeline (containing TaskSpec) to build for
 	Pipeline *koalja.Pipeline
 	// AnnotatedValue on input specified by InputSpec
-	AnnotatedValues []*annotatedvalue.AnnotatedValue
+	AnnotatedValue *annotatedvalue.AnnotatedValue
+	// AnnotatedValueIndex is the index of the AnnotatedValue in the sequence
+	AnnotatedValueIndex int
 	// Owner reference for created resources
 	OwnerRef metav1.OwnerReference
 }
@@ -74,16 +76,16 @@ type ExecutorInputBuilderTarget struct {
 }
 
 var (
-	registeredExecutorInputBuilders = map[koalja.Protocol]ExecutorInputBuilder{}
+	registeredExecutorInputBuilders = map[annotatedvalue.Scheme]ExecutorInputBuilder{}
 )
 
-// RegisterExecutorInputBuilder registers a builder for the given protocol.
-func RegisterExecutorInputBuilder(protocol koalja.Protocol, builder ExecutorInputBuilder) {
-	registeredExecutorInputBuilders[protocol] = builder
+// RegisterExecutorInputBuilder registers a builder for the given scheme.
+func RegisterExecutorInputBuilder(scheme annotatedvalue.Scheme, builder ExecutorInputBuilder) {
+	registeredExecutorInputBuilders[scheme] = builder
 }
 
-// GetExecutorInputBuilder returns the builder registered for the given protocol.
+// GetExecutorInputBuilder returns the builder registered for the given scheme.
 // Returns nil if not found.
-func GetExecutorInputBuilder(protocol koalja.Protocol) ExecutorInputBuilder {
-	return registeredExecutorInputBuilders[protocol]
+func GetExecutorInputBuilder(scheme annotatedvalue.Scheme) ExecutorInputBuilder {
+	return registeredExecutorInputBuilders[scheme]
 }

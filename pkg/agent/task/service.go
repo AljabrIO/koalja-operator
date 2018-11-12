@@ -104,7 +104,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		log.Error().Err(err).Msg("Failed to create k8s cache")
 		return nil, maskAny(err)
 	}
-	fileSystem, err := fs.CreateFileSystemClient()
+	fileSystem, err := fs.NewFileSystemClient()
 	if err != nil {
 		return nil, maskAny(err)
 	}

@@ -32,9 +32,9 @@ type FileSystemClient interface {
 	Close() error
 }
 
-// CreateFileSystemClient creates a client for the filesystem service, which
+// NewFileSystemClient creates a client for the filesystem service, which
 // address is found in the environment
-func CreateFileSystemClient() (FileSystemClient, error) {
+func NewFileSystemClient() (FileSystemClient, error) {
 	address := os.Getenv(constants.EnvFileSystemAddress)
 	if address == "" {
 		return nil, fmt.Errorf("Environment variable '%s' not set", constants.EnvFileSystemAddress)

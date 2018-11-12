@@ -413,6 +413,11 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			Name:  constants.EnvFileSystemAddress,
 			Value: os.Getenv(constants.EnvFileSystemAddress),
 		},
+		// Pass scheme of FileSystem service
+		corev1.EnvVar{
+			Name:  constants.EnvFileSystemScheme,
+			Value: string(annotatedvalue.SchemeFile),
+		},
 		// Pass kubernetes namespace
 		corev1.EnvVar{
 			Name: constants.EnvNamespace,
@@ -443,25 +448,28 @@ func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec,
 		Str("task", e.taskSpec.Name).
 		Logger()
 	log.Debug().Msg("Preparing input")
-	tisType, _ := e.pipeline.Spec.TypeByName(tis.TypeRef)
-	builder := GetExecutorInputBuilder(tisType.Protocol)
-	if builder == nil {
-		return fmt.Errorf("No input builder found for protocol '%s'", tisType.Protocol)
-	}
 	config := ExecutorInputBuilderConfig{
-		InputSpec:       tis,
-		TaskSpec:        *e.taskSpec,
-		Pipeline:        e.pipeline,
-		AnnotatedValues: avSeq,
-		OwnerRef:        ownerRef,
+		InputSpec: tis,
+		TaskSpec:  *e.taskSpec,
+		Pipeline:  e.pipeline,
+		OwnerRef:  ownerRef,
 	}
 	deps := ExecutorInputBuilderDependencies{
 		Log:        e.log,
 		Client:     e.Client,
 		FileSystem: e.FileSystemClient,
 	}
-	if err := builder.Build(ctx, config, deps, target); err != nil {
-		return maskAny(err)
+	for index, av := range avSeq {
+		config.AnnotatedValue = av
+		config.AnnotatedValueIndex = index
+		scheme := av.GetDataScheme()
+		builder := GetExecutorInputBuilder(scheme)
+		if builder == nil {
+			return fmt.Errorf("No input builder found for scheme '%s'", scheme)
+		}
+		if err := builder.Build(ctx, config, deps, target); err != nil {
+			return maskAny(err)
+		}
 	}
 	return nil
 }

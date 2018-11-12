@@ -45,16 +45,14 @@ type localFSBuilder struct {
 	log              zerolog.Logger
 	localPathPrefix  string
 	storageClassName string
-	scheme           string
 }
 
 // NewLocalFileSystemBuilder creates a new builder that builds a local FS.
-func NewLocalFileSystemBuilder(log zerolog.Logger, localPathPrefix, storageClassName, scheme string) fssvc.APIBuilder {
+func NewLocalFileSystemBuilder(log zerolog.Logger, localPathPrefix, storageClassName string) fssvc.APIBuilder {
 	return &localFSBuilder{
 		log:              log,
 		localPathPrefix:  localPathPrefix,
 		storageClassName: storageClassName,
-		scheme:           scheme,
 	}
 }
 
@@ -91,7 +89,6 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 		log:              b.log,
 		localPathPrefix:  b.localPathPrefix,
 		storageClassName: b.storageClassName,
-		scheme:           b.scheme,
 	}, nil
 }
 
@@ -105,7 +102,6 @@ type localFS struct {
 	fssvc.APIDependencies
 	localPathPrefix  string
 	storageClassName string
-	scheme           string
 }
 
 // CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -196,12 +192,24 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 // CreateFileURI creates a URI for the given file/dir
 func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequest) (*fs.CreateFileURIResponse, error) {
 	log := lfs.log.With().
+		Str("scheme", req.GetScheme()).
 		Str("volName", req.GetVolumeName()).
 		Str("nodeName", req.GetNodeName()).
 		Str("localPath", req.GetLocalPath()).
 		Bool("isDir", req.IsDir).
 		Logger()
 	log.Debug().Msg("CreateFileURI request")
+
+	// Check arguments
+	if req.GetScheme() == "" {
+		return nil, fmt.Errorf("Scheme cannot be empty")
+	}
+	if req.GetLocalPath() == "" {
+		return nil, fmt.Errorf("LocalPath cannot be empty")
+	}
+	if req.GetNodeName() == "" {
+		return nil, fmt.Errorf("NodeName cannot be empty")
+	}
 
 	// Read original PV
 	var originalPV corev1.PersistentVolume
@@ -216,7 +224,7 @@ func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequ
 	q := url.Values{}
 	q.Set(dirKey, strconv.FormatBool(req.GetIsDir()))
 	uri := &url.URL{
-		Scheme:   lfs.scheme,
+		Scheme:   req.GetScheme(),
 		Host:     req.GetNodeName(),
 		Path:     uid,
 		Fragment: req.GetLocalPath(),
@@ -239,11 +247,6 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to parse URI")
 		return nil, err
-	}
-	// Check scheme
-	if uri.Scheme != lfs.scheme {
-		log.Debug().Str("scheme", uri.Scheme).Msg("Unknown scheme")
-		return nil, fmt.Errorf("Unknown scheme '%s'", uri.Scheme)
 	}
 	nodeName := uri.Host
 	uid := strings.TrimPrefix(uri.Path, "/")

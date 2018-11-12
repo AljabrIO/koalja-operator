@@ -56,14 +56,16 @@ message CreateVolumeForWriteResponse {
 
 // CreateFileURIRequest contains arguments for CreateFileURI
 message CreateFileURIRequest {
+    // Scheme of the generated URI
+    string Scheme = 1;
     // Name of the PersistentVolume that contains the file/dir
-    string VolumeName = 1;
+    string VolumeName = 2;
     // Name of the Node on which the volume resides
-    string NodeName = 2;
+    string NodeName = 3;
     // Local path of the file/dir in the PersistentVolume
-    string LocalPath = 3;
+    string LocalPath = 4;
     // IsDir indicates if the URI is for a file (false) or a directory (true)
-    bool IsDir = 4;
+    bool IsDir = 5;
 }
 
 // CreateFileURIRequest contains results for CreateFileURI

@@ -88,6 +88,7 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.fsClient.CreateFileURI(ctx, &fs.CreateFileURIRequest{
+		Scheme:     s.fsScheme,
 		VolumeName: s.VolumeName,
 		NodeName:   s.NodeName,
 		LocalPath:  relLocalPath,

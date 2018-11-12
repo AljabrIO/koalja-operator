@@ -25,7 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/task"
-	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/protocols"
+	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/builders/input"
+	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/builders/output"
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 )
 

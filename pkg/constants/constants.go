@@ -78,6 +78,10 @@ const (
 	// address of the FileSystem to a container.
 	EnvFileSystemAddress = "KOALJA_FILESYSTEM_ADDRESS"
 
+	// EnvFileSystemScheme is the name of the environment variable used to pass the
+	// scheme used for FileSystem URIs.
+	EnvFileSystemScheme = "KOALJA_FILESYSTEM_SCHEME"
+
 	// EnvOutputReadyNotifierAddress is the name of the environment variable used to pass the
 	// address of the OutputReadyNotifier to a container.
 	EnvOutputReadyNotifierAddress = "KOALJA_OUTPUT_READ_NOTIFIER_ADDRESS"
@@ -236,4 +240,13 @@ func GetServiceAccountName() (string, error) {
 		return "", fmt.Errorf("Environment variable '%s' not set", EnvServiceAccountName)
 	}
 	return name, nil
+}
+
+// GetFileSystemScheme loads the scheme used for FileSystem URIs.
+func GetFileSystemScheme() (string, error) {
+	scheme := os.Getenv(EnvFileSystemScheme)
+	if scheme == "" {
+		return "", fmt.Errorf("Environment variable '%s' not set", EnvFileSystemScheme)
+	}
+	return scheme, nil
 }

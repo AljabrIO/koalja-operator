@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	_ "github.com/AljabrIO/koalja-operator/pkg/agent/task/protocols"
 	"github.com/AljabrIO/koalja-operator/pkg/task/filedrop"
 )
 
