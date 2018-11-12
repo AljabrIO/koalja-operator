@@ -39,7 +39,7 @@ func init() {
 	task.RegisterExecutorInputBuilder(annotatedvalue.SchemeFile, fileInputBuilder{})
 }
 
-// Prepare input of a task for an input of File protocol.
+// Prepare input of a task for an input that uses a koalja-file scheme.
 func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuilderConfig, deps task.ExecutorInputBuilderDependencies, target *task.ExecutorInputBuilderTarget) error {
 	uri := cfg.AnnotatedValue.GetData()
 	deps.Log.Debug().

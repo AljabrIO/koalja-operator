@@ -425,7 +425,7 @@ func (r *ReconcilePipeline) ensureAgentsRoleAndBinding(ctx context.Context, inst
 			// Allow agents R/W access to pods & services
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
-				Resources: []string{"pods", "services", "persistentvolumeclaims"},
+				Resources: []string{"pods", "services", "configmaps", "persistentvolumeclaims"},
 				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 			},
 			// Allow agents R access to pipelines

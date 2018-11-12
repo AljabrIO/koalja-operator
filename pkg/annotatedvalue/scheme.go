@@ -22,4 +22,8 @@ type Scheme string
 const (
 	// SchemeFile is the scheme used for Koalja provided file resource
 	SchemeFile Scheme = "koalja-file"
+	// SchemeData is the scheme used for inline data values.
+	// It follows RFC 2397, see https://en.wikipedia.org/wiki/Data_URI_scheme.
+	// Example: data:text/plain,Hello+World
+	SchemeData Scheme = "data"
 )
