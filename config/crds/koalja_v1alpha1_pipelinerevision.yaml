@@ -70,6 +70,8 @@ spec:
                       properties:
                         name:
                           type: string
+                        options:
+                          type: object
                         ready:
                           type: string
                         typeRef:
