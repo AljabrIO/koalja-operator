@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/rs/zerolog"
@@ -54,7 +54,7 @@ func (s *stub) getOrCreateAgentRegistry(hub pipeline.FrontendHub) *agentRegistry
 }
 
 // getOrCreateOutputStore returns the output store, creating one if needed.
-func (s *stub) getOrCreateOutputStore(r registry.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
+func (s *stub) getOrCreateOutputStore(r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
 	agentRegistry := s.getOrCreateAgentRegistry(hub)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

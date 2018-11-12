@@ -33,7 +33,7 @@ import (
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	pipelinecl "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/client"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	trackingcl "github.com/AljabrIO/koalja-operator/pkg/tracking/client"
@@ -51,7 +51,7 @@ type Service struct {
 	statistics     *tracking.LinkStatistics
 	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
 	avSource       annotatedvalue.AnnotatedValueSourceServer
-	avRegistry     registry.AnnotatedValueRegistryClient
+	avRegistry     avclient.AnnotatedValueRegistryClient
 	agentRegistry  pipeline.AgentRegistryClient
 	statisticsSink tracking.StatisticsSinkClient
 }
@@ -67,7 +67,7 @@ type APIDependencies struct {
 	// URI of this link
 	URI string
 	// EventRegister client
-	AnnotatedValueRegistry registry.AnnotatedValueRegistryClient
+	AnnotatedValueRegistry avclient.AnnotatedValueRegistryClient
 	// AgentRegistry client
 	AgentRegistry pipeline.AgentRegistryClient
 	// Statistics
@@ -122,7 +122,7 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		log.Error().Err(err).Msg("Failed to get own pod")
 		return nil, maskAny(err)
 	}
-	avReg, err := registry.CreateAnnotatedValueRegistryClient()
+	avReg, err := avclient.NewAnnotatedValueRegistryClient()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create annotated value registry client")
 		return nil, maskAny(err)

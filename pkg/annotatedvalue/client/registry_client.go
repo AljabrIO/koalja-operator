@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package registry
+package client
 
 import (
 	"context"
@@ -34,9 +34,9 @@ type AnnotatedValueRegistryClient interface {
 	Close() error
 }
 
-// CreateAnnotatedValueRegistryClient creates a client for the annotated value registry, which
+// NewAnnotatedValueRegistryClient creates a client for the annotated value registry, which
 // address is found in the environment
-func CreateAnnotatedValueRegistryClient() (AnnotatedValueRegistryClient, error) {
+func NewAnnotatedValueRegistryClient() (AnnotatedValueRegistryClient, error) {
 	address := os.Getenv(constants.EnvAnnotatedValueRegistryAddress)
 	if address == "" {
 		return nil, fmt.Errorf("Environment variable '%s' not set", constants.EnvAnnotatedValueRegistryAddress)

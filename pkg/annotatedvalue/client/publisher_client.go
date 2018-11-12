@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package task
+package client
 
 import (
 	"context"
@@ -30,8 +30,8 @@ type AnnotatedValuePublisherClient interface {
 	CloseConnection() error
 }
 
-// CreateAnnotatedValuePublisherClient creates a client for the given annotated value source with the given address.
-func CreateAnnotatedValuePublisherClient(address string) (AnnotatedValuePublisherClient, error) {
+// NewAnnotatedValuePublisherClient creates a client for the given annotated value source with the given address.
+func NewAnnotatedValuePublisherClient(address string) (AnnotatedValuePublisherClient, error) {
 	// Create a connection
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {

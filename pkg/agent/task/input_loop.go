@@ -29,8 +29,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/AljabrIO/koalja-operator/pkg/agent/link"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
@@ -255,7 +255,7 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 	address := il.inputAddressMap[tis.Name]
 
 	// Prepare loop
-	subscribeAndReadLoop := func(ctx context.Context, c link.AnnotatedValueSourceClient) error {
+	subscribeAndReadLoop := func(ctx context.Context, c avclient.AnnotatedValueSourceClient) error {
 		defer c.CloseConnection()
 		resp, err := c.Subscribe(ctx, &annotatedvalue.SubscribeRequest{
 			ClientID: il.clientID,
@@ -306,7 +306,7 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 
 	// Keep creating connection, subscribe and loop
 	for {
-		c, err := link.CreateAnnotatedValueSourceClient(address)
+		c, err := avclient.NewAnnotatedValueSourceClient(address)
 		if err == nil {
 			if err := subscribeAndReadLoop(ctx, c); ctx.Err() != nil {
 				return ctx.Err()

@@ -28,7 +28,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/tree"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 	"github.com/rs/zerolog"
@@ -38,14 +38,14 @@ import (
 type outputStore struct {
 	log                  zerolog.Logger
 	agentRegistry        *agentRegistry
-	avRegistry           registry.AnnotatedValueRegistryClient
+	avRegistry           avclient.AnnotatedValueRegistryClient
 	pipeline             *koalja.Pipeline
 	annotatedValues      []*tree.AnnotatedValueTree
 	annotatedValuesMutex sync.Mutex
 }
 
 // newOutputStore creates a new output store
-func newOutputStore(log zerolog.Logger, r registry.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
+func newOutputStore(log zerolog.Logger, r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
 	return &outputStore{
 		log:           log,
 		avRegistry:    r,

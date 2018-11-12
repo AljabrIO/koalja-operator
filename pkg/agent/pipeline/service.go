@@ -27,7 +27,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/frontend"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
@@ -42,7 +42,7 @@ type Service struct {
 	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
 	agentRegistry  AgentRegistryServer
 	statisticsSink tracking.StatisticsSinkServer
-	avRegistry     registry.AnnotatedValueRegistryClient
+	avRegistry     avclient.AnnotatedValueRegistryClient
 	frontend       FrontendServer
 	frontendHub    *frontend.Hub
 }
@@ -54,7 +54,7 @@ type APIDependencies struct {
 	// Namespace in which this link is running
 	Namespace string
 	// AnnotatedValueRegister client
-	AnnotatedValueRegistry registry.AnnotatedValueRegistryClient
+	AnnotatedValueRegistry avclient.AnnotatedValueRegistryClient
 	// The pipeline
 	Pipeline *koalja.Pipeline
 	// Access to the frontend hub
@@ -105,7 +105,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		return nil, maskAny(err)
 	}
 
-	avReg, err := registry.CreateAnnotatedValueRegistryClient()
+	avReg, err := avclient.NewAnnotatedValueRegistryClient()
 	if err != nil {
 		return nil, maskAny(err)
 	}

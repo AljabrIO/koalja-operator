@@ -24,12 +24,11 @@ import (
 	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	ptypes "github.com/gogo/protobuf/types"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
@@ -58,7 +57,7 @@ func (s *subscription) RenewExpiresAt() {
 // stub is an in-memory implementation of an annotated value queue.
 type stub struct {
 	log                zerolog.Logger
-	registry           registry.AnnotatedValueRegistryClient
+	registry           avclient.AnnotatedValueRegistryClient
 	agentRegistry      pipeline.AgentRegistryClient
 	uri                string
 	queue              chan *annotatedvalue.AnnotatedValue

@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
@@ -184,7 +185,7 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
 
 	runUntilError := func() error {
-		avpClient, err := CreateAnnotatedValuePublisherClient(addr)
+		avpClient, err := avclient.NewAnnotatedValuePublisherClient(addr)
 		if err != nil {
 			return maskAny(err)
 		}

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package link
+package client
 
 import (
 	"context"
@@ -33,8 +33,8 @@ type AnnotatedValueSourceClient interface {
 	CloseConnection() error
 }
 
-// CreateAnnotatedValueSourceClient creates a client for the given annotated value source with the given address.
-func CreateAnnotatedValueSourceClient(address string) (AnnotatedValueSourceClient, error) {
+// NewAnnotatedValueSourceClient creates a client for the given annotated value source with the given address.
+func NewAnnotatedValueSourceClient(address string) (AnnotatedValueSourceClient, error) {
 	// Create a connection
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
