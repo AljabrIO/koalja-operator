@@ -1,0 +1,44 @@
+apiVersion: "database.arangodb.com/v1alpha"
+kind: "ArangoDeployment"
+metadata:
+  name: "qarango-db"
+spec:
+  mode: Single
+  image: arangodb/arangodb:latest
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qarango-cm
+  namespace: default
+data:
+  config.yaml: |
+    type: ArangoDB
+    address: "https://qarango-db.default.svc:8529"
+    database: "default"
+
+---
+
+# Work in progress
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: qarango
+  namespace: default
+spec:
+  tasks:
+  - name: queryURLs
+    outputs:
+    - name: urls
+      typeRef: urlDoc
+      ready: Auto
+      options:
+        database-config-map: "qarango-cm"
+        query: "FOR doc in Urls RETURN doc"
+    type: DBQuery
+  types:
+  - name: urlDoc
+    protocol: File
+    format: JSON-URL
