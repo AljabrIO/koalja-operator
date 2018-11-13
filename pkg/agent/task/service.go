@@ -51,6 +51,7 @@ type Service struct {
 	inputLoop       *inputLoop
 	executor        Executor
 	outputPublisher *outputPublisher
+	podGC           PodGarbageCollector
 	cache           cache.Cache
 	port            int
 	taskName        string
@@ -154,7 +155,11 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pl, &taskSpec, &pod, port, op, statistics)
+	podGC, err := NewPodGarbageCollector(log, c)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pl, &taskSpec, &pod, port, podGC, op, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -166,6 +171,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		log:             log,
 		inputLoop:       il,
 		executor:        executor,
+		podGC:           podGC,
 		outputPublisher: op,
 		cache:           cache,
 		port:            port,
@@ -219,6 +225,13 @@ func (s *Service) Run(ctx context.Context) error {
 	g.Go(func() error {
 		if err := s.outputPublisher.Run(lctx); err != nil {
 			s.log.Error().Err(err).Msg("OutputPublisher failed to start")
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.podGC.Run(lctx); err != nil {
+			s.log.Error().Err(err).Msg("PodGarbageCollector failed to start")
 			return maskAny(err)
 		}
 		return nil

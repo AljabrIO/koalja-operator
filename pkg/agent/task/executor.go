@@ -56,7 +56,7 @@ type Executor interface {
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
 	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int,
-	outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
+	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -113,6 +113,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		outputReadyNotifierPort: outputReadyNotifierPort,
 		podChangeQueues:         make(map[string]chan *corev1.Pod),
 		outputPublisher:         outputPublisher,
+		podGC:                   podGC,
 		statistics:              statistics,
 	}, nil
 }
@@ -135,6 +136,7 @@ type executor struct {
 	outputReadyNotifierPort int
 	podChangeQueues         map[string]chan *corev1.Pod
 	outputPublisher         OutputPublisher
+	podGC                   PodGarbageCollector
 	statistics              *tracking.TaskStatistics
 }
 
@@ -277,6 +279,7 @@ waitLoop:
 		case corev1.PodFailed:
 			// Pod has failed
 			e.log.Warn().Msg("Pod failed")
+			e.podGC.Add(pod.Name, pod.Namespace)
 			return fmt.Errorf("Pod has failed")
 		}
 		// Check executor container status
@@ -289,6 +292,7 @@ waitLoop:
 						break waitLoop
 					default:
 						e.log.Warn().Int32("exitCode", cs.State.Terminated.ExitCode).Msg("Executor container failed")
+						e.podGC.Add(pod.Name, pod.Namespace)
 						return fmt.Errorf("Executor container has failed")
 					}
 				}
