@@ -22,6 +22,6 @@ spec:
     - --output-name
     - "{{(index .task.Outputs 0).Name}}"
     - --database-config-map
-    - "{{(index .task.Outputs 0).Options.database-config-map}}"
+    - '{{index ((index .task.Outputs 0).Options) "database-config-map"}}'
     - --query
     - "{{(index .task.Outputs 0).Options.query}}"
