@@ -507,10 +507,12 @@ func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpe
 func (e *executor) applyTemplate(source string, data interface{}) (string, error) {
 	t, err := template.New("x").Parse(source)
 	if err != nil {
+		e.log.Debug().Err(err).Str("source", source).Msg("Failed to parse template")
 		return "", maskAny(err)
 	}
 	w := &bytes.Buffer{}
 	if err := t.Execute(w, data); err != nil {
+		e.log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
 		return "", maskAny(err)
 	}
 	return w.String(), nil
