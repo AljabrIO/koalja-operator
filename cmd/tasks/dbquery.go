@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/task/dbquery"
+	_ "github.com/AljabrIO/koalja-operator/pkg/task/dbquery/databases"
 )
 
 var (

@@ -19,13 +19,33 @@ package dbquery
 import (
 	"context"
 	"fmt"
+
+	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
+	"github.com/rs/zerolog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Database provides the API implemented by various database types.
 type Database interface {
 	// Query the database provided in the given config until the given context
 	// is canceled.
-	Query(context.Context, Config, DatabaseConfig) error
+	Query(context.Context, Config, DatabaseConfig, QueryDependencies) error
+}
+
+// QueryDependencies holds services that are available for Database implementation
+// during a Query call.
+type QueryDependencies struct {
+	// Logger
+	Log zerolog.Logger
+	// Client for FS service
+	FileSystemClient fs.FileSystemClient
+	// Scheme to use for FS URI's
+	FileSystemScheme string
+	// Client for publishing output notifications.
+	OutputReadyNotifierClient taskclient.OutputReadyNotifierClient
+	// Client for accessing Kubernetes resources
+	KubernetesClient client.Client
 }
 
 var (

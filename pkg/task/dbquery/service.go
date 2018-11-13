@@ -49,6 +49,8 @@ type Config struct {
 	DatabaseConfigMap string
 	// Query to execute
 	Query string
+	// Namespace we're running in
+	Namespace string
 }
 
 // Service loop of the FileDrop task.
@@ -60,7 +62,6 @@ type Service struct {
 	ornClient taskclient.OutputReadyNotifierClient
 	scheme    *runtime.Scheme
 	k8sClient client.Client
-	namespace string
 }
 
 // NewService initializes a new service.
@@ -89,10 +90,13 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	}
 
 	// Create service clients
-	namespace, err := constants.GetNamespace()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get namespace")
-		return nil, maskAny(err)
+	if cfg.Namespace == "" {
+		namespace, err := constants.GetNamespace()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get namespace")
+			return nil, maskAny(err)
+		}
+		cfg.Namespace = namespace
 	}
 	var k8sClient client.Client
 	ctx := context.Background()
@@ -125,7 +129,6 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 		fsScheme:  fsScheme,
 		ornClient: ornClient,
 		k8sClient: k8sClient,
-		namespace: namespace,
 		scheme:    scheme,
 	}, nil
 }
@@ -134,7 +137,7 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 func (s *Service) Run(ctx context.Context) error {
 	// Load config map
 	var configMap corev1.ConfigMap
-	key := client.ObjectKey{Name: s.Config.DatabaseConfigMap, Namespace: s.namespace}
+	key := client.ObjectKey{Name: s.Config.DatabaseConfigMap, Namespace: s.Config.Namespace}
 	if err := s.k8sClient.Get(ctx, key, &configMap); err != nil {
 		s.log.Error().Err(err).Msg("Failed to load database config map")
 		return maskAny(err)
@@ -154,7 +157,14 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	// Run query
-	if err := db.Query(ctx, s.Config, *dbCfg); err != nil {
+	deps := QueryDependencies{
+		Log:                       s.log,
+		FileSystemClient:          s.fsClient,
+		FileSystemScheme:          s.fsScheme,
+		OutputReadyNotifierClient: s.ornClient,
+		KubernetesClient:          s.k8sClient,
+	}
+	if err := db.Query(ctx, s.Config, *dbCfg, deps); err != nil {
 		s.log.Error().Err(err).Msg("Failed to run Query")
 		return maskAny(err)
 	}
