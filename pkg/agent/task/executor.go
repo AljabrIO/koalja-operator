@@ -211,14 +211,13 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		execCont.Name = "executor"
 	}
 	ownerRef := *metav1.NewControllerRef(e.myPod, gvkPod)
-	podLabels := map[string]string{
-		"pipeline": e.pipeline.GetName(),
-		"task":     e.taskSpec.Name,
-		"uid":      uid,
-	}
-	for k, v := range e.taskExecLabels {
-		podLabels[k] = v
-	}
+	podLabels := util.CloneLabels(e.taskExecLabels)
+	podLabels["pipeline"] = e.pipeline.GetName()
+	podLabels["task"] = e.taskSpec.Name
+	// Prepare labels for Pod GC
+	podGCLabels := util.CloneLabels(podLabels)
+	// Prepare pod
+	podLabels["uid"] = uid // UID is unique per pod and therefore not part of the GC selector
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            podName,
@@ -267,6 +266,9 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		return maskAny(err)
 	}
 
+	// Prepare garbage collector
+	e.podGC.Set(podGCLabels, pod.Namespace)
+
 	// Wait for the pod to finish
 waitLoop:
 	for {
@@ -279,7 +281,6 @@ waitLoop:
 		case corev1.PodFailed:
 			// Pod has failed
 			e.log.Warn().Msg("Pod failed")
-			e.podGC.Add(pod.Name, pod.Namespace)
 			return fmt.Errorf("Pod has failed")
 		}
 		// Check executor container status
@@ -292,7 +293,6 @@ waitLoop:
 						break waitLoop
 					default:
 						e.log.Warn().Int32("exitCode", cs.State.Terminated.ExitCode).Msg("Executor container failed")
-						e.podGC.Add(pod.Name, pod.Namespace)
 						return fmt.Errorf("Executor container has failed")
 					}
 				}

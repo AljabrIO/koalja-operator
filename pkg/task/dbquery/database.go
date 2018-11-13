@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
-	"github.com/rs/zerolog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Database provides the API implemented by various database types.
@@ -46,6 +48,8 @@ type QueryDependencies struct {
 	OutputReadyNotifierClient taskclient.OutputReadyNotifierClient
 	// Client for accessing Kubernetes resources
 	KubernetesClient client.Client
+	// Secret containing authentication info
+	AuthenticationSecret *corev1.Secret
 }
 
 var (

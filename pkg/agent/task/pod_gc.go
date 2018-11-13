@@ -18,6 +18,7 @@ package task
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,8 +35,8 @@ const (
 // PodGarbageCollector describes the API implemented by the process that removes obsolete pods
 // created by the executor.
 type PodGarbageCollector interface {
-	// Add a pod to the GC list
-	Add(podName, namespace string)
+	// Set the selector of Pods to garbage collect when terminated.
+	Set(podLabels map[string]string, namespace string)
 	// Run the collector until the given context is canceled.
 	Run(ctx context.Context) error
 }
@@ -49,16 +50,12 @@ func NewPodGarbageCollector(log zerolog.Logger, client client.Client) (PodGarbag
 }
 
 type podGC struct {
-	log     zerolog.Logger
-	client  client.Client
-	mutex   sync.Mutex
-	entries []podGCEntry
-}
+	log    zerolog.Logger
+	client client.Client
 
-type podGCEntry struct {
-	podName      string
-	namespace    string
-	collectAfter time.Time
+	podLabels map[string]string
+	namespace string
+	mutex     sync.Mutex
 }
 
 // Run the executor until the given context is canceled.
@@ -77,58 +74,78 @@ func (c *podGC) Run(ctx context.Context) error {
 	}
 }
 
-// Add a pod to the GC list
-func (c *podGC) Add(podName, namespace string) {
+// Set the selector of Pods to garbage collect when terminated.
+func (c *podGC) Set(podLabels map[string]string, namespace string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.entries = append(c.entries, podGCEntry{
-		podName:      podName,
-		namespace:    namespace,
-		collectAfter: time.Now().Add(PodCollectionDelay),
-	})
-	c.log.Debug().
-		Str("pod", podName).
-		Str("namespace", namespace).
-		Msg("Added pod to collection queue")
+	c.podLabels = podLabels
+	c.namespace = namespace
 }
 
 // collect once
 func (c *podGC) collect(ctx context.Context) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	podLabels := c.podLabels
+	namespace := c.namespace
+	c.mutex.Unlock()
+
+	if len(podLabels) == 0 || namespace == "" {
+		return
+	}
+
+	// Fetch pods that match selector
+	var list corev1.PodList
+	listOpts := client.MatchingLabels(podLabels).InNamespace(namespace)
+	if err := c.client.List(ctx, listOpts, &list); err != nil {
+		c.log.Error().Err(err).Msg("Failed to list pods")
+	}
+
+	// Consider only failed pods
+	failed := selectFailedPods(list.Items)
+
+	// Sort pods by creation date (oldest first)
+	sort.Slice(failed, func(i, j int) bool {
+		tsi := failed[i].CreationTimestamp
+		tsj := failed[j].CreationTimestamp
+		return tsi.Before(&tsj)
+	})
 
 	for {
-		if len(c.entries) > PodCollectionQueueSize {
+		if len(failed) > PodCollectionQueueSize {
 			// Queue full, collect first entry
-		} else if len(c.entries) > 0 && c.entries[0].collectAfter.Before(time.Now()) {
+		} else if len(failed) > 0 && isFailedLongAgo(failed[0]) {
 			// First entry can be collected
 		} else {
 			// Nothing more to collect
 			return
 		}
 		// Collect first entry
-		first := c.entries[0]
-		if err := first.collect(ctx, c.client); err != nil {
-			c.log.Error().Err(err).Msg("Failed to collect entry")
+		first := failed[0]
+		if err := c.client.Delete(ctx, &first); err != nil {
+			c.log.Error().Err(err).Msg("Failed to collect oldest pod")
 		} else {
 			c.log.Debug().
-				Str("pod", first.podName).
-				Str("namespace", first.namespace).
+				Str("pod", first.GetName()).
+				Str("namespace", first.GetNamespace()).
 				Msg("Collected pod")
 		}
-		c.entries = c.entries[1:]
+		failed = failed[1:]
 	}
 }
 
-// collect this entry
-func (e podGCEntry) collect(ctx context.Context, c client.Client) error {
-	key := client.ObjectKey{Name: e.podName, Namespace: e.namespace}
-	var pod corev1.Pod
-	if err := c.Get(ctx, key, &pod); err == nil {
-		if err := c.Delete(ctx, &pod); err != nil {
-			return maskAny(err)
+// selectFailedPods returns the selection (of given list) where
+// the pod has failed.
+func selectFailedPods(list []corev1.Pod) []corev1.Pod {
+	var result []corev1.Pod
+	for _, p := range list {
+		if p.Status.Phase == corev1.PodFailed {
+			result = append(result, p)
 		}
 	}
-	return nil
+	return result
+}
+
+func isFailedLongAgo(p corev1.Pod) bool {
+	return false
 }

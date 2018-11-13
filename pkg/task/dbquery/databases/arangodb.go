@@ -18,6 +18,7 @@ package databases
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 
 	driver "github.com/arangodb/go-driver"
@@ -46,15 +47,28 @@ func (a *arangodb) Query(ctx context.Context, cfg dbquery.Config, dbCfg dbquery.
 	// Create an HTTP connection to the database
 	conn, err := http.NewConnection(http.ConnectionConfig{
 		Endpoints: []string{dbCfg.Address},
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create HTTP connection to ArangoDB database")
 		return maskAny(err)
 	}
 
+	// Apply authentication (if needed)
+	var auth driver.Authentication
+	if s := deps.AuthenticationSecret; s != nil {
+		username := string(s.Data["username"])
+		password := string(s.Data["password"])
+		auth = driver.BasicAuthentication(username, password)
+		log.Debug().Str("username", username).Msg("Using authentication")
+	}
+
 	// Create a client
 	c, err := driver.NewClient(driver.ClientConfig{
-		Connection: conn,
+		Connection:     conn,
+		Authentication: auth,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create ArangoDB client")

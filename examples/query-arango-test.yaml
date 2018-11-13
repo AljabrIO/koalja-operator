@@ -17,8 +17,20 @@ data:
   config.yaml: |
     type: ArangoDB
     address: "https://qarango-db.default.svc:8529"
-    database: "default"
+    authenticationSecret: qarango-db-auth 
+    database: "_system"
 
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qarango-db-auth 
+  namespace: default
+type: Opaque
+data:
+  username: "cm9vdA=="
+  password: ""
 ---
 
 # Work in progress

@@ -156,6 +156,17 @@ func (s *Service) Run(ctx context.Context) error {
 		return maskAny(err)
 	}
 
+	// Fetch authentication secret (if needed)
+	var authSecret *corev1.Secret
+	if dbCfg.AuthenticationSecret != "" {
+		authSecret = &corev1.Secret{}
+		key := client.ObjectKey{Name: dbCfg.AuthenticationSecret, Namespace: s.Namespace}
+		if err := s.k8sClient.Get(ctx, key, authSecret); err != nil {
+			s.log.Error().Err(err).Str("secret", dbCfg.AuthenticationSecret).Msg("Failed to fetch authentication secret")
+			return maskAny(err)
+		}
+	}
+
 	// Run query
 	deps := QueryDependencies{
 		Log:                       s.log,
@@ -163,6 +174,7 @@ func (s *Service) Run(ctx context.Context) error {
 		FileSystemScheme:          s.fsScheme,
 		OutputReadyNotifierClient: s.ornClient,
 		KubernetesClient:          s.k8sClient,
+		AuthenticationSecret:      authSecret,
 	}
 	if err := db.Query(ctx, s.Config, *dbCfg, deps); err != nil {
 		s.log.Error().Err(err).Msg("Failed to run Query")

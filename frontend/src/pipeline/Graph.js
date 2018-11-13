@@ -52,7 +52,7 @@ class Graph extends Component {
     let nodes = taskNodes.concat(inputNodes, outputNodes);
     //console.log(nodes);
 
-    let taskLinks = spec.links.map(l => {
+    let taskLinks = (spec.links || []).map(l => {
       let stats = this.props.linkStats.find(x => x.name === l.name);
       return {
         name: `${l.name}`,
