@@ -212,6 +212,7 @@ func (s *Service) outputReady(ctx context.Context, annotatedValueData, outputNam
 			return resp.GetAnnotatedValueID(), nil
 		} else {
 			// OutputReady call succeeded, but output was not (yet) accepted
+			s.log.Debug().Err(err).Msg("OutputReady did not accept our value. Wait and try again...")
 			recentFailures = 0
 		}
 		// Output was not accepted, or call failed, try again soon.
