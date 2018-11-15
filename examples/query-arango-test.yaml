@@ -5,6 +5,26 @@ metadata:
 spec:
   mode: Single
   image: arangodb/arangodb:latest
+  externalAccess:
+    type: None
+  tls:
+    caSecretName: None
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: qarango-cm
+  namespace: default
+spec:
+  rules:
+  - host: db.qarango.default.koalja.epracom.com
+    http:
+      paths:
+      - backend:
+          serviceName: qarango-db
+          servicePort: 8529
 
 ---
 

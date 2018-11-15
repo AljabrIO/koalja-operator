@@ -111,7 +111,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		dnsName:                 dnsName,
 		namespace:               pod.GetNamespace(),
 		outputReadyNotifierPort: outputReadyNotifierPort,
-		podChangeQueues:         make(map[string]chan *corev1.Pod),
+		podChanges:              make(chan *corev1.Pod),
 		outputPublisher:         outputPublisher,
 		podGC:                   podGC,
 		statistics:              statistics,
@@ -134,7 +134,7 @@ type executor struct {
 	dnsName                 string
 	namespace               string
 	outputReadyNotifierPort int
-	podChangeQueues         map[string]chan *corev1.Pod
+	podChanges              chan *corev1.Pod
 	outputPublisher         OutputPublisher
 	podGC                   PodGarbageCollector
 	statistics              *tracking.TaskStatistics
@@ -150,6 +150,8 @@ var (
 
 // Run the executor until the given context is canceled.
 func (e *executor) Run(ctx context.Context) error {
+	defer close(e.podChanges)
+
 	// Watch pods
 	informer, err := e.Cache.GetInformerForKind(gvkPod)
 	if err != nil {
@@ -172,24 +174,14 @@ func (e *executor) Run(ctx context.Context) error {
 	informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if pod, ok := getPod(newObj); ok {
-				e.mutex.Lock()
-				changeQueue := e.podChangeQueues[pod.GetName()]
-				e.mutex.Unlock()
-				if changeQueue != nil {
-					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod updated notification")
-					changeQueue <- pod
-				}
+				e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod updated notification")
+				e.podChanges <- pod
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if pod, ok := getPod(obj); ok {
-				e.mutex.Lock()
-				changeQueue := e.podChangeQueues[pod.GetName()]
-				e.mutex.Unlock()
-				if changeQueue != nil {
-					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod deleted notification")
-					changeQueue <- pod
-				}
+				e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod deleted notification")
+				e.podChanges <- pod
 			}
 		},
 	})
@@ -248,18 +240,6 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		return maskAny(err)
 	}
 
-	// Prepare change queue
-	changeQueue := make(chan *corev1.Pod, changeQueueSize)
-	defer func() {
-		e.mutex.Lock()
-		delete(e.podChangeQueues, pod.GetName())
-		e.mutex.Unlock()
-		close(changeQueue)
-	}()
-	e.mutex.Lock()
-	e.podChangeQueues[pod.GetName()] = changeQueue
-	e.mutex.Unlock()
-
 	// Launch the pod
 	if err := e.Client.Create(ctx, pod); err != nil {
 		e.log.Error().Err(err).Msg("Failed to create execution pod")
@@ -272,7 +252,18 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	// Wait for the pod to finish
 waitLoop:
 	for {
-		change := <-changeQueue
+		change := <-e.podChanges
+		// Match pod name
+		if change.GetName() != pod.Name {
+			continue
+		}
+		// Match pod UID (in label)
+		if lbls := change.GetLabels(); lbls != nil {
+			if changeUID := lbls["uid"]; changeUID != uid {
+				continue
+			}
+		}
+
 		switch change.Status.Phase {
 		case corev1.PodSucceeded:
 			// We're done with a valid result
