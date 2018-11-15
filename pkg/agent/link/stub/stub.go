@@ -69,9 +69,10 @@ type stub struct {
 }
 
 const (
-	queueSize       = 1024
-	retryQueueSize  = 32
-	subscriptionTTL = time.Minute
+	queueSize                 = 1024
+	retryQueueSize            = 32
+	subscriptionTTL           = time.Minute
+	maxAnnotatedValuesWaiting = 10 // Maximum number of value's we're allowed to queue (TODO make configurable)
 )
 
 // NewStub initializes a new stub API builder
@@ -96,6 +97,13 @@ func (s *stub) NewAnnotatedValuePublisher(deps link.APIDependencies) (annotatedv
 // NewAnnotatedValueSource "builds" a new source
 func (s *stub) NewAnnotatedValueSource(deps link.APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error) {
 	return s, nil
+}
+
+// CanPublish returns true if publishing annotated values is allowed.
+func (s *stub) CanPublish(ctx context.Context, req *annotatedvalue.CanPublishRequest) (*annotatedvalue.CanPublishResponse, error) {
+	return &annotatedvalue.CanPublishResponse{
+		Allowed: atomic.LoadInt64(&s.statistics.AnnotatedValuesWaiting) < maxAnnotatedValuesWaiting,
+	}, nil
 }
 
 // Publish an annotated value

@@ -4,9 +4,13 @@ package task;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/task";
 
+import "github.com/golang/protobuf/ptypes/duration/duration.proto";
+
 // OutputReadyNotifier is the API used by task executors to notify
 // a task agent of the availability of an output.
 service OutputReadyNotifier {
+    // OutputReady signals the task agent that an output is ready for publication
+    // into a link.
     rpc OutputReady(OutputReadyRequest) returns (OutputReadyResponse);
 }
 
@@ -18,6 +22,10 @@ message OutputReadyRequest {
 }
 
 message OutputReadyResponse {
+    // Accepted is true if the task agent accepted the output.
+    // If false, the executor should try to notify the task agent
+    // again after a timeout.
+    bool Accepted = 1;
     // ID of the published annotated value
-    string AnnotatedValueID = 1;
+    string AnnotatedValueID = 2;
 }

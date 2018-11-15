@@ -49,6 +49,11 @@ type annotatedValuePublisherClient struct {
 	conn *grpc.ClientConn
 }
 
+// CanPublish returns true if publishing annotated values is allowed.
+func (c *annotatedValuePublisherClient) CanPublish(ctx context.Context, in *annotatedvalue.CanPublishRequest, opts ...grpc.CallOption) (*annotatedvalue.CanPublishResponse, error) {
+	return c.c.CanPublish(ctx, in, opts...)
+}
+
 // Publish an annotated value
 func (c *annotatedValuePublisherClient) Publish(ctx context.Context, in *annotatedvalue.PublishRequest, opts ...grpc.CallOption) (*annotatedvalue.PublishResponse, error) {
 	return c.c.Publish(ctx, in, opts...)

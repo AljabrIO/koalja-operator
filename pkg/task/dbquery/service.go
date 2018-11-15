@@ -19,6 +19,7 @@ package dbquery
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
@@ -28,7 +29,9 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	"github.com/AljabrIO/koalja-operator/pkg/task"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
@@ -169,12 +172,12 @@ func (s *Service) Run(ctx context.Context) error {
 
 	// Run query
 	deps := QueryDependencies{
-		Log:                       s.log,
-		FileSystemClient:          s.fsClient,
-		FileSystemScheme:          s.fsScheme,
-		OutputReadyNotifierClient: s.ornClient,
-		KubernetesClient:          s.k8sClient,
-		AuthenticationSecret:      authSecret,
+		Log:                  s.log,
+		FileSystemClient:     s.fsClient,
+		FileSystemScheme:     s.fsScheme,
+		OutputReady:          s.outputReady,
+		KubernetesClient:     s.k8sClient,
+		AuthenticationSecret: authSecret,
 	}
 	if err := db.Query(ctx, s.Config, *dbCfg, deps); err != nil {
 		s.log.Error().Err(err).Msg("Failed to run Query")
@@ -182,4 +185,44 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+const (
+	maxOutputReadyFailures = 10
+)
+
+// outputReady is to be called by a database for publishing output notifications.
+// Returns: (annotatedValueID, error)
+func (s *Service) outputReady(ctx context.Context, annotatedValueData, outputName string) (string, error) {
+	delay := time.Millisecond * 100
+	recentFailures := 0
+	for {
+		if resp, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
+			AnnotatedValueData: annotatedValueData,
+			OutputName:         outputName,
+		}); err != nil {
+			recentFailures++
+			if recentFailures > maxOutputReadyFailures {
+				s.log.Error().Err(err).Msg("OutputReady failed too many times")
+				return "", maskAny(err)
+			}
+			s.log.Debug().Err(err).Msg("OutputReady attempt failed")
+		} else if resp.Accepted {
+			// Output was accepted
+			return resp.GetAnnotatedValueID(), nil
+		} else {
+			// OutputReady call succeeded, but output was not (yet) accepted
+			recentFailures = 0
+		}
+		// Output was not accepted, or call failed, try again soon.
+		select {
+		case <-time.After(delay):
+			// Try again
+			delay = util.Backoff(delay, 1.5, time.Minute)
+		case <-ctx.Done():
+			// Context canceled
+			s.log.Debug().Err(ctx.Err()).Msg("Context canceled during outputReady")
+			return "", ctx.Err()
+		}
+	}
 }

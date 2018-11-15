@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/task"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 
 	"github.com/dchest/uniuri"
 	"golang.org/x/sync/errgroup"
@@ -102,14 +104,30 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Signal task with file
 	log.Debug().Str("uri", resp.GetURI()).Msg("signaling output ready")
 	result := make(map[string]interface{})
-	if resp, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
-		AnnotatedValueData: resp.GetURI(),
-		OutputName:         s.OutputName,
-	}); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	} else {
-		result["annotatedvalue-id"] = resp.GetAnnotatedValueID()
+	delay := time.Millisecond * 100
+	for {
+		if resp, err := s.ornClient.OutputReady(ctx, &task.OutputReadyRequest{
+			AnnotatedValueData: resp.GetURI(),
+			OutputName:         s.OutputName,
+		}); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		} else if resp.Accepted {
+			// Output was accepted
+			result["annotatedvalue-id"] = resp.GetAnnotatedValueID()
+			break
+		} else {
+			// Output was not accepted, try again soon.
+			select {
+			case <-time.After(delay):
+				// Try again
+				delay = util.Backoff(delay, 1.5, time.Minute)
+			case <-ctx.Done():
+				// Context canceled
+				log.Warn().Err(ctx.Err()).Msg("Context canceled")
+				return
+			}
+		}
 	}
 	encodedResult, _ := json.Marshal(result)
 	w.WriteHeader(http.StatusOK)

@@ -41,22 +41,24 @@ import (
 // OutputPublisher specifies the API of the output publisher
 type OutputPublisher interface {
 	// Publish pushes the given annotated value onto the application output channel.
-	Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (*annotatedvalue.AnnotatedValue, error)
+	Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (bool, *annotatedvalue.AnnotatedValue, error)
 }
 
 // outputPublisher is responsible for publishing events to one or more EventPublishers.
 type outputPublisher struct {
 	log                zerolog.Logger
 	spec               *koalja.TaskSpec
-	outputAddressesMap map[string][]string                              // map[outputName]eventPublisherAddresses
-	avChannels         map[string][]chan *annotatedvalue.AnnotatedValue // map[outputName][]chan annotatedvalue
+	outputAddressesMap map[string][]string                              // map[outputName]annotatedValuePublisherAddresses
+	canPublishChannels map[string][]chan *int32                         // map[outputName][]chan <canPublishIndicator>
+	publishChannels    map[string][]chan *annotatedvalue.AnnotatedValue // map[outputName][]chan annotatedvalue
 	statistics         *tracking.TaskStatistics
 }
 
 // newOutputPublisher initializes a new outputPublisher.
 func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *tracking.TaskStatistics) (*outputPublisher, error) {
 	outputAddressesMap := make(map[string][]string)
-	avChannels := make(map[string][]chan *annotatedvalue.AnnotatedValue)
+	canPublishChannels := make(map[string][]chan *int32)
+	publishChannels := make(map[string][]chan *annotatedvalue.AnnotatedValue)
 	for _, tos := range spec.Outputs {
 		annKey := constants.CreateOutputLinkAddressesAnnotationName(tos.Name)
 		addressesStr := pod.GetAnnotations()[annKey]
@@ -65,17 +67,21 @@ func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.P
 		}
 		addresses := strings.Split(addressesStr, ",")
 		outputAddressesMap[tos.Name] = addresses
-		avChans := make([]chan *annotatedvalue.AnnotatedValue, 0, len(addresses))
+		canPublishChans := make([]chan *int32, 0, len(addresses))
+		publishChans := make([]chan *annotatedvalue.AnnotatedValue, 0, len(addresses))
 		for range addresses {
-			avChans = append(avChans, make(chan *annotatedvalue.AnnotatedValue))
+			canPublishChans = append(canPublishChans, make(chan *int32))
+			publishChans = append(publishChans, make(chan *annotatedvalue.AnnotatedValue))
 		}
-		avChannels[tos.Name] = avChans
+		canPublishChannels[tos.Name] = canPublishChans
+		publishChannels[tos.Name] = publishChans
 	}
 	return &outputPublisher{
 		log:                log,
 		spec:               spec,
 		outputAddressesMap: outputAddressesMap,
-		avChannels:         avChannels,
+		canPublishChannels: canPublishChannels,
+		publishChannels:    publishChannels,
 		statistics:         statistics,
 	}, nil
 }
@@ -86,13 +92,15 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 	for _, tos := range op.spec.Outputs {
 		tos := tos // bring into scope
 		addresses := op.outputAddressesMap[tos.Name]
-		avChans := op.avChannels[tos.Name]
+		canPublishChans := op.canPublishChannels[tos.Name]
+		publishChans := op.publishChannels[tos.Name]
 		outputStats := op.statistics.OutputByName(tos.Name)
-		for i, avChan := range avChans {
-			avChan := avChan // bring into scope
+		for i, publishChan := range publishChans {
+			publishChan := publishChan // bring into scope
+			canPublishChan := canPublishChans[i]
 			addr := addresses[i]
 			g.Go(func() error {
-				if err := op.runForOutput(lctx, tos, addr, avChan, outputStats); err != nil {
+				if err := op.runForOutput(lctx, tos, addr, canPublishChan, publishChan, outputStats); err != nil {
 					return maskAny(err)
 				}
 				return nil
@@ -105,8 +113,30 @@ func (op *outputPublisher) Run(ctx context.Context) error {
 	return nil
 }
 
+// OutputReady implements the notification endpoint for tasks with an "Auto" ready setting.
+func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputReadyRequest) (*ptask.OutputReadyResponse, error) {
+	log := op.log.With().
+		Str("output", req.GetOutputName()).
+		Str("data", limitDataLength(req.GetAnnotatedValueData())).
+		Logger()
+	log.Debug().Msg("Received OutputReady request")
+
+	av := annotatedvalue.AnnotatedValue{
+		Data: req.GetAnnotatedValueData(),
+	}
+	accepted, publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, nil)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	return &ptask.OutputReadyResponse{
+		Accepted:         accepted,
+		AnnotatedValueID: publishedAv.GetID(),
+	}, nil
+}
+
 // Publish pushes the given annotated value onto the application output channel.
-func (op *outputPublisher) Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (*annotatedvalue.AnnotatedValue, error) {
+// Returns: (accepted,AnnotedValue,error)
+func (op *outputPublisher) Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (bool, *annotatedvalue.AnnotatedValue, error) {
 	// Fill in the blanks of the annotated value
 	if av.GetID() == "" {
 		av.ID = uniuri.New()
@@ -134,17 +164,23 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 		}
 	}
 
-	avChans, found := op.avChannels[outputName]
+	canPublishChans, found := op.canPublishChannels[outputName]
 	if !found {
-		return nil, fmt.Errorf("No channels found for output '%s'", outputName)
+		return false, nil, fmt.Errorf("No channels found for output '%s'", outputName)
+	}
+	publishChans, found := op.publishChannels[outputName]
+	if !found {
+		return false, nil, fmt.Errorf("No channels found for output '%s'", outputName)
 	}
 
+	// Ask all outgoing links if publishing is allowed
 	g, lctx := errgroup.WithContext(ctx)
-	for _, avChan := range avChans {
-		avChan := avChan // bring into scope
+	canPublish := int32(1)
+	for _, canPublishChan := range canPublishChans {
+		canPublishChan := canPublishChan // bring into scope
 		g.Go(func() error {
 			select {
-			case avChan <- &av:
+			case canPublishChan <- &canPublish:
 				// Done
 				return nil
 			case <-lctx.Done():
@@ -154,34 +190,38 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return nil, maskAny(err)
+		return false, nil, maskAny(err)
 	}
-	return &av, nil
-}
+	if canPublish == 0 {
+		// Publication is not allowed now
+		return false, nil, nil
+	}
 
-// OutputReady implements the notification endpoint for tasks with an "Auto" ready setting.
-func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputReadyRequest) (*ptask.OutputReadyResponse, error) {
-	log := op.log.With().
-		Str("output", req.GetOutputName()).
-		Str("data", limitDataLength(req.GetAnnotatedValueData())).
-		Logger()
-	log.Debug().Msg("Received OutputReady request")
-
-	av := annotatedvalue.AnnotatedValue{
-		Data: req.GetAnnotatedValueData(),
+	// Publish on all outgoing links
+	g, lctx = errgroup.WithContext(ctx)
+	for _, publishChan := range publishChans {
+		publishChan := publishChan // bring into scope
+		g.Go(func() error {
+			select {
+			case publishChan <- &av:
+				// Done
+				return nil
+			case <-lctx.Done():
+				// Context canceled
+				return lctx.Err()
+			}
+		})
 	}
-	publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, nil)
-	if err != nil {
-		return nil, maskAny(err)
+	if err := g.Wait(); err != nil {
+		return false, nil, maskAny(err)
 	}
-	return &ptask.OutputReadyResponse{
-		AnnotatedValueID: publishedAv.GetID(),
-	}, nil
+	return true, &av, nil
 }
 
 // runForOutput keeps publishing annotated values for the given output until the given context is canceled.
-func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, avChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
-	defer close(avChan)
+func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, canPublishChan chan *int32, publishChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
+	defer close(canPublishChan)
+	defer close(publishChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
 
 	runUntilError := func() error {
@@ -193,7 +233,23 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 
 		for {
 			select {
-			case av := <-avChan:
+			case canPublish := <-canPublishChan:
+				// Is publication allowed?
+				if err := retry.Do(ctx, func(ctx context.Context) error {
+					resp, err := avpClient.CanPublish(ctx, &annotatedvalue.CanPublishRequest{})
+					if err != nil {
+						log.Debug().Err(err).Msg("canpublish attempt failed")
+						return maskAny(err)
+					}
+					if !resp.Allowed {
+						atomic.StoreInt32(canPublish, 0)
+					}
+					return nil
+				}, retry.Timeout(constants.TimeoutPublishAnnotatedValue)); err != nil {
+					log.Error().Err(err).Msg("Failed to query can-publish")
+					return maskAny(err)
+				}
+			case av := <-publishChan:
 				// Publish annotated value
 				if err := retry.Do(ctx, func(ctx context.Context) error {
 					if _, err := avpClient.Publish(ctx, &annotatedvalue.PublishRequest{AnnotatedValue: av}); err != nil {

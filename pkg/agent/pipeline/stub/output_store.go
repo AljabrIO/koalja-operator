@@ -54,6 +54,13 @@ func newOutputStore(log zerolog.Logger, r avclient.AnnotatedValueRegistryClient,
 	}
 }
 
+// CanPublish returns true if publishing annotated values is allowed.
+func (s *outputStore) CanPublish(ctx context.Context, req *annotatedvalue.CanPublishRequest) (*annotatedvalue.CanPublishResponse, error) {
+	return &annotatedvalue.CanPublishResponse{
+		Allowed: true,
+	}, nil
+}
+
 // Publish an annotated value
 func (s *outputStore) Publish(ctx context.Context, req *annotatedvalue.PublishRequest) (*annotatedvalue.PublishResponse, error) {
 	s.log.Debug().Interface("annotatedvalue", req.AnnotatedValue).Msg("Publish request")

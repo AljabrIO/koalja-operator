@@ -10,7 +10,18 @@ import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
 
 // AnnotatedValuePublisher is the API used to publish annotated values
 service AnnotatedValuePublisher {
+    // CanPublish returns true if publishing annotated values is allowed.
+    rpc CanPublish(CanPublishRequest) returns (CanPublishResponse);
+    // Publish a given annotated value (into a link)
     rpc Publish(PublishRequest) returns (PublishResponse);
+}
+
+message CanPublishRequest {   
+}
+
+message CanPublishResponse {
+    // Allowed is true calls to Publish are allowed, false otherwise.
+    bool Allowed = 1;
 }
 
 message PublishRequest {

@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
-	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
 )
 
 // Database provides the API implemented by various database types.
@@ -44,8 +43,9 @@ type QueryDependencies struct {
 	FileSystemClient fs.FileSystemClient
 	// Scheme to use for FS URI's
 	FileSystemScheme string
-	// Client for publishing output notifications.
-	OutputReadyNotifierClient taskclient.OutputReadyNotifierClient
+	// OutputReady is to be called by a database for publishing output notifications.
+	// Returns: (annotatedValueID, error)
+	OutputReady func(ctx context.Context, annotatedValueData, outputName string) (string, error)
 	// Client for accessing Kubernetes resources
 	KubernetesClient client.Client
 	// Secret containing authentication info

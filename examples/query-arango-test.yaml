@@ -36,7 +36,7 @@ metadata:
 data:
   config.yaml: |
     type: ArangoDB
-    address: "https://qarango-db.default.svc:8529"
+    address: "http://qarango-db.default.svc:8529"
     authenticationSecret: qarango-db-auth 
     database: "_system"
 
