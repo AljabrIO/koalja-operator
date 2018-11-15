@@ -164,6 +164,9 @@ message TaskOutputSpec {
   // next task in the pipeline.
   // Defaults to "Succeeded".
   optional string ready = 3 [(gogoproto.casttype) = "OutputReadiness", (gogoproto.customname) = "Ready", (gogoproto.nullable) = false];
+
+  // Options is an optional set of key-value pairs used to pass data to a task executor.
+  map<string, string> options = 4 [(gogoproto.customname) = "Options", (gogoproto.nullable) = false];
 }
 
 // TaskSpec holds the specification of a single task

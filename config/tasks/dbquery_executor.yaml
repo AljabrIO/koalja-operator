@@ -1,0 +1,27 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: TaskExecutor
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: dbquery-taskexecutor
+spec:
+  type: DBQuery
+  container:
+    image: koalja-tasks:latest
+    command:
+    - /apps/tasks
+    - dbquery
+    - --target
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).path}}"
+    - --volume-name
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).volumeName}}"
+    - --mount-path
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).mountPath}}"
+    - --node-name
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).nodeName}}"
+    - --output-name
+    - "{{(index .task.Outputs 0).Name}}"
+    - --database-config-map
+    - '{{index ((index .task.Outputs 0).Options) "database-config-map"}}'
+    - --query
+    - "{{(index .task.Outputs 0).Options.query}}"

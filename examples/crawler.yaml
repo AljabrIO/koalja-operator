@@ -1,0 +1,42 @@
+# Work in progress
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: crawler
+  namespace: default
+spec:
+  tasks:
+  - name: queryURLs
+    outputs:
+    - name: urls
+      typeRef: urlDoc
+      ready: Auto
+      options:
+      - database-config-map: "arango-mydatabase-config-map"
+      - query: "FOR doc in Urls RETURN doc"
+    type: DBQuery
+  - name: crawlURL
+    inputs:
+    - name: inputURL
+      typeRef: urlDoc
+    outputs:
+    - name: urls
+      typeRef: urlDocs
+      ready: Succeeded
+    executor:
+      image: todo:latest
+      command:
+      - /bin/todo
+      - "--url-path={{.inputs.inputURL.path }}"
+      - "--output-path={{.outputs.outputFile.path}}"
+  links:
+  - name: queryURL-to-crawlURL
+    sourceRef: queryURLs/urls
+    destinationRef: crawlURL/inputURL
+  types:
+  - name: urlDoc
+    protocol: File
+    format: JSON-URL
+  - name: urlDocs
+    protocol: File
+    format: JSON-URL-LIST

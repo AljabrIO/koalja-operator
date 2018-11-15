@@ -145,11 +145,16 @@ rules:
   - pipelinerevisions
   verbs:
   - get
+  - create
   - list
   - watch
+  - update
+  - patch
+  - delete
 - apiGroups:
   - ""
   resources:
+  - configmaps
   - serviceaccounts
   verbs:
   - get
@@ -232,6 +237,16 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - agents.aljabr.io
   resources:
   - pipelines
@@ -242,7 +257,7 @@ rules:
 - apiGroups:
   - agents.aljabr.io
   resources:
-  - eventregistries
+  - annotatedvalueregistries
   verbs:
   - get
   - list

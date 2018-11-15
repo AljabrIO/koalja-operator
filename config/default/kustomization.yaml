@@ -27,4 +27,5 @@ resources:
 - ../manager/manager.yaml
 - ../services/annotatedvalue_registry.yaml
 - ../services/local-fs.yaml
+- ../tasks/dbquery_executor.yaml
 - ../tasks/filedrop_executor.yaml

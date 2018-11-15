@@ -56,7 +56,7 @@ type Executor interface {
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
 	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int,
-	outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
+	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -111,8 +111,9 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		dnsName:                 dnsName,
 		namespace:               pod.GetNamespace(),
 		outputReadyNotifierPort: outputReadyNotifierPort,
-		podChangeQueues:         make(map[string]chan *corev1.Pod),
+		podChanges:              make(chan *corev1.Pod),
 		outputPublisher:         outputPublisher,
+		podGC:                   podGC,
 		statistics:              statistics,
 	}, nil
 }
@@ -133,8 +134,9 @@ type executor struct {
 	dnsName                 string
 	namespace               string
 	outputReadyNotifierPort int
-	podChangeQueues         map[string]chan *corev1.Pod
+	podChanges              chan *corev1.Pod
 	outputPublisher         OutputPublisher
+	podGC                   PodGarbageCollector
 	statistics              *tracking.TaskStatistics
 }
 
@@ -148,6 +150,8 @@ var (
 
 // Run the executor until the given context is canceled.
 func (e *executor) Run(ctx context.Context) error {
+	defer close(e.podChanges)
+
 	// Watch pods
 	informer, err := e.Cache.GetInformerForKind(gvkPod)
 	if err != nil {
@@ -170,24 +174,14 @@ func (e *executor) Run(ctx context.Context) error {
 	informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if pod, ok := getPod(newObj); ok {
-				e.mutex.Lock()
-				changeQueue := e.podChangeQueues[pod.GetName()]
-				e.mutex.Unlock()
-				if changeQueue != nil {
-					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod updated notification")
-					changeQueue <- pod
-				}
+				e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod updated notification")
+				e.podChanges <- pod
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if pod, ok := getPod(obj); ok {
-				e.mutex.Lock()
-				changeQueue := e.podChangeQueues[pod.GetName()]
-				e.mutex.Unlock()
-				if changeQueue != nil {
-					e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod deleted notification")
-					changeQueue <- pod
-				}
+				e.log.Debug().Str("pod-name", pod.GetName()).Msg("pod deleted notification")
+				e.podChanges <- pod
 			}
 		},
 	})
@@ -209,14 +203,13 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		execCont.Name = "executor"
 	}
 	ownerRef := *metav1.NewControllerRef(e.myPod, gvkPod)
-	podLabels := map[string]string{
-		"pipeline": e.pipeline.GetName(),
-		"task":     e.taskSpec.Name,
-		"uid":      uid,
-	}
-	for k, v := range e.taskExecLabels {
-		podLabels[k] = v
-	}
+	podLabels := util.CloneLabels(e.taskExecLabels)
+	podLabels["pipeline"] = e.pipeline.GetName()
+	podLabels["task"] = e.taskSpec.Name
+	// Prepare labels for Pod GC
+	podGCLabels := util.CloneLabels(podLabels)
+	// Prepare pod
+	podLabels["uid"] = uid // UID is unique per pod and therefore not part of the GC selector
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            podName,
@@ -247,28 +240,30 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		return maskAny(err)
 	}
 
-	// Prepare change queue
-	changeQueue := make(chan *corev1.Pod, changeQueueSize)
-	defer func() {
-		e.mutex.Lock()
-		delete(e.podChangeQueues, pod.GetName())
-		e.mutex.Unlock()
-		close(changeQueue)
-	}()
-	e.mutex.Lock()
-	e.podChangeQueues[pod.GetName()] = changeQueue
-	e.mutex.Unlock()
-
 	// Launch the pod
 	if err := e.Client.Create(ctx, pod); err != nil {
 		e.log.Error().Err(err).Msg("Failed to create execution pod")
 		return maskAny(err)
 	}
 
+	// Prepare garbage collector
+	e.podGC.Set(podGCLabels, pod.Namespace)
+
 	// Wait for the pod to finish
 waitLoop:
 	for {
-		change := <-changeQueue
+		change := <-e.podChanges
+		// Match pod name
+		if change.GetName() != pod.Name {
+			continue
+		}
+		// Match pod UID (in label)
+		if lbls := change.GetLabels(); lbls != nil {
+			if changeUID := lbls["uid"]; changeUID != uid {
+				continue
+			}
+		}
+
 		switch change.Status.Phase {
 		case corev1.PodSucceeded:
 			// We're done with a valid result
@@ -507,10 +502,12 @@ func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpe
 func (e *executor) applyTemplate(source string, data interface{}) (string, error) {
 	t, err := template.New("x").Parse(source)
 	if err != nil {
+		e.log.Debug().Err(err).Str("source", source).Msg("Failed to parse template")
 		return "", maskAny(err)
 	}
 	w := &bytes.Buffer{}
 	if err := t.Execute(w, data); err != nil {
+		e.log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
 		return "", maskAny(err)
 	}
 	return w.String(), nil

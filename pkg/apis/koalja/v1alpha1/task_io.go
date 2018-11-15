@@ -78,6 +78,8 @@ type TaskOutputSpec struct {
 	// next task in the pipeline.
 	// Defaults to "Succeeded".
 	Ready OutputReadiness `json:"ready" protobuf:"bytes,3,opt,name=ready"`
+	// Options is an optional set of key-value pairs used to pass data to a task executor.
+	Options map[string]string `json:"options,omitempty" protobuf:"bytes,4,req,name=options"`
 }
 
 // OutputReadiness specifies when an output of a task is ready for the

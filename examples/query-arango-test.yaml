@@ -1,0 +1,76 @@
+apiVersion: "database.arangodb.com/v1alpha"
+kind: "ArangoDeployment"
+metadata:
+  name: "qarango-db"
+spec:
+  mode: Single
+  image: arangodb/arangodb:latest
+  externalAccess:
+    type: None
+  tls:
+    caSecretName: None
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: qarango-cm
+  namespace: default
+spec:
+  rules:
+  - host: db.qarango.default.koalja.epracom.com
+    http:
+      paths:
+      - backend:
+          serviceName: qarango-db
+          servicePort: 8529
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qarango-cm
+  namespace: default
+data:
+  config.yaml: |
+    type: ArangoDB
+    address: "https://qarango-db.default.svc:8529"
+    authenticationSecret: qarango-db-auth 
+    database: "_system"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qarango-db-auth 
+  namespace: default
+type: Opaque
+data:
+  username: "cm9vdA=="
+  password: ""
+---
+
+# Work in progress
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: qarango
+  namespace: default
+spec:
+  tasks:
+  - name: queryURLs
+    outputs:
+    - name: urls
+      typeRef: urlDoc
+      ready: Auto
+      options:
+        database-config-map: "qarango-cm"
+        query: "FOR doc in Urls RETURN doc"
+    type: DBQuery
+  types:
+  - name: urlDoc
+    protocol: File
+    format: JSON-URL
