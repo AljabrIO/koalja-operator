@@ -137,38 +137,8 @@ func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputRea
 // Publish pushes the given annotated value onto the application output channel.
 // Returns: (accepted,AnnotedValue,error)
 func (op *outputPublisher) Publish(ctx context.Context, outputName string, av annotatedvalue.AnnotatedValue, snapshot *InputSnapshot) (bool, *annotatedvalue.AnnotatedValue, error) {
-	// Fill in the blanks of the annotated value
-	if av.GetID() == "" {
-		av.ID = uniuri.New()
-	}
-	if av.GetCreatedAt() == nil {
-		av.CreatedAt = ptypes.TimestampNow()
-	}
-	if av.GetSourceTask() == "" {
-		av.SourceTask = op.spec.Name
-	}
-	if av.GetSourceTaskOutput() == "" {
-		av.SourceTaskOutput = outputName
-	}
-	if snapshot != nil && len(av.SourceInputs) == 0 {
-		for _, inp := range op.spec.Inputs {
-			inpAvSeq := snapshot.GetSequence(inp.Name)
-			inpAvIDs := make([]string, len(inpAvSeq))
-			for i, inpAv := range inpAvSeq {
-				inpAvIDs[i] = inpAv.GetID()
-			}
-			av.SourceInputs = append(av.SourceInputs, &annotatedvalue.AnnotatedValueSourceInput{
-				IDs:       inpAvIDs,
-				InputName: inp.Name,
-			})
-		}
-	}
-
+	// Check if we can publish to all attached links
 	canPublishChans, found := op.canPublishChannels[outputName]
-	if !found {
-		return false, nil, fmt.Errorf("No channels found for output '%s'", outputName)
-	}
-	publishChans, found := op.publishChannels[outputName]
 	if !found {
 		return false, nil, fmt.Errorf("No channels found for output '%s'", outputName)
 	}
@@ -197,7 +167,38 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 		return false, nil, nil
 	}
 
+	// Fill in the blanks of the annotated value
+	if av.GetID() == "" {
+		av.ID = uniuri.New()
+	}
+	if av.GetCreatedAt() == nil {
+		av.CreatedAt = ptypes.TimestampNow()
+	}
+	if av.GetSourceTask() == "" {
+		av.SourceTask = op.spec.Name
+	}
+	if av.GetSourceTaskOutput() == "" {
+		av.SourceTaskOutput = outputName
+	}
+	if snapshot != nil && len(av.SourceInputs) == 0 {
+		for _, inp := range op.spec.Inputs {
+			inpAvSeq := snapshot.GetSequence(inp.Name)
+			inpAvIDs := make([]string, len(inpAvSeq))
+			for i, inpAv := range inpAvSeq {
+				inpAvIDs[i] = inpAv.GetID()
+			}
+			av.SourceInputs = append(av.SourceInputs, &annotatedvalue.AnnotatedValueSourceInput{
+				IDs:       inpAvIDs,
+				InputName: inp.Name,
+			})
+		}
+	}
+
 	// Publish on all outgoing links
+	publishChans, found := op.publishChannels[outputName]
+	if !found {
+		return false, nil, fmt.Errorf("No channels found for output '%s'", outputName)
+	}
 	g, lctx = errgroup.WithContext(ctx)
 	for _, publishChan := range publishChans {
 		publishChan := publishChan // bring into scope
@@ -247,6 +248,7 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 					return nil
 				}, retry.Timeout(constants.TimeoutPublishAnnotatedValue)); err != nil {
 					log.Error().Err(err).Msg("Failed to query can-publish")
+					atomic.StoreInt32(canPublish, 0) // We don't know the answer, so block publication to be safe
 					return maskAny(err)
 				}
 			case av := <-publishChan:
