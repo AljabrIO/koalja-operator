@@ -331,7 +331,7 @@ func (r *ReconcilePipeline) ensureAgentsServiceAccount(ctx context.Context, inst
 
 // ensureAgentsServiceAccount ensures that a service account exists that is the identity
 // for all pipeline, link & task agents.
-// +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelinerevisions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=koalja.aljabr.io,resources=pipelinerevisions,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensurePipelineRevision(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	hash := instance.Status.Revision
 	revisionName := CreatePipelineRevisionName(instance.Name, hash)
@@ -383,7 +383,7 @@ func (r *ReconcilePipeline) ensurePipelineRevision(ctx context.Context, instance
 
 // ensureExecutorsServiceAccount ensures that a service account exists that is the identity
 // for all task executors.
-// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;create;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=configmaps;serviceaccounts,verbs=get;create;list;watch;update;patch;delete
 func (r *ReconcilePipeline) ensureExecutorsServiceAccount(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	serviceAccountName := CreatePipelineExecutorsServiceAccountName(instance.Name)
 	serviceAccount := &corev1.ServiceAccount{
@@ -551,6 +551,7 @@ func (r *ReconcilePipeline) ensureAgentsClusterRoleAndBinding(ctx context.Contex
 // for all task executors.
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;create;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=configmaps;secrets;pods,verbs=get;list;watch
 func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, error) {
 	// Role
 	roleName := CreatePipelineExecutorsRoleName(instance.Name)
@@ -563,7 +564,7 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 			// Allow reading pods
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
+				Resources: []string{"configmaps", "secrets", "pods"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
 		},
@@ -615,7 +616,7 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 
 // ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
-// +kubebuilder:rbac:groups=agents.aljabr.io,resources=eventregistries,verbs=get;list;watch
+// +kubebuilder:rbac:groups=agents.aljabr.io,resources=annotatedvalueregistries,verbs=get;list;watch
 func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, Frontend, error) {
 	deplName := CreatePipelineAgentName(instance.Name)
 	frontend := Frontend{
