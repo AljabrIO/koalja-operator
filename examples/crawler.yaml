@@ -69,12 +69,23 @@ spec:
       ready: Auto
       options:
         database-config-map: "crawler-cm"
-        query: "FOR doc in Urls FILTER TO_NUMBER(doc._key) > TO_NUMBER(@lastKey) SORT TO_NUMBER(doc._key) RETURN doc.url"
+        query: "FOR doc in Urls FILTER TO_NUMBER(doc._key) > TO_NUMBER(@lastKey) SORT TO_NUMBER(doc._key) RETURN doc"
     type: DBQuery
+  - name: extractUrlFromDoc
+    type: JSONQuery
+    inputs:
+    - name: jsonDoc
+      typeRef: urlDoc
+    outputs:
+    - name: singleURL
+      typeRef: oneUrlDoc
+      ready: Auto
+      options:
+        query: ".url"
   - name: crawlURL
     inputs:
     - name: inputURL
-      typeRef: urlDoc
+      typeRef: oneUrlDoc
     outputs:
     - name: urls
       typeRef: oneUrlPerLineDoc
@@ -95,8 +106,11 @@ spec:
       typeRef: oneUrlDoc
       ready: Auto
   links:
-  - name: queryURL-to-crawlURL
+  - name: queryURL-to-extractUrlFromDoc
     sourceRef: queryURLs/urls
+    destinationRef: extractUrlFromDoc/jsonDoc
+  - name: extractUrlFromDoc-to-crawlURL
+    sourceRef: extractUrlFromDoc/singleURL
     destinationRef: crawlURL/inputURL
   - name: crawlURL-to-splitURLs
     sourceRef: crawlURL/urls

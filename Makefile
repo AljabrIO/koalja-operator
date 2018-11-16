@@ -150,6 +150,7 @@ docker-patch-config:
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/dbquery_executor_image_patch.yaml > ./config/default/$(VERSION)/dbquery_executor_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filedrop_executor_image_patch.yaml > ./config/default/$(VERSION)/filedrop_executor_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filesplit_executor_image_patch.yaml > ./config/default/$(VERSION)/filesplit_executor_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/jsonquery_executor_image_patch.yaml > ./config/default/$(VERSION)/jsonquery_executor_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"
 
 bootstrap:
