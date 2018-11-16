@@ -1,0 +1,17 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: TaskExecutor
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: filesplit-taskexecutor
+spec:
+  type: FileSplit
+  container:
+    image: koalja-tasks:latest
+    command:
+    - /apps/tasks
+    - filesplit
+    - --source
+    - "{{(index .inputs ((index .task.Inputs 0).Name)).path}}"
+    - --output-name
+    - "{{(index .task.Outputs 0).Name}}"
