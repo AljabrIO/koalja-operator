@@ -25,7 +25,6 @@ import (
 	"github.com/arangodb/go-driver/http"
 	"github.com/vincent-petithory/dataurl"
 
-	"github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/AljabrIO/koalja-operator/pkg/task/dbquery"
 )
 
@@ -100,15 +99,12 @@ func (a *arangodb) Query(ctx context.Context, cfg dbquery.Config, dbCfg dbquery.
 		}
 		// Prepare data URI
 		dataURI := dataurl.New(encoded, "text/json")
-		resp, err := deps.OutputReadyNotifierClient.OutputReady(ctx, &task.OutputReadyRequest{
-			AnnotatedValueData: dataURI.String(),
-			OutputName:         cfg.OutputName,
-		})
+		annValID, err := deps.OutputReady(ctx, dataURI.String(), cfg.OutputName)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to notify output readiness")
 			return maskAny(err)
 		}
-		log.Debug().Str("id", resp.GetAnnotatedValueID()).Msg("Published document")
+		log.Debug().Str("id", annValID).Msg("Published document")
 		return nil
 	}
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/dchest/uniuri"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +35,10 @@ import (
 )
 
 type fileOutputBuilder struct{}
+
+const (
+	maxPublishFailures = 10 // Try 10 publish attempts before giving up
+)
 
 func init() {
 	task.RegisterExecutorOutputBuilder(koalja.ProtocolFile, fileOutputBuilder{})
@@ -162,14 +167,36 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 	}
 	// Publish annotated value
 	av := annotatedvalue.AnnotatedValue{Data: resp.GetURI()}
-	publishedAv, err := deps.OutputPublisher.Publish(ctx, p.OutputName, av, cfg.Snapshot)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to create file URI")
-		return maskAny(err)
+	delay := time.Millisecond * 100
+	recentFailures := 0
+	for {
+		accepted, publishedAv, err := deps.OutputPublisher.Publish(ctx, p.OutputName, av, cfg.Snapshot)
+		if err != nil {
+			recentFailures++
+			if recentFailures > maxPublishFailures {
+				log.Error().Err(err).Msg("Publish failed too many times")
+				return maskAny(err)
+			}
+			log.Debug().Err(err).Msg("Publish attempt failed")
+		} else if accepted {
+			// Output was accepted
+			log.Debug().
+				Str("annotatedvalue-id", publishedAv.GetID()).
+				Msg("published annotated value")
+			return nil
+		} else {
+			// Publish call succeeded, but output was not (yet) accepted
+			recentFailures = 0
+		}
+		// Publication was not accepted, or call failed, try again soon.
+		select {
+		case <-time.After(delay):
+			// Try again
+			delay = util.Backoff(delay, 1.5, time.Minute)
+		case <-ctx.Done():
+			// Context canceled
+			log.Debug().Err(ctx.Err()).Msg("Context canceled during Process")
+			return ctx.Err()
+		}
 	}
-	log.Debug().
-		Str("annotatedvalue-id", publishedAv.GetID()).
-		Msg("published annotated value")
-
-	return nil
 }

@@ -99,9 +99,10 @@ func SelectorEqual(prefix string, spec, actual map[string]string) []Diff {
 // ObjectMetaEqual returns zero-length result when the given objects have the same name,
 // namespace and labels.
 func ObjectMetaEqual(prefix string, spec, actual metav1.ObjectMeta) []Diff {
-	return append(append(
+	return append(append(append(
 		StringEqual(prefix+".name", spec.GetName(), actual.GetName()),
 		StringEqual(prefix+".namespace", spec.GetNamespace(), actual.GetNamespace())...),
+		LabelsEqual(prefix+".annotations", spec.GetAnnotations(), actual.GetAnnotations())...),
 		LabelsEqual(prefix+".labels", spec.GetLabels(), actual.GetLabels())...)
 }
 
