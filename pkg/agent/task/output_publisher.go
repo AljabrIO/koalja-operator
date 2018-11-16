@@ -49,7 +49,7 @@ type outputPublisher struct {
 	log                zerolog.Logger
 	spec               *koalja.TaskSpec
 	outputAddressesMap map[string][]string                              // map[outputName]annotatedValuePublisherAddresses
-	canPublishChannels map[string][]chan *int32                         // map[outputName][]chan <canPublishIndicator>
+	canPublishChannels map[string][]chan chan bool                      // map[outputName][]chan <canPublishIndicator>
 	publishChannels    map[string][]chan *annotatedvalue.AnnotatedValue // map[outputName][]chan annotatedvalue
 	statistics         *tracking.TaskStatistics
 }
@@ -57,7 +57,7 @@ type outputPublisher struct {
 // newOutputPublisher initializes a new outputPublisher.
 func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, statistics *tracking.TaskStatistics) (*outputPublisher, error) {
 	outputAddressesMap := make(map[string][]string)
-	canPublishChannels := make(map[string][]chan *int32)
+	canPublishChannels := make(map[string][]chan chan bool)
 	publishChannels := make(map[string][]chan *annotatedvalue.AnnotatedValue)
 	for _, tos := range spec.Outputs {
 		annKey := constants.CreateOutputLinkAddressesAnnotationName(tos.Name)
@@ -67,10 +67,10 @@ func newOutputPublisher(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.P
 		}
 		addresses := strings.Split(addressesStr, ",")
 		outputAddressesMap[tos.Name] = addresses
-		canPublishChans := make([]chan *int32, 0, len(addresses))
+		canPublishChans := make([]chan chan bool, 0, len(addresses))
 		publishChans := make([]chan *annotatedvalue.AnnotatedValue, 0, len(addresses))
 		for range addresses {
-			canPublishChans = append(canPublishChans, make(chan *int32))
+			canPublishChans = append(canPublishChans, make(chan chan bool))
 			publishChans = append(publishChans, make(chan *annotatedvalue.AnnotatedValue))
 		}
 		canPublishChannels[tos.Name] = canPublishChans
@@ -149,12 +149,27 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 	for _, canPublishChan := range canPublishChans {
 		canPublishChan := canPublishChan // bring into scope
 		g.Go(func() error {
+			canPublishResultChan := make(chan bool)
 			select {
-			case canPublishChan <- &canPublish:
-				// Done
+			case canPublishChan <- canPublishResultChan:
+				// Request send, now wait for answer
+				// canPublishResultChan has reached other go-routine and it will be closed there
+				select {
+				case answer := <-canPublishResultChan:
+					// Got the answer
+					if !answer {
+						atomic.StoreInt32(&canPublish, 0)
+					}
+				case <-lctx.Done():
+					// Context canceled
+					close(canPublishResultChan)
+					return lctx.Err()
+				}
 				return nil
 			case <-lctx.Done():
 				// Context canceled
+				// canPublishResultChan has not reached other go-routine, so we must close it
+				close(canPublishResultChan)
 				return lctx.Err()
 			}
 		})
@@ -220,7 +235,7 @@ func (op *outputPublisher) Publish(ctx context.Context, outputName string, av an
 }
 
 // runForOutput keeps publishing annotated values for the given output until the given context is canceled.
-func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, canPublishChan chan *int32, publishChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
+func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutputSpec, addr string, canPublishChan chan chan bool, publishChan chan *annotatedvalue.AnnotatedValue, stats *tracking.TaskOutputStatistics) error {
 	defer close(canPublishChan)
 	defer close(publishChan)
 	log := op.log.With().Str("address", addr).Str("output", tos.Name).Logger()
@@ -234,7 +249,7 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 
 		for {
 			select {
-			case canPublish := <-canPublishChan:
+			case canPublishResultChan := <-canPublishChan:
 				// Is publication allowed?
 				if err := retry.Do(ctx, func(ctx context.Context) error {
 					resp, err := avpClient.CanPublish(ctx, &annotatedvalue.CanPublishRequest{})
@@ -242,13 +257,13 @@ func (op *outputPublisher) runForOutput(ctx context.Context, tos koalja.TaskOutp
 						log.Debug().Err(err).Msg("canpublish attempt failed")
 						return maskAny(err)
 					}
-					if !resp.Allowed {
-						atomic.StoreInt32(canPublish, 0)
-					}
+					canPublishResultChan <- resp.Allowed
+					close(canPublishResultChan)
 					return nil
 				}, retry.Timeout(constants.TimeoutPublishAnnotatedValue)); err != nil {
 					log.Error().Err(err).Msg("Failed to query can-publish")
-					atomic.StoreInt32(canPublish, 0) // We don't know the answer, so block publication to be safe
+					canPublishResultChan <- false // We don't know the answer, so block publication to be safe
+					close(canPublishResultChan)
 					return maskAny(err)
 				}
 			case av := <-publishChan:
