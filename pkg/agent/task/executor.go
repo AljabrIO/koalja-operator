@@ -21,12 +21,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
@@ -510,5 +510,7 @@ func (e *executor) applyTemplate(source string, data interface{}) (string, error
 		e.log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
 		return "", maskAny(err)
 	}
-	return w.String(), nil
+	result := w.String()
+	e.log.Debug().Str("source", source).Str("result", result).Msg("applied template")
+	return result, nil
 }

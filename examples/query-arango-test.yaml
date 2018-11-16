@@ -68,7 +68,7 @@ spec:
       ready: Auto
       options:
         database-config-map: "qarango-cm"
-        query: "FOR doc in Urls RETURN doc"
+        query: "FOR doc in Urls FILTER TO_NUMBER(doc._key) > TO_NUMBER(@lastKey) SORT TO_NUMBER(doc._key) RETURN doc"
     type: DBQuery
   - name: countLines
     inputs:

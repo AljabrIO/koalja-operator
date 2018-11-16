@@ -498,7 +498,7 @@ func (r *ReconcilePipeline) ensureAgentsClusterRoleAndBinding(ctx context.Contex
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
 				Resources: []string{"persistentvolumes"},
-				Verbs:     []string{"get", "list", "watch"},
+				Verbs:     []string{"get", "list", "watch", "delete"},
 			},
 		},
 	}
