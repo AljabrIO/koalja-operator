@@ -1,3 +1,59 @@
+apiVersion: "database.arangodb.com/v1alpha"
+kind: "ArangoDeployment"
+metadata:
+  name: "crawler-db"
+spec:
+  mode: Single
+  image: arangodb/arangodb:latest
+  externalAccess:
+    type: None
+  tls:
+    caSecretName: None
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: crawler-cm
+  namespace: default
+spec:
+  rules:
+  - host: db.crawler.default.koalja.epracom.com
+    http:
+      paths:
+      - backend:
+          serviceName: crawler-db
+          servicePort: 8529
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-cm
+  namespace: default
+data:
+  config.yaml: |
+    type: ArangoDB
+    address: "http://crawler-db.default.svc:8529"
+    authenticationSecret: crawler-db-auth 
+    database: "_system"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: crawler-db-auth 
+  namespace: default
+type: Opaque
+data:
+  username: "cm9vdA=="
+  password: ""
+
+---
+
 # Work in progress
 apiVersion: koalja.aljabr.io/v1alpha1
 kind: Pipeline
@@ -12,8 +68,8 @@ spec:
       typeRef: urlDoc
       ready: Auto
       options:
-      - database-config-map: "arango-mydatabase-config-map"
-      - query: "FOR doc in Urls RETURN doc"
+        database-config-map: "crawler-cm"
+        query: "FOR doc in Urls FILTER TO_NUMBER(doc._key) > TO_NUMBER(@lastKey) SORT TO_NUMBER(doc._key) RETURN doc.url"
     type: DBQuery
   - name: crawlURL
     inputs:
@@ -21,22 +77,37 @@ spec:
       typeRef: urlDoc
     outputs:
     - name: urls
-      typeRef: urlDocs
+      typeRef: oneUrlPerLineDoc
       ready: Succeeded
     executor:
-      image: todo:latest
+      image: aljabrio/crawler
       command:
-      - /bin/todo
-      - "--url-path={{.inputs.inputURL.path }}"
-      - "--output-path={{.outputs.outputFile.path}}"
+      - /bin/sh
+      - -c
+      - "/app/crawler $(cat {{.inputs.inputURL.path }}) > {{.outputs.urls.path}}"
+  - name: splitURLs
+    type: FileSplit
+    inputs:
+    - name: input
+      typeRef: oneUrlPerLineDoc
+    outputs:
+    - name: singleURL
+      typeRef: oneUrlDoc
+      ready: Auto
   links:
   - name: queryURL-to-crawlURL
     sourceRef: queryURLs/urls
     destinationRef: crawlURL/inputURL
+  - name: crawlURL-to-splitURLs
+    sourceRef: crawlURL/urls
+    destinationRef: splitURLs/input
   types:
   - name: urlDoc
     protocol: File
     format: JSON-URL
-  - name: urlDocs
+  - name: oneUrlPerLineDoc
     protocol: File
-    format: JSON-URL-LIST
+    format: Text
+  - name: oneUrlDoc
+    protocol: File
+    format: Text
