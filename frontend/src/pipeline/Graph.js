@@ -147,8 +147,12 @@ class Graph extends Component {
     };
   };
 
-  onChartClick(e) {
+  onChartClick = (e) => {
     console.log(e);
+    let data = e.data || {};
+    if (data.category === "task") {
+      this.props.onSelectTask(data.name);
+    }
   }
 
   render() {

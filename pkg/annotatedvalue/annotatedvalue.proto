@@ -7,6 +7,7 @@ option go_package = "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue";
 import "github.com/golang/protobuf/ptypes/duration/duration.proto";
 import "github.com/golang/protobuf/ptypes/empty/empty.proto";
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 // AnnotatedValuePublisher is the API used to publish annotated values
 service AnnotatedValuePublisher {
@@ -83,26 +84,26 @@ message AckRequest {
 
 message AnnotatedValue {
     // ID is a unique ID of this annotated value
-    string ID = 1;
+    string id = 1 [(gogoproto.customname) = "ID"];
     // SourceTask contains the URI of the task that created the annotated value
-    string SourceTask = 2;
+    string source_task = 2 [(gogoproto.customname) = "SourceTask"];
     // SourceTaskOutput contains the name of the output of the task that created the annotated value
-    string SourceTaskOutput = 3;
+    string source_task_output = 3 [(gogoproto.customname) = "SourceTaskOutput"];
     // Link contains the URI of the Link that published the annotated value
-    string Link = 4;
+    string link = 4 [(gogoproto.customname) = "Link"];
     // SourceInputs contains zero or more URI's of annotated values sequences that resulted in this annotated value
-    repeated AnnotatedValueSourceInput SourceInputs = 5;
+    repeated AnnotatedValueSourceInput source_inputs = 5 [(gogoproto.customname) = "SourceInputs"];
     // Data contains a URI of the data (payload) of the message
-    string Data = 6;
+    string data = 6 [(gogoproto.customname) = "Data"];
     // CreatedAt is the creation timestamp of the annotated value
-    google.protobuf.Timestamp CreatedAt = 7;
+    google.protobuf.Timestamp created_at = 7 [(gogoproto.customname) = "CreatedAt"];
 }
 
 message AnnotatedValueSourceInput {
     // IDs of the all annotated values in the source sequence
-    repeated string IDs = 1; 
+    repeated string ids = 1 [(gogoproto.customname) = "IDs"]; 
     // Name of the task input on which this sequence of annotated values came in
-    string InputName = 2;
+    string input_name = 2 [(gogoproto.customname) = "InputName"];
 }
 
 // AnnotatedValueRegistry is a persistent annotated value store
