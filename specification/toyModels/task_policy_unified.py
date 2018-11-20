@@ -29,11 +29,8 @@ link[2] = [ "C1", "",  "",   "",   "",   "",  "", "", "C2", "",   "",  "",    "C
 # internal state - counters/flags
 
 cursor   = [1,2,maxlinks] # channel pointer
-required = [1,2,maxlinks] # schema
 slide    = [1,2,maxlinks] # schema
 ready    = [1,2,maxlinks] # channel trigger criterion
-minfill  = [1,2,maxlinks] # channel trigger criterion
-maxfill  = [1,2,maxlinks] # channel trigger criterion
 
 snapshot[0] = []
 snapshot[1] = []
@@ -64,6 +61,13 @@ policy = sys.argv[1] # [ "swap_new4old", "all_new", "sliding_window", "align_sta
 #
 # Additional TASK policy tuning "knobs"
 #
+
+required = [1,2,maxlinks] # schema - convenient shorthand
+minfill  = [1,2,maxlinks] # channel trigger criterion wrt timeout
+maxfill  = [1,2,maxlinks] # channel trigger criterion wrt execution limits
+keep_stream_on_timeout = True
+
+# Choose policy: required XOR min/max/timeout
 
 required[0] = 3
 required[1] = 2
@@ -128,6 +132,16 @@ def CheckPolicy():
 
 ###########################
 
+def AllMinRequirementsMet():
+
+    for index in range(0,maxlinks):
+        if len(snapshot[index]) < minfill[index]:
+            return False
+
+    return True
+
+###########################
+
 def UpdateAnnotatedValue():
 
     # poll the links for data
@@ -186,7 +200,7 @@ def AcceptanceCriteria(ready):
 
 ###########################
 
-def CommitAnnotatedValue():
+def CommitSnapshot():
 
     global last_commit, clock_time, timed_out
 
@@ -196,10 +210,17 @@ def CommitAnnotatedValue():
 
     if timed_out:
 
-        # This print is really RUN CONTAINER
-        print (clock_time , "commit/exec (timeout)" + "(" , snapshot , ")")
-        timed_out = False # reset
-
+        if AllMinRequirementsMet():
+            # This print is really RUN CONTAINER
+            print (clock_time , "commit/exec (timeout)" + "(" , snapshot , ")")
+            timed_out = False
+        else:
+            if keep_stream_on_timeout:
+                print (clock_time , "Error (timeout) - no exec - preserving stream")
+                timed_out = False
+                return
+            else:
+                print (clock_time , "Error (timeout) - no exec - flushing partial inputs")
     else:
 
         # This print is really RUN CONTAINER
@@ -235,5 +256,5 @@ if CheckPolicy():
         allready = AcceptanceCriteria(ready)
 
         if (allready or timed_out):
-            CommitAnnotatedValue()
+            CommitSnapshot()
 
