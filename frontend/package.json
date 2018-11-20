@@ -5,13 +5,14 @@
   "dependencies": {
     "echarts": "^4.2.0-rc.2",
     "echarts-for-react": "^2.0.15-beta.0",
+    "moment": "^2.22.2",
     "react": "^16.6.3",
     "react-dom": "^16.6.3",
     "react-timeout": "^1.1.2",
     "react-websocket": "^2.0.0",
-    "sockette-component": "^1.0.0",
     "semantic-ui-less": "^2.4.1",
-    "semantic-ui-react": "^0.83.0"
+    "semantic-ui-react": "^0.83.0",
+    "sockette-component": "^1.0.0"
   },
   "devDependencies": {
     "react-scripts": "2.1.1"
