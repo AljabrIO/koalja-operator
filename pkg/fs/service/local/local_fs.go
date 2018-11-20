@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	grpc "google.golang.org/grpc"
 
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
@@ -57,7 +58,7 @@ func NewLocalFileSystemBuilder(log zerolog.Logger, localPathPrefix, storageClass
 }
 
 // NewFileSystem builds a new local FS
-func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSystemServer, error) {
+func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fssvc.FileSystemServer, error) {
 	// Ensure storageclass
 	bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 	stgClass := &storagev1.StorageClass{
@@ -84,11 +85,14 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fs.FileSyste
 		return nil, err
 	}
 
+	nodeRegistry := newNodeRegistry(b.log)
+
 	return &localFS{
 		APIDependencies:  deps,
 		log:              b.log,
 		localPathPrefix:  b.localPathPrefix,
 		storageClassName: b.storageClassName,
+		nodeRegistry:     nodeRegistry,
 	}, nil
 }
 
@@ -102,6 +106,12 @@ type localFS struct {
 	fssvc.APIDependencies
 	localPathPrefix  string
 	storageClassName string
+	nodeRegistry     *nodeRegistry
+}
+
+// Register GRPC services
+func (lfs *localFS) Register(svr *grpc.Server) {
+	RegisterNodeRegistryServer(svr, lfs.nodeRegistry)
 }
 
 // CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -302,6 +312,43 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 		IsDir:          isDir,
 		DeleteAfterUse: true,
 	}, nil
+}
+
+// CreateFileView returns a view on the given file identified by the given URI.
+func (lfs *localFS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRequest) (*fs.CreateFileViewResponse, error) {
+	log := lfs.log.With().
+		Str("uri", req.GetURI()).
+		Logger()
+	log.Debug().Msg("CreateFileView request")
+
+	// Parse URI
+	uri, err := url.Parse(req.GetURI())
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to parse URI")
+		return nil, err
+	}
+	nodeName := uri.Host
+	//uid := strings.TrimPrefix(uri.Path, "/")
+	//localPath := uri.Fragment
+	//isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
+
+	// Find node client
+	c, err := lfs.nodeRegistry.GetNodeClient(ctx, nodeName)
+	if err != nil {
+		log.Debug().Err(err).Str("node", nodeName).Msg("Failed to get/create node client")
+		return nil, err
+	} else if c == nil {
+		log.Debug().Err(err).Str("node", nodeName).Msg("No node was registered")
+		return nil, fmt.Errorf("Unknown node '%s'", nodeName)
+	}
+
+	// Pass call through
+	resp, err := c.CreateFileView(ctx, req)
+	if err != nil {
+		log.Debug().Err(err).Str("node", nodeName).Msg("CreateFileView failed")
+		return nil, err
+	}
+	return resp, nil
 }
 
 // createNodeAffinity creates a node affinity for the given node name.

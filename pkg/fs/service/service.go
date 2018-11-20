@@ -39,7 +39,13 @@ import (
 type Service struct {
 	port int
 	uri  string
-	fs   fs.FileSystemServer
+	fs   FileSystemServer
+}
+
+// FileSystemServer API
+type FileSystemServer interface {
+	fs.FileSystemServer
+	Register(*grpc.Server)
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -52,7 +58,7 @@ type APIDependencies struct {
 
 // APIBuilder is an interface provided by a FileSystem implementation
 type APIBuilder interface {
-	NewFileSystem(deps APIDependencies) (fs.FileSystemServer, error)
+	NewFileSystem(deps APIDependencies) (FileSystemServer, error)
 }
 
 // NewService creates a new Service instance.
@@ -97,6 +103,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 	svr := grpc.NewServer()
 	fs.RegisterFileSystemServer(svr, s.fs)
+	s.fs.Register(svr)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {

@@ -6,6 +6,7 @@ package fs // import "github.com/AljabrIO/koalja-operator/pkg/fs"
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import _ "github.com/golang/protobuf/ptypes/empty"
 import v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 import (
@@ -44,7 +45,7 @@ func (m *CreateVolumeForWriteRequest) Reset()         { *m = CreateVolumeForWrit
 func (m *CreateVolumeForWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForWriteRequest) ProtoMessage()    {}
 func (*CreateVolumeForWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{0}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{0}
 }
 func (m *CreateVolumeForWriteRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -111,7 +112,7 @@ func (m *CreateVolumeForWriteResponse) Reset()         { *m = CreateVolumeForWri
 func (m *CreateVolumeForWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForWriteResponse) ProtoMessage()    {}
 func (*CreateVolumeForWriteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{1}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{1}
 }
 func (m *CreateVolumeForWriteResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -182,7 +183,7 @@ func (m *CreateFileURIRequest) Reset()         { *m = CreateFileURIRequest{} }
 func (m *CreateFileURIRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateFileURIRequest) ProtoMessage()    {}
 func (*CreateFileURIRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{2}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{2}
 }
 func (m *CreateFileURIRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -259,7 +260,7 @@ func (m *CreateFileURIResponse) Reset()         { *m = CreateFileURIResponse{} }
 func (m *CreateFileURIResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateFileURIResponse) ProtoMessage()    {}
 func (*CreateFileURIResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{3}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{3}
 }
 func (m *CreateFileURIResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -310,7 +311,7 @@ func (m *CreateVolumeForReadRequest) Reset()         { *m = CreateVolumeForReadR
 func (m *CreateVolumeForReadRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForReadRequest) ProtoMessage()    {}
 func (*CreateVolumeForReadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{4}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{4}
 }
 func (m *CreateVolumeForReadRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -374,7 +375,7 @@ func (m *CreateVolumeForReadResponse) Reset()         { *m = CreateVolumeForRead
 func (m *CreateVolumeForReadResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForReadResponse) ProtoMessage()    {}
 func (*CreateVolumeForReadResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_0d2d6be6ea522eeb, []int{5}
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{5}
 }
 func (m *CreateVolumeForReadResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -438,6 +439,120 @@ func (m *CreateVolumeForReadResponse) GetDeleteAfterUse() bool {
 	return false
 }
 
+type CreateFileViewRequest struct {
+	// The URI of the file to create a view for
+	URI string `protobuf:"bytes,1,opt,name=URI,proto3" json:"URI,omitempty"`
+	// If set, a small preview is returned instead of the full content
+	Preview              bool     `protobuf:"varint,2,opt,name=Preview,proto3" json:"Preview,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CreateFileViewRequest) Reset()         { *m = CreateFileViewRequest{} }
+func (m *CreateFileViewRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateFileViewRequest) ProtoMessage()    {}
+func (*CreateFileViewRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{6}
+}
+func (m *CreateFileViewRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CreateFileViewRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CreateFileViewRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *CreateFileViewRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateFileViewRequest.Merge(dst, src)
+}
+func (m *CreateFileViewRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *CreateFileViewRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateFileViewRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateFileViewRequest proto.InternalMessageInfo
+
+func (m *CreateFileViewRequest) GetURI() string {
+	if m != nil {
+		return m.URI
+	}
+	return ""
+}
+
+func (m *CreateFileViewRequest) GetPreview() bool {
+	if m != nil {
+		return m.Preview
+	}
+	return false
+}
+
+type CreateFileViewResponse struct {
+	// The content of the view
+	Content []byte `protobuf:"bytes,1,opt,name=Content,proto3" json:"Content,omitempty"`
+	// The type of content of the view
+	ContentType          string   `protobuf:"bytes,2,opt,name=ContentType,proto3" json:"ContentType,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CreateFileViewResponse) Reset()         { *m = CreateFileViewResponse{} }
+func (m *CreateFileViewResponse) String() string { return proto.CompactTextString(m) }
+func (*CreateFileViewResponse) ProtoMessage()    {}
+func (*CreateFileViewResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fs_aec44e973b9fde5e, []int{7}
+}
+func (m *CreateFileViewResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CreateFileViewResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CreateFileViewResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *CreateFileViewResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateFileViewResponse.Merge(dst, src)
+}
+func (m *CreateFileViewResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *CreateFileViewResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateFileViewResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateFileViewResponse proto.InternalMessageInfo
+
+func (m *CreateFileViewResponse) GetContent() []byte {
+	if m != nil {
+		return m.Content
+	}
+	return nil
+}
+
+func (m *CreateFileViewResponse) GetContentType() string {
+	if m != nil {
+		return m.ContentType
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*CreateVolumeForWriteRequest)(nil), "fs.CreateVolumeForWriteRequest")
 	proto.RegisterType((*CreateVolumeForWriteResponse)(nil), "fs.CreateVolumeForWriteResponse")
@@ -445,6 +560,8 @@ func init() {
 	proto.RegisterType((*CreateFileURIResponse)(nil), "fs.CreateFileURIResponse")
 	proto.RegisterType((*CreateVolumeForReadRequest)(nil), "fs.CreateVolumeForReadRequest")
 	proto.RegisterType((*CreateVolumeForReadResponse)(nil), "fs.CreateVolumeForReadResponse")
+	proto.RegisterType((*CreateFileViewRequest)(nil), "fs.CreateFileViewRequest")
+	proto.RegisterType((*CreateFileViewResponse)(nil), "fs.CreateFileViewResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -466,6 +583,8 @@ type FileSystemClient interface {
 	CreateFileURI(ctx context.Context, in *CreateFileURIRequest, opts ...grpc.CallOption) (*CreateFileURIResponse, error)
 	// CreateVolumeForRead creates a PersistentVolume for reading a given URI
 	CreateVolumeForRead(ctx context.Context, in *CreateVolumeForReadRequest, opts ...grpc.CallOption) (*CreateVolumeForReadResponse, error)
+	// CreateFileView returns a view on the given file identified by the given URI.
+	CreateFileView(ctx context.Context, in *CreateFileViewRequest, opts ...grpc.CallOption) (*CreateFileViewResponse, error)
 }
 
 type fileSystemClient struct {
@@ -503,6 +622,15 @@ func (c *fileSystemClient) CreateVolumeForRead(ctx context.Context, in *CreateVo
 	return out, nil
 }
 
+func (c *fileSystemClient) CreateFileView(ctx context.Context, in *CreateFileViewRequest, opts ...grpc.CallOption) (*CreateFileViewResponse, error) {
+	out := new(CreateFileViewResponse)
+	err := c.cc.Invoke(ctx, "/fs.FileSystem/CreateFileView", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileSystemServer is the server API for FileSystem service.
 type FileSystemServer interface {
 	// CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -512,6 +640,8 @@ type FileSystemServer interface {
 	CreateFileURI(context.Context, *CreateFileURIRequest) (*CreateFileURIResponse, error)
 	// CreateVolumeForRead creates a PersistentVolume for reading a given URI
 	CreateVolumeForRead(context.Context, *CreateVolumeForReadRequest) (*CreateVolumeForReadResponse, error)
+	// CreateFileView returns a view on the given file identified by the given URI.
+	CreateFileView(context.Context, *CreateFileViewRequest) (*CreateFileViewResponse, error)
 }
 
 func RegisterFileSystemServer(s *grpc.Server, srv FileSystemServer) {
@@ -572,6 +702,24 @@ func _FileSystem_CreateVolumeForRead_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileSystem_CreateFileView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFileViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileSystemServer).CreateFileView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.FileSystem/CreateFileView",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileSystemServer).CreateFileView(ctx, req.(*CreateFileViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _FileSystem_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "fs.FileSystem",
 	HandlerType: (*FileSystemServer)(nil),
@@ -587,6 +735,10 @@ var _FileSystem_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateVolumeForRead",
 			Handler:    _FileSystem_CreateVolumeForRead_Handler,
+		},
+		{
+			MethodName: "CreateFileView",
+			Handler:    _FileSystem_CreateFileView_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -856,6 +1008,76 @@ func (m *CreateVolumeForReadResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *CreateFileViewRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreateFileViewRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.URI) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.URI)))
+		i += copy(dAtA[i:], m.URI)
+	}
+	if m.Preview {
+		dAtA[i] = 0x10
+		i++
+		if m.Preview {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *CreateFileViewResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreateFileViewResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Content) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.Content)))
+		i += copy(dAtA[i:], m.Content)
+	}
+	if len(m.ContentType) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.ContentType)))
+		i += copy(dAtA[i:], m.ContentType)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintFs(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -1001,6 +1223,45 @@ func (m *CreateVolumeForReadResponse) Size() (n int) {
 	}
 	if m.DeleteAfterUse {
 		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CreateFileViewRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.URI)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	if m.Preview {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CreateFileViewResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Content)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.ContentType)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1840,6 +2101,217 @@ func (m *CreateVolumeForReadResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *CreateFileViewRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreateFileViewRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreateFileViewRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field URI", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.URI = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Preview", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Preview = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthFs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CreateFileViewResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreateFileViewResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreateFileViewResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Content", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Content = append(m.Content[:0], dAtA[iNdEx:postIndex]...)
+			if m.Content == nil {
+				m.Content = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ContentType", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ContentType = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthFs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipFs(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1945,41 +2417,47 @@ var (
 	ErrIntOverflowFs   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("fs.proto", fileDescriptor_fs_0d2d6be6ea522eeb) }
+func init() { proto.RegisterFile("fs.proto", fileDescriptor_fs_aec44e973b9fde5e) }
 
-var fileDescriptor_fs_0d2d6be6ea522eeb = []byte{
-	// 524 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_fs_aec44e973b9fde5e = []byte{
+	// 621 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0xcf, 0x6e, 0xd3, 0x4e,
-	0x10, 0xc7, 0x7f, 0x9b, 0x34, 0x55, 0x3a, 0x3f, 0x81, 0x60, 0x29, 0xc8, 0x98, 0xca, 0x8d, 0x72,
-	0x40, 0x01, 0xc1, 0x5a, 0x2d, 0x3d, 0x70, 0xe0, 0x52, 0x1a, 0x2a, 0x05, 0xa1, 0x16, 0xb9, 0x4a,
-	0x11, 0xdc, 0x36, 0xce, 0x38, 0x71, 0x63, 0x67, 0xcd, 0xee, 0xa6, 0x28, 0x1c, 0x91, 0x78, 0x07,
-	0x4e, 0xbc, 0x04, 0xe2, 0x1d, 0x38, 0xf2, 0x08, 0x28, 0xbc, 0x08, 0xf2, 0x9f, 0x34, 0x89, 0xe3,
-	0xe4, 0x02, 0xb7, 0xec, 0xcc, 0xce, 0xce, 0x27, 0xdf, 0xef, 0x78, 0xa0, 0xea, 0x29, 0x16, 0x49,
-	0xa1, 0x05, 0x2d, 0x79, 0xca, 0x3c, 0x18, 0x3c, 0x55, 0xcc, 0x17, 0x36, 0x8f, 0xfc, 0x90, 0xbb,
-	0x7d, 0x7f, 0x88, 0x72, 0x6c, 0x47, 0x83, 0x5e, 0x1c, 0x50, 0x76, 0x88, 0x9a, 0xdb, 0x97, 0x7b,
-	0x76, 0x0f, 0x87, 0x28, 0xb9, 0xc6, 0x6e, 0x5a, 0x59, 0xff, 0x46, 0xe0, 0xde, 0x91, 0x44, 0xae,
-	0xf1, 0x5c, 0x04, 0xa3, 0x10, 0x8f, 0x85, 0x7c, 0x23, 0x7d, 0x8d, 0x0e, 0xbe, 0x1f, 0xa1, 0xd2,
-	0xf4, 0x11, 0xdc, 0x7c, 0xa1, 0xb4, 0x1f, 0xc6, 0x25, 0x47, 0x3c, 0xe2, 0xae, 0xaf, 0xc7, 0x06,
-	0xa9, 0x91, 0x46, 0xd9, 0x59, 0x4e, 0x50, 0x13, 0xaa, 0x27, 0xa2, 0x8b, 0x27, 0x3c, 0x44, 0xa3,
-	0x54, 0x23, 0x8d, 0x2d, 0xe7, 0xea, 0x4c, 0x5f, 0x42, 0xe5, 0xf4, 0xc3, 0x10, 0xa5, 0x51, 0xae,
-	0x91, 0xc6, 0xff, 0xfb, 0x07, 0x2c, 0xe5, 0x65, 0xf3, 0xbc, 0x2c, 0x1a, 0xf4, 0xe2, 0x80, 0x62,
-	0x31, 0x2f, 0xbb, 0xdc, 0x63, 0x49, 0x89, 0x83, 0x1e, 0x4a, 0x1c, 0xba, 0xe8, 0xa4, 0x4f, 0xd4,
-	0x3f, 0x11, 0xd8, 0x29, 0xa6, 0x56, 0x91, 0x18, 0x2a, 0xa4, 0x16, 0x40, 0x9a, 0x49, 0x50, 0x48,
-	0x82, 0x32, 0x17, 0x59, 0x0b, 0x7a, 0x1f, 0xae, 0x37, 0x31, 0x40, 0x8d, 0x87, 0x9e, 0x46, 0xd9,
-	0x56, 0x98, 0x10, 0x57, 0x9d, 0x5c, 0xb4, 0xfe, 0x95, 0xc0, 0x76, 0x0a, 0x71, 0xec, 0x07, 0xd8,
-	0x76, 0x5a, 0x53, 0xcd, 0xee, 0xc0, 0xe6, 0x99, 0xdb, 0xc7, 0xab, 0xc6, 0xd9, 0x29, 0x07, 0x55,
-	0x5a, 0x0b, 0x55, 0xce, 0x41, 0xed, 0xc0, 0xd6, 0x2b, 0xe1, 0xf2, 0xe0, 0x35, 0xd7, 0x7d, 0x63,
-	0x23, 0x49, 0xce, 0x02, 0x74, 0x1b, 0x2a, 0x2d, 0xd5, 0xf4, 0xa5, 0x51, 0x49, 0x48, 0xd3, 0x43,
-	0xfd, 0x01, 0xdc, 0xce, 0xf1, 0x65, 0xea, 0xdc, 0x80, 0x72, 0xdb, 0x69, 0x65, 0x74, 0xf1, 0xcf,
-	0xfa, 0x47, 0x30, 0x73, 0x7a, 0x3a, 0xc8, 0xbb, 0xd3, 0x3f, 0xb4, 0x74, 0x7f, 0x66, 0x66, 0xe9,
-	0xef, 0xcd, 0xfc, 0xbe, 0x3c, 0x82, 0x69, 0xf3, 0x7f, 0xe0, 0xe5, 0x82, 0x6c, 0xe5, 0x95, 0xb2,
-	0x6d, 0xcc, 0xc9, 0x56, 0xe0, 0x7f, 0xa5, 0xc8, 0xff, 0xfd, 0xcf, 0x25, 0x80, 0x58, 0xd9, 0xb3,
-	0xb1, 0xd2, 0x18, 0xd2, 0xb7, 0xd3, 0x69, 0x58, 0x1c, 0x49, 0xba, 0xcb, 0x3c, 0xc5, 0xd6, 0x7c,
-	0x62, 0x66, 0x6d, 0xf5, 0x85, 0x4c, 0x81, 0x26, 0x5c, 0x5b, 0x30, 0x92, 0x1a, 0xb3, 0x92, 0xc5,
-	0xd9, 0x33, 0xef, 0x16, 0x64, 0xb2, 0x57, 0xce, 0xe1, 0x56, 0x81, 0xcc, 0xd4, 0x2a, 0x68, 0x3f,
-	0x67, 0xbe, 0xb9, 0xbb, 0x32, 0x9f, 0xbe, 0xfb, 0xfc, 0xd9, 0x8f, 0x89, 0x45, 0x7e, 0x4e, 0x2c,
-	0xf2, 0x6b, 0x62, 0x91, 0x2f, 0xbf, 0xad, 0xff, 0xde, 0x3d, 0xec, 0xf9, 0xba, 0x3f, 0xea, 0x30,
-	0x57, 0x84, 0xf6, 0x61, 0x70, 0xc1, 0x3b, 0xb2, 0x75, 0x6a, 0x0f, 0x04, 0x0f, 0x2e, 0xf8, 0x63,
-	0x11, 0xc5, 0xfb, 0x47, 0xc8, 0x64, 0x35, 0x79, 0xaa, 0xb3, 0x99, 0xec, 0xa1, 0x27, 0x7f, 0x02,
-	0x00, 0x00, 0xff, 0xff, 0xb5, 0x73, 0x7f, 0x2b, 0xcd, 0x04, 0x00, 0x00,
+	0x10, 0xc7, 0x7f, 0x4e, 0x9a, 0x36, 0x9d, 0xfe, 0xa8, 0x60, 0x29, 0x95, 0x31, 0x55, 0x1a, 0xe5,
+	0x80, 0x0a, 0x02, 0x5b, 0xfd, 0x73, 0xe0, 0xc0, 0xa5, 0xa4, 0x14, 0x05, 0xa1, 0xb6, 0x72, 0xff,
+	0x20, 0xb8, 0x6d, 0xdc, 0xb1, 0xe3, 0xc6, 0xf6, 0x9a, 0xdd, 0x4d, 0x2b, 0x73, 0xe4, 0x29, 0x38,
+	0xf1, 0x12, 0x88, 0x77, 0xe0, 0x84, 0x78, 0x04, 0x54, 0x5e, 0x04, 0xf9, 0x5f, 0xeb, 0xb8, 0x4e,
+	0x2e, 0x70, 0xb1, 0x3c, 0x33, 0xbb, 0xb3, 0x9f, 0xf9, 0xce, 0xec, 0x42, 0xd3, 0x16, 0x7a, 0xc8,
+	0x99, 0x64, 0xa4, 0x66, 0x0b, 0x6d, 0x6b, 0xf8, 0x4c, 0xe8, 0x2e, 0x33, 0x68, 0xe8, 0xfa, 0xd4,
+	0x1a, 0xb8, 0x01, 0xf2, 0xc8, 0x08, 0x87, 0x4e, 0xec, 0x10, 0x86, 0x8f, 0x92, 0x1a, 0xe7, 0xeb,
+	0x86, 0x83, 0x01, 0x72, 0x2a, 0xf1, 0x34, 0xdd, 0xa9, 0x6d, 0x3a, 0xae, 0x1c, 0x8c, 0xfa, 0xba,
+	0xc5, 0x7c, 0xc3, 0x61, 0x1e, 0x0d, 0x1c, 0x23, 0x09, 0xf4, 0x47, 0xb6, 0x11, 0xca, 0x28, 0x44,
+	0x61, 0xa0, 0x1f, 0xca, 0x28, 0xfd, 0xa6, 0x9b, 0x3a, 0x5f, 0x15, 0x78, 0xd0, 0xe5, 0x48, 0x25,
+	0x9e, 0x30, 0x6f, 0xe4, 0xe3, 0x2e, 0xe3, 0x6f, 0xb9, 0x2b, 0xd1, 0xc4, 0x0f, 0x23, 0x14, 0x92,
+	0x3c, 0x81, 0x3b, 0x2f, 0x85, 0x74, 0xfd, 0xf8, 0x9c, 0x2e, 0x0d, 0xa9, 0xe5, 0xca, 0x48, 0x55,
+	0xda, 0xca, 0x5a, 0xdd, 0xbc, 0x19, 0x20, 0x1a, 0x34, 0xf7, 0xd8, 0x29, 0xee, 0x51, 0x1f, 0xd5,
+	0x5a, 0x5b, 0x59, 0x9b, 0x37, 0xaf, 0x6c, 0xf2, 0x1a, 0x1a, 0xfb, 0x17, 0x01, 0x72, 0xb5, 0xde,
+	0x56, 0xd6, 0x16, 0x36, 0xb6, 0xf4, 0xb4, 0x48, 0xbd, 0x58, 0xa4, 0x1e, 0x0e, 0x9d, 0xd8, 0x21,
+	0xf4, 0xb8, 0x48, 0xfd, 0x7c, 0x5d, 0x4f, 0xb6, 0x98, 0x68, 0x23, 0xc7, 0xc0, 0x42, 0x33, 0x4d,
+	0xd1, 0xf9, 0xa4, 0xc0, 0x4a, 0x35, 0xb5, 0x08, 0x59, 0x20, 0x90, 0xb4, 0x00, 0xd2, 0x48, 0x82,
+	0xa2, 0x24, 0x28, 0x05, 0xcf, 0x54, 0xd0, 0x87, 0xb0, 0xb8, 0x83, 0x1e, 0x4a, 0xdc, 0xb6, 0x25,
+	0xf2, 0x63, 0x81, 0x09, 0x71, 0xd3, 0x2c, 0x79, 0x3b, 0x5f, 0x14, 0x58, 0x4a, 0x21, 0x76, 0x5d,
+	0x0f, 0x8f, 0xcd, 0x5e, 0xae, 0xd9, 0x32, 0xcc, 0x1e, 0x5a, 0x03, 0xbc, 0x3a, 0x38, 0xb3, 0x4a,
+	0x50, 0xb5, 0xa9, 0x50, 0xf5, 0x12, 0xd4, 0x0a, 0xcc, 0xbf, 0x61, 0x16, 0xf5, 0x0e, 0xa8, 0x1c,
+	0xa8, 0x33, 0x49, 0xf0, 0xda, 0x41, 0x96, 0xa0, 0xd1, 0x13, 0x3b, 0x2e, 0x57, 0x1b, 0x09, 0x69,
+	0x6a, 0x74, 0x1e, 0xc1, 0xbd, 0x12, 0x5f, 0xa6, 0xce, 0x6d, 0xa8, 0x1f, 0x9b, 0xbd, 0x8c, 0x2e,
+	0xfe, 0xed, 0x7c, 0x04, 0xad, 0xa4, 0xa7, 0x89, 0xf4, 0x34, 0x2f, 0xe8, 0xc6, 0xfa, 0xeb, 0x66,
+	0xd6, 0xfe, 0xbe, 0x99, 0xdf, 0x6e, 0x8e, 0x60, 0x7a, 0xf8, 0x3f, 0xe8, 0xe5, 0x98, 0x6c, 0xf5,
+	0x89, 0xb2, 0xcd, 0x14, 0x64, 0xab, 0xe8, 0x7f, 0xa3, 0xb2, 0xff, 0xdd, 0xa2, 0xbc, 0x27, 0x2e,
+	0x5e, 0x4c, 0x96, 0x4b, 0x85, 0xb9, 0x03, 0x8e, 0xe7, 0x2e, 0x5e, 0x24, 0x84, 0x4d, 0x33, 0x37,
+	0x3b, 0x47, 0xb0, 0x5c, 0x4e, 0x92, 0x95, 0xad, 0xc2, 0x5c, 0x97, 0x05, 0x12, 0x03, 0x99, 0x64,
+	0xfa, 0xdf, 0xcc, 0x4d, 0xd2, 0x86, 0x85, 0xec, 0xf7, 0x28, 0x0a, 0xf3, 0x9a, 0x8b, 0xae, 0x8d,
+	0x1f, 0x35, 0x80, 0x38, 0xe1, 0x61, 0x24, 0x24, 0xfa, 0xe4, 0x5d, 0x3e, 0xa8, 0xe3, 0xb7, 0x85,
+	0xac, 0xea, 0xb6, 0xd0, 0xa7, 0xdc, 0x7e, 0xad, 0x3d, 0x79, 0x41, 0x46, 0xb9, 0x03, 0xb7, 0xc6,
+	0x66, 0x8c, 0xa8, 0xd7, 0x5b, 0xc6, 0xaf, 0x85, 0x76, 0xbf, 0x22, 0x92, 0x65, 0x39, 0x81, 0xbb,
+	0x15, 0x13, 0x40, 0x5a, 0x15, 0xc7, 0x17, 0xe6, 0x52, 0x5b, 0x9d, 0x18, 0xcf, 0xf2, 0xbe, 0x82,
+	0xc5, 0x71, 0x75, 0x49, 0x09, 0xa2, 0xd0, 0x36, 0x4d, 0xab, 0x0a, 0xa5, 0x89, 0x5e, 0x3c, 0xff,
+	0x7e, 0xd9, 0x52, 0x7e, 0x5e, 0xb6, 0x94, 0x5f, 0x97, 0x2d, 0xe5, 0xf3, 0xef, 0xd6, 0x7f, 0xef,
+	0x1f, 0x17, 0x5e, 0xdb, 0x6d, 0xef, 0x8c, 0xf6, 0x79, 0x6f, 0xdf, 0x18, 0x32, 0xea, 0x9d, 0xd1,
+	0xa7, 0x2c, 0x8c, 0x1f, 0x66, 0xc6, 0x93, 0x37, 0xdb, 0x16, 0xfd, 0xd9, 0xe4, 0xad, 0xdd, 0xfc,
+	0x13, 0x00, 0x00, 0xff, 0xff, 0xdd, 0xc0, 0x7e, 0x02, 0xe6, 0x05, 0x00, 0x00,
 }

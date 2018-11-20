@@ -46,6 +46,10 @@ const (
 	// namespace of the running agent/sidecar.
 	EnvNamespace = "KOALJA_NAMESPACE"
 
+	// EnvNodeName is the name of the environment variable used to pass the
+	// name of the node a pod is running on.
+	EnvNodeName = "KOALJA_NODE_NAME"
+
 	// EnvPodName is the name of the environment variable used to pass the
 	// name of the Pod to the running container.
 	EnvPodName = "KOALJA_POD_NAME"

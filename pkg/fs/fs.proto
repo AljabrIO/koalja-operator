@@ -22,6 +22,8 @@ import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
 
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+
 // FileSystem is the API used to access long term file storage
 service FileSystem {
     // CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -31,6 +33,8 @@ service FileSystem {
     rpc CreateFileURI(CreateFileURIRequest) returns (CreateFileURIResponse);
     // CreateVolumeForRead creates a PersistentVolume for reading a given URI
     rpc CreateVolumeForRead(CreateVolumeForReadRequest) returns (CreateVolumeForReadResponse);
+    // CreateFileView returns a view on the given file identified by the given URI.
+    rpc CreateFileView(CreateFileViewRequest) returns (CreateFileViewResponse);
 }
 
 // CreateVolumeForWriteRequest contains arguments for CreateVolumeForWrite.
@@ -94,4 +98,18 @@ message CreateVolumeForReadResponse {
     bool IsDir = 4;
     // If set, the caller must delete the PersistentVolume after use
     bool DeleteAfterUse = 5;
+}
+
+message CreateFileViewRequest {
+    // The URI of the file to create a view for
+    string URI = 1;
+    // If set, a small preview is returned instead of the full content
+    bool Preview = 2;
+}
+
+message CreateFileViewResponse {
+    // The content of the view
+    bytes Content = 1;
+    // The type of content of the view
+    string ContentType = 2;
 }
