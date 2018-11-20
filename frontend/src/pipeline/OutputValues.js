@@ -1,12 +1,13 @@
 import React, { Component } from 'react';
 import { Header, Table } from 'semantic-ui-react';
 import moment from 'moment';
+import DataViewer from './DataViewer';
 
 const RowView = ({id,output,data,created_at}) => (
   <Table.Row>
     <Table.Cell>{id}</Table.Cell>
     <Table.Cell>{output}</Table.Cell>
-    <Table.Cell>{data}</Table.Cell>
+    <Table.Cell>{data} <DataViewer data={data}/></Table.Cell>
     <Table.Cell>{moment(created_at).fromNow()}</Table.Cell>
   </Table.Row>
 );

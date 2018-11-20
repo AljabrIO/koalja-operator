@@ -21,7 +21,7 @@ export default {
         return decoded;
     },
     
-    // apiGet performs a GET request on the API with given local URL.
+    // get performs a GET request on the API with given local URL.
     // The result is decoded from JSON and returned.
     async get(localURL) {
         let headers = {
@@ -34,7 +34,7 @@ export default {
         return this.decodeResults(result);
     },
     
-    // apiPost performs a POST request on the API with given local URL and given data.
+    // post performs a POST request on the API with given local URL and given data.
     // The result is decoded from JSON and returned.
     async post(localURL, body) {
         let headers = {
@@ -50,5 +50,23 @@ export default {
             body: JSON.stringify(body)
         });
         return this.decodeResults(result);
+    },
+
+    // postRawResult performs a POST request on the API with given local URL and given data.
+    // The result is not and returned as is.
+    async postRawResult(localURL, body) {
+        let headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        if (this.token) {
+            headers['Authorization'] = `bearer ${this.token}`; 
+        }
+        const result = await fetch(localURL, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+        });
+        return result;
     }
 };

@@ -80,6 +80,13 @@ service Frontend {
             body: "*"
         };
     }
+    // GetDataView returns a view on the given data reference.
+    rpc GetDataView(GetDataViewRequest) returns (GetDataViewResponse) {
+        option (google.api.http) = {
+            post: "/v1/data/view/grpc"
+            body: "*"
+        };
+    }
 }
 
 message OutputAnnotatedValuesRequest {
@@ -121,4 +128,18 @@ message GetTaskStatisticsRequest {
 message GetTaskStatisticsResponse {
     // Statistics contains the returned statistics
     repeated tracking.TaskStatistics statistics = 1 [(gogoproto.customname) = "Statistics"];
+}
+
+message GetDataViewRequest {
+    // The data (reference)
+    string data = 1 [(gogoproto.customname) = "Data"];
+    // If set, a small preview is returned instead of the full content
+    bool preview = 2  [(gogoproto.customname) = "Preview"];
+}
+
+message GetDataViewResponse {
+    // The content of the view
+    bytes content = 1 [(gogoproto.customname) = "Content"];
+    // The type of content of the view
+    string content_type = 2 [(gogoproto.customname) = "ContentType"];
 }

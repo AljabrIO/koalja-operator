@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "content-type": "^1.0.4",
     "echarts": "^4.2.0-rc.2",
     "echarts-for-react": "^2.0.15-beta.0",
     "moment": "^2.22.2",

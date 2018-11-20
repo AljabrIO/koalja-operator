@@ -30,6 +30,7 @@ import (
 	avclient "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/client"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
+	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	tracking "github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
@@ -55,6 +56,8 @@ type APIDependencies struct {
 	Namespace string
 	// AnnotatedValueRegister client
 	AnnotatedValueRegistry avclient.AnnotatedValueRegistryClient
+	// Filesystem client
+	FileSystem fs.FileSystemClient
 	// The pipeline
 	Pipeline *koalja.Pipeline
 	// Access to the frontend hub
@@ -109,6 +112,10 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 	if err != nil {
 		return nil, maskAny(err)
 	}
+	fileSystem, err := fs.NewFileSystemClient()
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	frontendHub := frontend.NewHub(log)
 	deps := APIDependencies{
 		Client:                 c,
@@ -116,6 +123,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme,
 		AnnotatedValueRegistry: avReg,
 		Pipeline:               &pipeline,
 		FrontendHub:            frontendHub,
+		FileSystem:             fileSystem,
 	}
 	avPublisher, err := builder.NewAnnotatedValuePublisher(deps)
 	if err != nil {
@@ -161,7 +169,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	g, lctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return s.runAPIServer(lctx, port) })
-	g.Go(func() error { return s.runFrontendServer(lctx, httpPort, port) })
+	g.Go(func() error { return s.runFrontendServer(lctx, httpPort, port, s.frontend) })
 	g.Go(func() error { s.frontendHub.Run(lctx); return nil })
 
 	// Wait until done
