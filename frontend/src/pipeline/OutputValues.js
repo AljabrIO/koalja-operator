@@ -1,9 +1,10 @@
 import React, { Component } from 'react';
 import { Header, Table } from 'semantic-ui-react';
 
-const RowView = ({id,data}) => (
+const RowView = ({id,output,data}) => (
   <Table.Row>
     <Table.Cell>{id}</Table.Cell>
+    <Table.Cell>{output}</Table.Cell>
     <Table.Cell>{data}</Table.Cell>
   </Table.Row>
 );
@@ -13,6 +14,7 @@ const TableView = ({values}) => (
     <Table.Header>
       <Table.Row>
         <Table.HeaderCell>ID</Table.HeaderCell>
+        <Table.HeaderCell>Output</Table.HeaderCell>
         <Table.HeaderCell>Data</Table.HeaderCell>
       </Table.Row>
     </Table.Header>
@@ -20,6 +22,7 @@ const TableView = ({values}) => (
       {values.map((value) => <RowView
         key={value.id}
         id={value.id}
+        output={value.source_task_output}
         data={value.data}
       />)}
     </Table.Body>
