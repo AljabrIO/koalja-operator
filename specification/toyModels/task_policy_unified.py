@@ -179,6 +179,16 @@ def UpdateAnnotatedValue():
 
 def AcceptanceCriteria(ready):
 
+    # normal
+    
+    allready = True
+
+    for index in range(0,maxlinks):
+        allready &= ready[index]
+
+    if allready:
+        return True
+
     # involuntary timeout if aggregation takes too long
     
     global clock_time, last_commit, timed_out
@@ -187,17 +197,9 @@ def AcceptanceCriteria(ready):
 
     if elapsed > aggregation_timeout:
         timed_out = True
-        return False
+
+    return False
             
-    # normal
-    
-    allready = True
-
-    for index in range(0,maxlinks):
-        allready &= ready[index]
-
-    return allready
-
 ###########################
 
 def CommitSnapshot():
