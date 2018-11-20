@@ -29,3 +29,5 @@ resources:
 - ../services/local-fs.yaml
 - ../tasks/dbquery_executor.yaml
 - ../tasks/filedrop_executor.yaml
+- ../tasks/filesplit_executor.yaml
+- ../tasks/jsonquery_executor.yaml

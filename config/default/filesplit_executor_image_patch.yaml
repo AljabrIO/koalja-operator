@@ -1,0 +1,7 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: TaskExecutor
+metadata:
+  name: filesplit-taskexecutor
+spec:
+  container:
+    image: koalja-tasks:latest
