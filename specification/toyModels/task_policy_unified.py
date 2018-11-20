@@ -98,6 +98,7 @@ def CheckPolicy():
     for index in range(0,maxlinks):
 
         if required[index] > 0:
+            print("required policy set, determines minfill/maxfill for link ",index)
             minfill[index] = maxfill[index] = required[index]
 
         if maxfill[index] < minfill[index]:
@@ -111,7 +112,7 @@ def CheckPolicy():
 
         if policy == "swap_new4old":
             if required[index] != 1 or minfill[index] != 1:
-                print("Error, swap_old4new policy asks ambiguous for required[] / minfill[] partition bigger 1")
+                print("Error, swap_old4new policy is ambiguous when required[] / minfill[] partition bigger 1")
                 return False
 
     print("*")
@@ -189,18 +190,23 @@ def CommitAnnotatedValue():
 
     global last_commit, clock_time, timed_out
 
-    # timed_out is relative to a full commit
+    # conditions met for full commit, or timed_out (incomplete)
+    
     last_commit = clock_time
 
     if timed_out:
-        print (clock_time , "commit/exec (time)" + "(" , snapshot , ")")
-        for index in range(0,maxlinks):
-            snapshot[index].clear()
-        timed_out = False # reset
-    else:
-        print (clock_time , "commit/exec (full)" + "(" , snapshot , ")")
 
-    # poll the links for data
+        # This print is really RUN CONTAINER
+        print (clock_time , "commit/exec (timeout)" + "(" , snapshot , ")")
+        timed_out = False # reset
+
+    else:
+
+        # This print is really RUN CONTAINER
+        print (clock_time , "commit/exec (filled)" + "(" , snapshot , ")")
+
+    # clear previous data from links according to policy
+    
     for index in range(0,maxlinks):
             
         ready[index] = False
