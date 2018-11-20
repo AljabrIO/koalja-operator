@@ -210,14 +210,14 @@ def CommitSnapshot():
 
     if timed_out:
 
+        timed_out = False
+
         if AllMinRequirementsMet():
             # This print is really RUN CONTAINER
             print (clock_time , "commit/exec (timeout)" + "(" , snapshot , ")")
-            timed_out = False
         else:
             if keep_stream_on_timeout:
                 print (clock_time , "Error (timeout) - no exec - preserving stream")
-                timed_out = False
                 return
             else:
                 print (clock_time , "Error (timeout) - no exec - flushing partial inputs")
