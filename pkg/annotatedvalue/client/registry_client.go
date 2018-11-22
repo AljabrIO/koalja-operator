@@ -65,13 +65,18 @@ func (c *annotatedValueRegistryClient) Record(ctx context.Context, in *annotated
 }
 
 // GetByID returns the annotated value with given ID.
-func (c *annotatedValueRegistryClient) GetByID(ctx context.Context, in *annotatedvalue.GetByIDRequest, opts ...grpc.CallOption) (*annotatedvalue.GetResponse, error) {
+func (c *annotatedValueRegistryClient) GetByID(ctx context.Context, in *annotatedvalue.GetByIDRequest, opts ...grpc.CallOption) (*annotatedvalue.GetOneResponse, error) {
 	return c.c.GetByID(ctx, in, opts...)
 }
 
 // GetByTaskAndData returns the annotated value with given task and data.
-func (c *annotatedValueRegistryClient) GetByTaskAndData(ctx context.Context, in *annotatedvalue.GetByTaskAndDataRequest, opts ...grpc.CallOption) (*annotatedvalue.GetResponse, error) {
+func (c *annotatedValueRegistryClient) GetByTaskAndData(ctx context.Context, in *annotatedvalue.GetByTaskAndDataRequest, opts ...grpc.CallOption) (*annotatedvalue.GetOneResponse, error) {
 	return c.c.GetByTaskAndData(ctx, in, opts...)
+}
+
+// Get returns the annotated values that match the given criteria.
+func (c *annotatedValueRegistryClient) Get(ctx context.Context, in *annotatedvalue.GetRequest, opts ...grpc.CallOption) (*annotatedvalue.GetResponse, error) {
+	return c.c.Get(ctx, in, opts...)
 }
 
 // Close the connection

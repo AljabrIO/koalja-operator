@@ -111,9 +111,11 @@ service AnnotatedValueRegistry {
     // Record the given annotated value in the registry
     rpc Record(AnnotatedValue) returns (google.protobuf.Empty);
     // GetByID returns the annotated value with given ID.
-    rpc GetByID(GetByIDRequest) returns (GetResponse);
+    rpc GetByID(GetByIDRequest) returns (GetOneResponse);
     // GetByTaskAndData returns the annotated value with given task & data.
-    rpc GetByTaskAndData(GetByTaskAndDataRequest) returns (GetResponse);
+    rpc GetByTaskAndData(GetByTaskAndDataRequest) returns (GetOneResponse);
+    // Get returns the annotated values that match the given criteria.
+    rpc Get(GetRequest) returns (GetResponse);
 }
 
 message GetByIDRequest {
@@ -125,6 +127,25 @@ message GetByTaskAndDataRequest {
     string Data = 2;
 }
 
-message GetResponse {
+message GetRequest {
+    // If set, filter on any of these IDs
+    repeated string IDs = 1;
+    // If set, filter on any of these source task names.
+    repeated string SourceTasks = 2;
+    // If set, filter on any of these data values.
+    repeated string Data = 3;
+    // If set, filter on values created after this timestamp.
+    google.protobuf.Timestamp CreatedAfter = 4;
+    // If set, filter on values created before this timestamp.
+    google.protobuf.Timestamp CreatedBefore = 5;
+    // If set, limit the number of selected values.
+    int64 Limit = 6;
+}
+
+message GetOneResponse {
     AnnotatedValue AnnotatedValue = 1;
+}
+
+message GetResponse {
+    repeated AnnotatedValue AnnotatedValues = 1;
 }

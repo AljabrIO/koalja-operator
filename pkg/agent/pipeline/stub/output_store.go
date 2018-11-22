@@ -98,6 +98,29 @@ func (s *outputStore) Publish(ctx context.Context, req *annotatedvalue.PublishRe
 // GetOutputAnnotatedValues returns all annotated values (resulting from task outputs that
 // are not connected to inputs of other tasks) that match the given filter.
 func (s *outputStore) GetOutputAnnotatedValues(ctx context.Context, req *pipeline.OutputAnnotatedValuesRequest) (*pipeline.OutputAnnotatedValues, error) {
+	resp, err := s.getOutputAnnotatedValuesFromOutputs(ctx, req)
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	if len(resp.AnnotatedValues) == 0 {
+		// Ask AV registry
+		r, err := s.avRegistry.Get(ctx, &annotatedvalue.GetRequest{
+			SourceTasks:   req.GetTaskNames(),
+			CreatedAfter:  req.GetCreatedAfter(),
+			CreatedBefore: req.GetCreatedBefore(),
+		})
+		if err != nil {
+			return nil, maskAny(err)
+		}
+		resp.AnnotatedValues = append(resp.AnnotatedValues, r.AnnotatedValues...)
+	}
+
+	return resp, nil
+}
+
+// getOutputAnnotatedValuesFromOutputs returns all annotated values (resulting from task outputs that
+// are not connected to inputs of other tasks) that match the given filter.
+func (s *outputStore) getOutputAnnotatedValuesFromOutputs(ctx context.Context, req *pipeline.OutputAnnotatedValuesRequest) (*pipeline.OutputAnnotatedValues, error) {
 	s.log.Debug().Interface("req", req).Msg("GetOutputAnnotatedValues request")
 	s.annotatedValuesMutex.Lock()
 	defer s.annotatedValuesMutex.Unlock()

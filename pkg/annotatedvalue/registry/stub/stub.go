@@ -59,19 +59,19 @@ func (s *stub) Record(ctx context.Context, e *annotatedvalue.AnnotatedValue) (*e
 }
 
 // GetByID returns the annotated value with given ID.
-func (s *stub) GetByID(ctx context.Context, req *annotatedvalue.GetByIDRequest) (*annotatedvalue.GetResponse, error) {
+func (s *stub) GetByID(ctx context.Context, req *annotatedvalue.GetByIDRequest) (*annotatedvalue.GetOneResponse, error) {
 	s.log.Debug().Str("annotatedvalue", req.GetID()).Msg("GetByID request")
 	s.registryMutex.Lock()
 	defer s.registryMutex.Unlock()
 
 	if av, found := s.registry[req.GetID()]; found {
-		return &annotatedvalue.GetResponse{AnnotatedValue: av}, nil
+		return &annotatedvalue.GetOneResponse{AnnotatedValue: av}, nil
 	}
 	return nil, fmt.Errorf("AnnotatedValue '%s' not found", req.GetID())
 }
 
 // GetByTaskAndData returns the annotated value with given task and data.
-func (s *stub) GetByTaskAndData(ctx context.Context, req *annotatedvalue.GetByTaskAndDataRequest) (*annotatedvalue.GetResponse, error) {
+func (s *stub) GetByTaskAndData(ctx context.Context, req *annotatedvalue.GetByTaskAndDataRequest) (*annotatedvalue.GetOneResponse, error) {
 	s.log.Debug().
 		Str("task", req.GetSourceTask()).
 		Str("data", req.GetData()).
@@ -81,8 +81,24 @@ func (s *stub) GetByTaskAndData(ctx context.Context, req *annotatedvalue.GetByTa
 
 	for _, av := range s.registry {
 		if av.GetSourceTask() == req.GetSourceTask() && av.GetData() == req.GetData() {
-			return &annotatedvalue.GetResponse{AnnotatedValue: av}, nil
+			return &annotatedvalue.GetOneResponse{AnnotatedValue: av}, nil
 		}
 	}
 	return nil, fmt.Errorf("No such annotated value")
+}
+
+// Get returns the annotated values that match the given criteria.
+func (s *stub) Get(ctx context.Context, req *annotatedvalue.GetRequest) (*annotatedvalue.GetResponse, error) {
+	s.log.Debug().
+		Msg("Get request")
+	s.registryMutex.Lock()
+	defer s.registryMutex.Unlock()
+
+	resp := &annotatedvalue.GetResponse{}
+	for _, av := range s.registry {
+		if av.IsMatch(req) {
+			resp.AnnotatedValues = append(resp.AnnotatedValues, av)
+		}
+	}
+	return resp, nil
 }
