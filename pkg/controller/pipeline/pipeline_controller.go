@@ -202,6 +202,27 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		r.eventRecorder.Event(instance, "Normal", "PipelineValidation", "Pipeline is valid")
 	}
 
+	// Search for FileSystem service
+	var svcList corev1.ServiceList
+	labelSel, err := labels.Parse(constants.LabelServiceType + "=" + constants.ServiceTypeFilesystem)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := r.List(ctx, &client.ListOptions{
+		LabelSelector: labelSel,
+	}, &svcList); err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(svcList.Items) == 0 {
+		// No task agent resource found
+		r.log.Warn().Msg("No FileSystem service found")
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
+	}
+	filesystemServiceAddress := CreateServiceAddress(svcList.Items[0])
+
 	// Ensure all resources are created
 	result := reconcile.Result{
 		Requeue:      true,
@@ -261,7 +282,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Ensure pipeline agent is created
-	if lresult, frontend, err := r.ensurePipelineAgent(ctx, instance); err != nil {
+	if lresult, frontend, err := r.ensurePipelineAgent(ctx, instance, filesystemServiceAddress); err != nil {
 		log.Error().Err(err).Msg("ensurePipelineAgent failed")
 		return lresult, err
 	} else {
@@ -281,7 +302,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Ensure task agents are created
 	for _, t := range instance.Spec.Tasks {
-		if lresult, ltaskExecutors, err := r.ensureTaskAgent(ctx, instance, t); err != nil {
+		if lresult, ltaskExecutors, err := r.ensureTaskAgent(ctx, instance, t, filesystemServiceAddress); err != nil {
 			log.Error().Err(err).Msg("ensureTaskAgent failed")
 			return lresult, err
 		} else {
@@ -617,7 +638,7 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 // ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=annotatedvalueregistries,verbs=get;list;watch
-func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline) (reconcile.Result, Frontend, error) {
+func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, filesystemServiceAddress string) (reconcile.Result, Frontend, error) {
 	deplName := CreatePipelineAgentName(instance.Name)
 	frontend := Frontend{
 		ServiceName: deplName,
@@ -650,6 +671,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 		constants.EnvStatisticsSinkAddress:         CreateAgentRegistryAddress(instance.Name, instance.Namespace),
 		constants.EnvAnnotatedValueRegistryAddress: net.JoinHostPort("localhost", strconv.Itoa(constants.AnnotatedValueRegistryAPIPort)),
 		constants.EnvDNSName:                       CreatePipelineAgentDNSName(instance.Name, instance.Namespace),
+		constants.EnvFileSystemAddress:             filesystemServiceAddress,
 	})
 
 	// Search for annotated value registry resource
@@ -862,28 +884,7 @@ func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koalj
 // ensureTaskAgent ensures that a task agent is launched for the given task in given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=tasks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=taskexecutors,verbs=get;list;watch
-func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec) (reconcile.Result, []TaskExecutor, error) {
-	// Search for FileSystem service
-	var svcList corev1.ServiceList
-	labelSel, err := labels.Parse(constants.LabelServiceType + "=" + constants.ServiceTypeFilesystem)
-	if err != nil {
-		return reconcile.Result{}, nil, err
-	}
-	if err := r.List(ctx, &client.ListOptions{
-		LabelSelector: labelSel,
-	}, &svcList); err != nil {
-		return reconcile.Result{}, nil, err
-	}
-	if len(svcList.Items) == 0 {
-		// No task agent resource found
-		r.log.Warn().Msg("No FileSystem service found")
-		return reconcile.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second * 10,
-		}, nil, nil
-	}
-	filesystemServiceAddress := CreateServiceAddress(svcList.Items[0])
-
+func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, task koaljav1alpha1.TaskSpec, filesystemServiceAddress string) (reconcile.Result, []TaskExecutor, error) {
 	// Search for matching taskexecutor (if needed)
 	var annTaskExecutorContainer string
 	var taskExecutorRoutes []agentsapi.NetworkRoute

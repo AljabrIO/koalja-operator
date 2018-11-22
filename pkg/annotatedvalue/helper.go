@@ -20,9 +20,13 @@ import "strings"
 
 // GetDataScheme returns the scheme of the Data URI.
 func (av *AnnotatedValue) GetDataScheme() Scheme {
-	d := av.GetData()
-	if idx := strings.Index(d, ":"); idx > 0 {
-		return Scheme(d[:idx])
+	return GetDataScheme(av.GetData())
+}
+
+// GetDataScheme returns the scheme of the Data URI.
+func GetDataScheme(data string) Scheme {
+	if idx := strings.Index(data, ":"); idx > 0 {
+		return Scheme(data[:idx])
 	}
 	return ""
 }

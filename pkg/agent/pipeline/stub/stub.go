@@ -53,20 +53,29 @@ func (s *stub) getOrCreateAgentRegistry(hub pipeline.FrontendHub) *agentRegistry
 	return s.agentRegistry
 }
 
+// createDataViewBuilderDeps converts APIDependencies into CreateViewDependencies.
+func (s *stub) createDataViewBuilderDeps(deps pipeline.APIDependencies) pipeline.CreateViewDependencies {
+	return pipeline.CreateViewDependencies{
+		Log:        s.log,
+		Client:     deps.Client,
+		FileSystem: deps.FileSystem,
+	}
+}
+
 // getOrCreateOutputStore returns the output store, creating one if needed.
-func (s *stub) getOrCreateOutputStore(r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub) *outputStore {
+func (s *stub) getOrCreateOutputStore(r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, hub pipeline.FrontendHub, viewDeps pipeline.CreateViewDependencies) *outputStore {
 	agentRegistry := s.getOrCreateAgentRegistry(hub)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.outputStore == nil {
-		s.outputStore = newOutputStore(s.log, r, pipeline, agentRegistry)
+		s.outputStore = newOutputStore(s.log, r, pipeline, agentRegistry, viewDeps)
 	}
 	return s.outputStore
 }
 
 // NewAnnotatedValuePublisher "builds" a new publisher
 func (s *stub) NewAnnotatedValuePublisher(deps pipeline.APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error) {
-	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub), nil
+	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub, s.createDataViewBuilderDeps(deps)), nil
 }
 
 // NewAgentRegistry creates an implementation of an AgentRegistry used to main a list of agent instances.
@@ -81,5 +90,5 @@ func (s *stub) NewStatisticsSink(deps pipeline.APIDependencies) (tracking.Statis
 
 // NewFrontend creates an implementation of an Frontend, used to query results of the pipeline.
 func (s *stub) NewFrontend(deps pipeline.APIDependencies) (pipeline.FrontendServer, error) {
-	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub), nil
+	return s.getOrCreateOutputStore(deps.AnnotatedValueRegistry, deps.Pipeline, deps.FrontendHub, s.createDataViewBuilderDeps(deps)), nil
 }

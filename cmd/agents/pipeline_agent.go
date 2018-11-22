@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline"
+	_ "github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/builders/dataview"
 	"github.com/AljabrIO/koalja-operator/pkg/agent/pipeline/stub"
 	"github.com/AljabrIO/koalja-operator/pkg/apis"
 )

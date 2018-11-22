@@ -1,0 +1,52 @@
+// 
+// Copyright © 2018 Aljabr, Inc.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// 
+
+syntax = "proto3";
+
+package local;
+
+import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
+
+option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs/service/local";
+
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+import "github.com/AljabrIO/koalja-operator/pkg/fs/fs.proto";
+
+// NodeRegistry is implemented by the local FileSystem.
+service NodeRegistry {
+    // CreateFileView returns a view on the given file identified by the given URI.
+    rpc RegisterNode(RegisterNodeRequest) returns (google.protobuf.Empty);
+}
+
+// Node is the API implemented by every node.
+service Node {
+    // CreateFileView returns a view on the given file identified by the given URI.
+    rpc CreateFileView(CreateFileViewRequest) returns (fs.CreateFileViewResponse);
+}
+
+message RegisterNodeRequest {
+    //Name of the Node.
+    string Name = 1;
+    // Address of the Node API.
+    string NodeAddress = 2;
+}
+
+message CreateFileViewRequest {
+    // The path of the node of the file to create a view for
+    string LocalPath = 1;
+    // If set, a small preview is returned instead of the full content
+    bool Preview = 2;
+}

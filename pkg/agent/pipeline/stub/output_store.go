@@ -18,6 +18,7 @@ package stub
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
@@ -42,15 +43,17 @@ type outputStore struct {
 	pipeline             *koalja.Pipeline
 	annotatedValues      []*tree.AnnotatedValueTree
 	annotatedValuesMutex sync.Mutex
+	viewDeps             pipeline.CreateViewDependencies
 }
 
 // newOutputStore creates a new output store
-func newOutputStore(log zerolog.Logger, r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry) *outputStore {
+func newOutputStore(log zerolog.Logger, r avclient.AnnotatedValueRegistryClient, pipeline *koalja.Pipeline, agentRegistry *agentRegistry, viewDeps pipeline.CreateViewDependencies) *outputStore {
 	return &outputStore{
 		log:           log,
 		avRegistry:    r,
 		pipeline:      pipeline,
 		agentRegistry: agentRegistry,
+		viewDeps:      viewDeps,
 	}
 }
 
@@ -173,4 +176,22 @@ func isMatch(e *tree.AnnotatedValueTree, req *pipeline.OutputAnnotatedValuesRequ
 		}
 	}
 	return true
+}
+
+// GetDataView returns a view on the given data reference.
+func (s *outputStore) GetDataView(ctx context.Context, req *pipeline.GetDataViewRequest) (*pipeline.GetDataViewResponse, error) {
+	scheme := annotatedvalue.GetDataScheme(req.GetData())
+	builder := pipeline.GetDataViewBuilder(scheme)
+	if builder != nil {
+		resp, err := builder.CreateView(ctx, req, &s.viewDeps)
+		if err != nil {
+			return nil, maskAny(err)
+		}
+		return resp, nil
+	}
+	// Unknown scheme
+	return &pipeline.GetDataViewResponse{
+		Content:     []byte(fmt.Sprintf("Unknown scheme '%s'", scheme)),
+		ContentType: "text/plain",
+	}, nil
 }

@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	fmt "fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -32,7 +33,7 @@ import (
 )
 
 // runFrontendServer runs the HTTP frontend server until the given context is canceled.
-func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int) error {
+func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int, grpcServer FrontendServer) error {
 	// Server HTTP API
 	mux := gwruntime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
@@ -43,6 +44,7 @@ func (s *Service) runFrontendServer(ctx context.Context, httpPort, grpcPort int)
 	// Frontend
 	var rootHandlerFunc gwruntime.HandlerFunc
 	mux.Handle("GET", parsePattern("/v1/updates"), s.frontendHub.CreateHandler())
+	mux.Handle("POST", parsePattern("/v1/data/view"), createGetDataViewHandler(mux, grpcServer))
 	for path, file := range frontend.Assets.Files {
 		handler := createAssetFileHandler(file)
 		if path == "index.html" {
@@ -104,4 +106,29 @@ func parsePattern(localPath string) gwruntime.Pattern {
 		ops = append(ops, 2, i)
 	}
 	return gwruntime.MustPattern(gwruntime.NewPattern(1, ops, parts, ""))
+}
+
+// createGetDataViewHandler creates a handler to serve the content
+// for Frontend.GetDataView where content is returned as HTTP stream
+// instead of JSON encoded HTTP stream.
+func createGetDataViewHandler(mux *gwruntime.ServeMux, grpcServer FrontendServer) gwruntime.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		inboundMarshaler, _ := gwruntime.MarshalerForRequest(mux, r)
+		var protoReq GetDataViewRequest
+
+		if err := inboundMarshaler.NewDecoder(r.Body).Decode(&protoReq); err != nil && err != io.EOF {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		resp, err := grpcServer.GetDataView(r.Context(), &protoReq)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(resp.GetContent())))
+		w.Header().Set("Content-Type", resp.GetContentType())
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp.GetContent())
+	}
 }

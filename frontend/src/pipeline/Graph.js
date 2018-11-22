@@ -39,6 +39,7 @@ class Graph extends Component {
       fixed: n.fixed,
       symbol: 'roundRect',
       stats: (n.stats.inputs || []).find(s => s.name === x.name),
+      task: n.task
     }))));
     let outputNodes = flatten(taskNodes.map(n => (n.task.outputs || []).map(x => ({
       name: `${n.task.name}/${x.name}`,
@@ -48,6 +49,7 @@ class Graph extends Component {
       fixed: n.fixed,
       symbol: 'diamond',
       stats: (n.stats.outputs || []).find(s => s.name === x.name),
+      task: n.task
     }))));
     let nodes = taskNodes.concat(inputNodes, outputNodes);
     //console.log(nodes);
@@ -147,8 +149,22 @@ class Graph extends Component {
     };
   };
 
-  onChartClick(e) {
+  onChartClick = (e) => {
     console.log(e);
+    let data = e.data || {};
+    switch (data.category) {
+      case "task":
+        this.props.onSelectTask(data.name);
+        break;
+      case "input":
+        this.props.onSelectTask((data.task || {}).name);
+        break;
+      case "output":
+        this.props.onSelectTask((data.task || {}).name);
+        break;
+      default:
+        // Do nothing
+    }
   }
 
   render() {

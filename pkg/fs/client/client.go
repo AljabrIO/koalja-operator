@@ -73,6 +73,11 @@ func (c *fileSystemClient) CreateVolumeForRead(ctx context.Context, in *fs.Creat
 	return c.c.CreateVolumeForRead(ctx, in, opts...)
 }
 
+// CreateFileView returns a view on the given file identified by the given URI.
+func (c *fileSystemClient) CreateFileView(ctx context.Context, in *fs.CreateFileViewRequest, opts ...grpc.CallOption) (*fs.CreateFileViewResponse, error) {
+	return c.c.CreateFileView(ctx, in, opts...)
+}
+
 // Close the connection
 func (c *fileSystemClient) Close() error {
 	return c.conn.Close()

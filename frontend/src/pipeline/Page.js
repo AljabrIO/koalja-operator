@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import api from '../api/api';
 import ReactTimeout from 'react-timeout';
 import Graph from './Graph';
+import OutputValues from './OutputValues';
 import Websocket from 'react-websocket';
 
 class Page extends Component {
@@ -9,6 +10,8 @@ class Page extends Component {
     pipeline: undefined,
     linkStats: undefined,
     taskStats: undefined,
+    taskOutputs: undefined,
+    selectedTask: undefined,
     error: undefined
   };
 
@@ -16,6 +19,7 @@ class Page extends Component {
     this.reloadPipeline();
     this.reloadLinkStats();
     this.reloadTaskStats();
+    this.reloadTaskOutputs();
   }
 
   reloadPipeline = async() => {
@@ -72,10 +76,46 @@ class Page extends Component {
     }
   }
 
+  reloadTaskOutputs = async() => {
+    let taskName = this.state.selectedTask;
+    if (!taskName) {
+      this.setState({
+        taskOutputs: undefined,
+        error: undefined
+      });
+    } else {
+      try {
+        const outputs = await api.post('/v1/output/annotatedvalues', {
+          task_names: [taskName]
+        });
+        this.setState({
+          taskOutputs: (outputs || {}).annotatedvalues,
+          error: undefined
+        });
+      //console.log(stats);
+      } catch (e) {
+        this.setState({
+          error: e.message
+        });
+      /*if (isUnauthorized(e)) {
+        this.props.doLogout();
+      }*/
+      }
+    }
+  }
+
+  selectTask = (taskName) => {
+    this.setState({
+      selectedTask: taskName
+    });
+    this.reloadTaskOutputs();
+  }
+
   handleUpdate = (data) => {
     this.reloadPipeline();
     this.reloadLinkStats();
     this.reloadTaskStats();
+    this.reloadTaskOutputs();
 
     //let result = JSON.parse(data);
     //this.setState({count: this.state.count + result.movement});
@@ -94,7 +134,14 @@ class Page extends Component {
           pipeline={this.state.pipeline}
           linkStats={this.state.linkStats.statistics || []}
           taskStats={this.state.taskStats.statistics || []}
-        />
+          onSelectTask={this.selectTask}
+      />),
+        (<div style={{padding:"1em"}}>
+          <OutputValues
+          key="output-values"
+          taskName={this.state.selectedTask}
+          outputs={this.state.taskOutputs || []}
+        /></div>
         )];
     }
     return [ws, (<div key="loading">Loading...</div>)];
