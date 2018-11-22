@@ -19,7 +19,7 @@ package node
 import (
 	"context"
 	"io/ioutil"
-	"net/url"
+	"strconv"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -31,6 +31,7 @@ import (
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/fs/service/local"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -42,6 +43,7 @@ type Service struct {
 	Config
 	log          zerolog.Logger
 	nodeRegistry local.NodeRegistryClient
+	myIP         string
 }
 
 type Config struct {
@@ -55,16 +57,25 @@ type Config struct {
 
 // NewService creates a new Service instance.
 func NewService(log zerolog.Logger, config Config) (*Service, error) {
+	// Find my own IP address
+	myIP, err := constants.GetPodIP()
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to dial node registry")
+		return nil, maskAny(err)
+	}
+
+	// Connect to node registry
 	conn, err := grpc.Dial(config.RegistryAddress, grpc.WithInsecure())
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to dial node registry")
-		return nil, err
+		return nil, maskAny(err)
 	}
 	nodeRegistry := local.NewNodeRegistryClient(conn)
 	return &Service{
 		Config:       config,
 		log:          log,
 		nodeRegistry: nodeRegistry,
+		myIP:         myIP,
 	}, nil
 }
 
@@ -74,7 +85,7 @@ func (s *Service) Run(ctx context.Context) error {
 	g.Go(func() error { return s.runServer(lctx) })
 	g.Go(func() error { s.runNodeRegistration(lctx); return nil })
 	if err := g.Wait(); err != nil {
-		return err
+		return maskAny(err)
 	}
 	return nil
 }
@@ -104,8 +115,12 @@ func (s *Service) runServer(ctx context.Context) error {
 // runNodeRegistration keeps registering the node at the registry.
 func (s *Service) runNodeRegistration(ctx context.Context) {
 	delay := time.Second
+	nodeAddress := net.JoinHostPort(s.myIP, strconv.Itoa(s.Config.Port))
 	for {
-		if _, err := s.nodeRegistry.RegisterNode(ctx, &local.RegisterNodeRequest{}); err != nil {
+		if _, err := s.nodeRegistry.RegisterNode(ctx, &local.RegisterNodeRequest{
+			Name:        s.Config.NodeName,
+			NodeAddress: nodeAddress,
+		}); err != nil {
 			s.log.Error().Err(err).Msg("Failed to register node")
 			delay = util.Backoff(delay, 1.5, time.Second*15)
 		} else {
@@ -122,21 +137,13 @@ func (s *Service) runNodeRegistration(ctx context.Context) {
 }
 
 // CreateFileView returns a view on the given file identified by the given URI.
-func (s *Service) CreateFileView(ctx context.Context, req *fs.CreateFileViewRequest) (*fs.CreateFileViewResponse, error) {
-	// Parse URI
-	uri, err := url.Parse(req.GetURI())
-	if err != nil {
-		s.log.Debug().Err(err).Msg("Failed to parse URI")
-		return nil, err
-	}
-	//nodeName := uri.Host
-	//uid := strings.TrimPrefix(uri.Path, "/")
-	localPath := uri.Fragment
-	//isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
+func (s *Service) CreateFileView(ctx context.Context, req *local.CreateFileViewRequest) (*fs.CreateFileViewResponse, error) {
+	// Fetch args
+	localPath := req.GetLocalPath()
 
 	log := s.log.With().
-		Str("uri", req.GetURI()).
 		Str("path", localPath).
+		Bool("preview", req.GetPreview()).
 		Logger()
 
 	// Read file

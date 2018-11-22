@@ -59,6 +59,10 @@ func (r *nodeRegistry) RegisterNode(ctx context.Context, req *RegisterNodeReques
 
 	nodeName := req.GetName()
 	nodeAddress := req.GetNodeAddress()
+	log := r.log.With().
+		Str("node", nodeName).
+		Str("address", nodeAddress).
+		Logger()
 
 	if e, found := r.nodes[nodeName]; found {
 		if e.Address != nodeAddress {
@@ -66,11 +70,13 @@ func (r *nodeRegistry) RegisterNode(ctx context.Context, req *RegisterNodeReques
 			e.Client = nil
 		}
 		e.ExpiresAt = time.Now().Add(nodeExpirationTimeout)
+		log.Debug().Msg("Updated existing node registration")
 	} else {
 		r.nodes[req.GetName()] = &nodeEntry{
-			Address:   req.GetNodeAddress(),
+			Address:   nodeAddress,
 			ExpiresAt: time.Now().Add(nodeExpirationTimeout),
 		}
+		log.Info().Msg("Registered new node")
 	}
 
 	return &empty.Empty{}, nil

@@ -19,18 +19,18 @@ package service
 import (
 	"context"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
 	fmt "fmt"
 	"log"
 	"net"
 
+	"golang.org/x/sync/errgroup"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,8 +44,14 @@ type Service struct {
 
 // FileSystemServer API
 type FileSystemServer interface {
+	// Full FileSystemServer API
 	fs.FileSystemServer
+
+	// Register any additional GRPC APIs
 	Register(*grpc.Server)
+
+	// Run the FileSystemServer until the given context is canceled
+	Run(context.Context) error
 }
 
 // APIDependencies provides some dependencies to API builder implementations
@@ -54,15 +60,17 @@ type APIDependencies struct {
 	client.Client
 	// Namespace in which this fs is running
 	Namespace string
+	// API scheme
+	Scheme *runtime.Scheme
 }
 
 // APIBuilder is an interface provided by a FileSystem implementation
 type APIBuilder interface {
-	NewFileSystem(deps APIDependencies) (FileSystemServer, error)
+	NewFileSystem(ctx context.Context, deps APIDependencies) (FileSystemServer, error)
 }
 
 // NewService creates a new Service instance.
-func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
+func NewService(config *rest.Config, scheme *runtime.Scheme, builder APIBuilder) (*Service, error) {
 	var c client.Client
 	ctx := context.Background()
 	if err := retry.Do(ctx, func(ctx context.Context) error {
@@ -83,8 +91,9 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 	deps := APIDependencies{
 		Client:    c,
 		Namespace: ns,
+		Scheme:    scheme,
 	}
-	fs, err := builder.NewFileSystem(deps)
+	fs, err := builder.NewFileSystem(ctx, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +105,17 @@ func NewService(config *rest.Config, builder APIBuilder) (*Service, error) {
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	g, lctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.runAPI(lctx) })
+	g.Go(func() error { return s.fs.Run(lctx) })
+	if err := g.Wait(); err != nil {
+		return maskAny(err)
+	}
+	return nil
+}
+
+// runAPI runs the GRPC server until the given context is canceled.
+func (s *Service) runAPI(ctx context.Context) error {
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

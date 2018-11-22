@@ -20,55 +20,132 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	grpc "google.golang.org/grpc"
-
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
+	grpc "google.golang.org/grpc"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
+	"github.com/AljabrIO/koalja-operator/pkg/util"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
 )
 
+const (
+	myContainerName = "fs-service"
+)
+
+// Config of the Local FS
+type Config struct {
+	// Name of the pod running this service
+	PodName string
+	// Namespace that contains the pod running this service
+	Namespace string
+	// LocalPathPrefix is the directory on nodes where volumes are created from
+	LocalPathPrefix string
+	// Name of the StorageClass used for volumes created here
+	StorageClassName string
+}
+
 type localFSBuilder struct {
-	log              zerolog.Logger
-	localPathPrefix  string
-	storageClassName string
+	log zerolog.Logger
+	Config
 }
 
 // NewLocalFileSystemBuilder creates a new builder that builds a local FS.
-func NewLocalFileSystemBuilder(log zerolog.Logger, localPathPrefix, storageClassName string) fssvc.APIBuilder {
+func NewLocalFileSystemBuilder(log zerolog.Logger, cfg Config) fssvc.APIBuilder {
 	return &localFSBuilder{
-		log:              log,
-		localPathPrefix:  localPathPrefix,
-		storageClassName: storageClassName,
+		log:    log,
+		Config: cfg,
 	}
 }
 
 // NewFileSystem builds a new local FS
-func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fssvc.FileSystemServer, error) {
+func (b *localFSBuilder) NewFileSystem(ctx context.Context, deps fssvc.APIDependencies) (fssvc.FileSystemServer, error) {
+	// Fetch my pod
+	var pod corev1.Pod
+	if err := retry.Do(ctx, func(ctx context.Context) error {
+		if err := deps.Client.Get(ctx, client.ObjectKey{Name: b.Config.PodName, Namespace: b.Config.Namespace}, &pod); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
+		b.log.Error().Err(err).Msg("Failed to get my own Pod")
+		return nil, maskAny(err)
+	}
+	// Find container image from image ID in container status
+	var image string
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == myContainerName {
+			image = util.ConvertImageID2Image(cs.ImageID)
+		}
+	}
+	if image == "" {
+		// Try lookup image from container spec
+		for _, c := range pod.Spec.Containers {
+			if c.Name == myContainerName {
+				image = c.Image
+			}
+		}
+	}
+	if image == "" {
+		b.log.Debug().Msg("No image found in my pod")
+		return nil, maskAny(fmt.Errorf("No image found in my pod"))
+	}
+
+	// Find owner of pod
+	var ownerName string
+	for _, owner := range pod.GetOwnerReferences() {
+		if owner.Kind == "StatefulSet" {
+			ownerName = owner.Name
+		}
+	}
+	if ownerName == "" {
+		b.log.Debug().Msg("No StatefulSet owner found in my pod")
+		return nil, maskAny(fmt.Errorf("No StatefulSet owner found in my pod"))
+	}
+
+	// Fetch StatefulSet
+	var sfs appsv1.StatefulSet
+	if err := retry.Do(ctx, func(ctx context.Context) error {
+		if err := deps.Client.Get(ctx, client.ObjectKey{Name: ownerName, Namespace: b.Config.Namespace}, &sfs); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
+		b.log.Error().Err(err).Msg("Failed to get StatefulSet that owns my own Pod")
+		return nil, maskAny(err)
+	}
+	port, err := constants.GetAPIPort()
+	if err != nil {
+		b.log.Debug().Err(err).Msg("Cannot get API port")
+		return nil, err
+	}
+	nodeRegistryAddress := net.JoinHostPort(sfs.Spec.ServiceName, strconv.Itoa(port))
+
 	// Ensure storageclass
 	bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 	stgClass := &storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
-			Name: b.storageClassName,
+			Name: b.StorageClassName,
 		},
 		VolumeBindingMode: &bindingMode,
 		Provisioner:       agentsv1alpha1.SchemeGroupVersion.Group + "/local-fs",
 	}
-	ctx := context.Background()
 	var found storagev1.StorageClass
 	if err := retry.Do(ctx, func(ctx context.Context) error {
 		if err := deps.Client.Get(ctx, client.ObjectKey{Name: stgClass.GetName()}, &found); err != nil {
@@ -88,11 +165,14 @@ func (b *localFSBuilder) NewFileSystem(deps fssvc.APIDependencies) (fssvc.FileSy
 	nodeRegistry := newNodeRegistry(b.log)
 
 	return &localFS{
-		APIDependencies:  deps,
-		log:              b.log,
-		localPathPrefix:  b.localPathPrefix,
-		storageClassName: b.storageClassName,
-		nodeRegistry:     nodeRegistry,
+		APIDependencies:     deps,
+		log:                 b.log,
+		Config:              b.Config,
+		nodeRegistry:        nodeRegistry,
+		nodeRegistryAddress: nodeRegistryAddress,
+		statefulSetName:     ownerName,
+		image:               image,
+		owner:               &sfs,
 	}, nil
 }
 
@@ -104,14 +184,34 @@ const (
 type localFS struct {
 	log zerolog.Logger
 	fssvc.APIDependencies
-	localPathPrefix  string
-	storageClassName string
-	nodeRegistry     *nodeRegistry
+	Config
+	nodeRegistry        *nodeRegistry
+	nodeRegistryAddress string
+	statefulSetName     string
+	image               string
+	owner               metav1.Object
 }
 
 // Register GRPC services
 func (lfs *localFS) Register(svr *grpc.Server) {
 	RegisterNodeRegistryServer(svr, lfs.nodeRegistry)
+}
+
+// Run until the given context is canceled
+func (lfs *localFS) Run(ctx context.Context) error {
+	log := lfs.log
+	for {
+		// Ensure node daemonset is up to date
+		if err := createOrUpdateNodeDaemonset(ctx, log, lfs.Client, nodeDaemonConfig{
+			Name:            lfs.statefulSetName,
+			Namespace:       lfs.Config.Namespace,
+			Image:           lfs.image,
+			RegistryAddress: lfs.nodeRegistryAddress,
+			NodeVolumePath:  lfs.Config.LocalPathPrefix,
+		}, lfs.owner, lfs.APIDependencies.Scheme); err != nil {
+			log.Error().Err(err).Msg("Failed to create/update node DaemonSet")
+		}
+	}
 }
 
 // CreateVolumeForWrite creates a PersistentVolume that can be used to
@@ -149,7 +249,7 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 
 	// Now create a unique local path of the node
 	uid := strings.ToLower(uniuri.New())
-	volumePath := filepath.Join(lfs.localPathPrefix, uid)
+	volumePath := filepath.Join(lfs.LocalPathPrefix, uid)
 
 	// Prepare storage quantity
 	q, err := resource.ParseQuantity("8Gi")
@@ -178,7 +278,7 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 				corev1.ResourceStorage: q,
 			},
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			StorageClassName:              lfs.storageClassName,
+			StorageClassName:              lfs.StorageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
 			},
@@ -270,7 +370,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 	}
 
 	// Create a PV
-	volumePath := filepath.Join(lfs.localPathPrefix, uid)
+	volumePath := filepath.Join(lfs.LocalPathPrefix, uid)
 	pv := &corev1.PersistentVolume{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "koalja-local-ro-" + strings.ToLower(uniuri.New()),
@@ -291,7 +391,7 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 				corev1.ResourceStorage: q,
 			},
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			StorageClassName:              lfs.storageClassName,
+			StorageClassName:              lfs.StorageClassName,
 			NodeAffinity: &corev1.VolumeNodeAffinity{
 				Required: createNodeSelector(nodeName),
 			},
@@ -328,9 +428,11 @@ func (lfs *localFS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRe
 		return nil, err
 	}
 	nodeName := uri.Host
-	//uid := strings.TrimPrefix(uri.Path, "/")
-	//localPath := uri.Fragment
+	uid := strings.TrimPrefix(uri.Path, "/")
+	localPath := uri.Fragment
 	//isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
+	volumePath := filepath.Join(lfs.LocalPathPrefix, uid)
+	fullPath := filepath.Join(volumePath, localPath)
 
 	// Find node client
 	c, err := lfs.nodeRegistry.GetNodeClient(ctx, nodeName)
@@ -343,7 +445,10 @@ func (lfs *localFS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRe
 	}
 
 	// Pass call through
-	resp, err := c.CreateFileView(ctx, req)
+	resp, err := c.CreateFileView(ctx, &CreateFileViewRequest{
+		LocalPath: fullPath,
+		Preview:   req.GetPreview(),
+	})
 	if err != nil {
 		log.Debug().Err(err).Str("node", nodeName).Msg("CreateFileView failed")
 		return nil, err

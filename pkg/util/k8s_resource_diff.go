@@ -225,6 +225,18 @@ func StatefulSetSpecEqual(prefix string, spec, actual appsv1.StatefulSetSpec) []
 	return PodTemplateSpecEqual(prefix+".template", spec.Template, actual.Template)
 }
 
+// DaemonSetEqual returns zero-length result when the given objects have the same specs.
+func DaemonSetEqual(spec, actual appsv1.DaemonSet) []Diff {
+	return append(
+		ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		DaemonSetSpecEqual("spec", spec.Spec, actual.Spec)...)
+}
+
+// DaemonSetSpecEqual returns zero-length result when the given objects have the same pod template specs.
+func DaemonSetSpecEqual(prefix string, spec, actual appsv1.DaemonSetSpec) []Diff {
+	return PodTemplateSpecEqual(prefix+".template", spec.Template, actual.Template)
+}
+
 // PodTemplateSpecEqual returns zero-length result when the given objects have the same pod specs.
 func PodTemplateSpecEqual(prefix string, spec, actual corev1.PodTemplateSpec) []Diff {
 	return append(

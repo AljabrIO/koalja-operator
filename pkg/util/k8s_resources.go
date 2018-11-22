@@ -214,3 +214,29 @@ func EnsureStatefulSet(ctx context.Context, log zerolog.Logger, client client.Cl
 
 	return nil
 }
+
+// EnsureDaemonSet creates of updates a DaemonSet.
+func EnsureDaemonSet(ctx context.Context, log zerolog.Logger, client client.Client, daemonSet *appsv1.DaemonSet, description string) error {
+	// Check if StatefulSet already exists
+	found := &appsv1.DaemonSet{}
+	if err := client.Get(ctx, types.NamespacedName{Name: daemonSet.Name, Namespace: daemonSet.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, daemonSet); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := DaemonSetEqual(*daemonSet, *found); len(diff) > 0 {
+			found.Spec = daemonSet.Spec
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

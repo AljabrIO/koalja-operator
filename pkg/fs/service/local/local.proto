@@ -34,7 +34,7 @@ service NodeRegistry {
 // Node is the API implemented by every node.
 service Node {
     // CreateFileView returns a view on the given file identified by the given URI.
-    rpc CreateFileView(fs.CreateFileViewRequest) returns (fs.CreateFileViewResponse);
+    rpc CreateFileView(CreateFileViewRequest) returns (fs.CreateFileViewResponse);
 }
 
 message RegisterNodeRequest {
@@ -42,4 +42,11 @@ message RegisterNodeRequest {
     string Name = 1;
     // Address of the Node API.
     string NodeAddress = 2;
+}
+
+message CreateFileViewRequest {
+    // The path of the node of the file to create a view for
+    string LocalPath = 1;
+    // If set, a small preview is returned instead of the full content
+    bool Preview = 2;
 }

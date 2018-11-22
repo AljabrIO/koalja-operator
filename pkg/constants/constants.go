@@ -54,6 +54,10 @@ const (
 	// name of the Pod to the running container.
 	EnvPodName = "KOALJA_POD_NAME"
 
+	// EnvPodIP is the name of the environment variable used to pass the
+	// IP address of the Pod to the running container.
+	EnvPodIP = "KOALJA_POD_IP"
+
 	// EnvDNSName is the name of the environment variable used to pass the
 	// DNS name of itself to a running agent.
 	EnvDNSName = "KOALJA_DNS_NAME"
@@ -196,6 +200,15 @@ func GetPodName() (string, error) {
 	ns := os.Getenv(EnvPodName)
 	if ns == "" {
 		return "", fmt.Errorf("Environment variable '%s' not set", EnvPodName)
+	}
+	return ns, nil
+}
+
+// GetPodIP loads the IP address of the pod in which the agent is running.
+func GetPodIP() (string, error) {
+	ns := os.Getenv(EnvPodIP)
+	if ns == "" {
+		return "", fmt.Errorf("Environment variable '%s' not set", EnvPodIP)
 	}
 	return ns, nil
 }
