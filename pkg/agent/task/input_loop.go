@@ -85,7 +85,7 @@ func (il *inputLoop) Run(ctx context.Context) error {
 			tis := tis // Bring in scope
 			stats := il.statistics.InputByName(tis.Name)
 			g.Go(func() error {
-				return il.watchInput(lctx, tis, stats)
+				return il.watchInput(lctx, il.spec.SnapshotPolicy, tis, stats)
 			})
 		}
 	} else {
@@ -181,29 +181,26 @@ func (il *inputLoop) execOnSnapshot(ctx context.Context, snapshot *InputSnapshot
 }
 
 // processAnnotatedValue the annotated value coming from the given input.
-func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedvalue.AnnotatedValue, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
-	snapshotPolicy := tis.SnapshotPolicy
+func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedvalue.AnnotatedValue, snapshotPolicy koalja.SnapshotPolicy, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics, ack func(context.Context, *annotatedvalue.AnnotatedValue) error) error {
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
-	if snapshotPolicy.IsAll() {
-		// Wait until snapshot has a place in the sequence of an annotated values for given input
-		for {
-			seqLen := il.snapshot.GetSequenceLengthForInput(tis.Name)
-			if seqLen < tis.GetMaxSequenceLength() {
-				// There is space available in the sequence to add at least 1 more annotated value
-				break
-			}
-			// Wait a bit
-			il.mutex.Unlock()
-			select {
-			case <-time.After(time.Millisecond * 50):
-				// Retry
-				il.mutex.Lock()
-			case <-ctx.Done():
-				// Context canceled
-				il.mutex.Lock()
-				return ctx.Err()
-			}
+	// Wait until snapshot has a place in the sequence of an annotated values for given input
+	for {
+		seqLen := il.snapshot.GetSequenceLengthForInput(tis.Name)
+		if seqLen < tis.GetMaxSequenceLength() {
+			// There is space available in the sequence to add at least 1 more annotated value
+			break
+		}
+		// Wait a bit
+		il.mutex.Unlock()
+		select {
+		case <-time.After(time.Millisecond * 50):
+			// Retry
+			il.mutex.Lock()
+		case <-ctx.Done():
+			// Context canceled
+			il.mutex.Lock()
+			return ctx.Err()
 		}
 	}
 
@@ -217,11 +214,6 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 		// Not all inputs have received sufficient annotated values yet
 		return nil
 	}
-	if il.executionCount > 0 && snapshotPolicy.IsLatest() {
-		// This input has a "Latest" policy and we've executed once or more,
-		// so no need to execute on this now.
-		return nil
-	}
 
 	// Clone the snapshot
 	clonedSnapshot := il.snapshot.Clone()
@@ -229,7 +221,7 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 
 	// Prepare snapshot for next execution
 	for _, inp := range il.spec.Inputs {
-		if inp.SnapshotPolicy.IsAll() {
+		if snapshotPolicy.IsAllNew() {
 			// Delete annotated value
 			il.snapshot.Delete(inp.Name)
 		} else {
@@ -250,7 +242,7 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 }
 
 // watchInput subscribes to the given input and gathers annotated values until the given context is canceled.
-func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics) error {
+func (il *inputLoop) watchInput(ctx context.Context, snapshotPolicy koalja.SnapshotPolicy, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics) error {
 	// Create client
 	address := il.inputAddressMap[tis.Name]
 
@@ -296,7 +288,7 @@ func (il *inputLoop) watchInput(ctx context.Context, tis koalja.TaskInputSpec, s
 				// Process annotated value (if any)
 				if av := resp.GetAnnotatedValue(); av != nil {
 					atomic.AddInt64(&stats.AnnotatedValuesReceived, 1)
-					if err := il.processAnnotatedValue(ctx, av, tis, stats, ack); err != nil {
+					if err := il.processAnnotatedValue(ctx, av, snapshotPolicy, tis, stats, ack); err != nil {
 						il.log.Error().Err(err).Msg("Failed to process annotated value")
 					}
 				}

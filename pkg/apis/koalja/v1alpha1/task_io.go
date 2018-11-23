@@ -22,51 +22,28 @@ import (
 )
 
 // TaskInputSpec holds the specification of a single input of a task.
-//
-// The task will execute when for the following condition is met for every input of the task.
-// - The number of fetched annotated values is >= MinSequenceLength.
-//
-// If the number of fetched annotated values equals to MaxSequenceLength
-// the following behavior applies:
-// - If SnapshotPolicy == "All", fetching annotated values for this input is
-//   paused (to be resumed after execution of the task).
-// - If SnapshotPolicy == "Latest", newly fetched annotated values replace
-//   the ones that have been fetched before.
-//   For example (MinSequenceLength=3, MaxSequenceLength=3, SnapshotPolicy="Latest"):
-//   If the sequence (of annotated values) for this input is A1,A2,A3
-//   then the arrival of A4 will change the sequence for this input to A2,A3,A4
-//   and A1 will be acknowledged.
 type TaskInputSpec struct {
 	// Name of the input
 	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Reference to the type of the input
 	TypeRef string `json:"typeRef" protobuf:"bytes,2,req,name=typeRef"`
-	// SnapshotPolicy determines how to sample annotated values into a tuple
-	// that is the input for task execution.
-	// Defaults to "All".
-	SnapshotPolicy InputSnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,3,opt,name=snapshotPolicy"`
+	// RequiredSequenceLength determines the minimum & maximum number of annotated values to fetch
+	// before this input is considered ready for execution.
+	// Semantics depend on the SnapshotPolicy of the task.
+	// Defaults to 1.
+	// If this value is set, MinSequenceLength & MaxSequenceLength are no longer used.
+	RequiredSequenceLength *int64 `json:"requiredSequenceLength,omitempty" protobuf:"bytes,6,req,name=requiredSequenceLength"`
 	// MinSequenceLength determines the minimum number of annotated values to fetch
 	// before this input is considered ready for execution.
+	// Semantics depend on the SnapshotPolicy of the task.
 	// Defaults to 1.
 	MinSequenceLength *int64 `json:"minSequenceLength,omitempty" protobuf:"bytes,4,req,name=minSequenceLength"`
 	// MaxSequenceLength determines the maximum number of annotated values to fetch
 	// before this input is considered ready for execution.
+	// Semantics depend on the SnapshotPolicy of the task.
 	// Defaults to MinSequenceLength.
 	MaxSequenceLength *int64 `json:"maxSequenceLength,omitempty" protobuf:"bytes,5,req,name=maxSequenceLength"`
 }
-
-// InputSnapshotPolicy determines how to sample annotated values into a tuple
-// that is the input for task execution.
-type InputSnapshotPolicy string
-
-const (
-	// InputSnapshotPolicyAll indicates that all annotated values of this input
-	// must yield the execution of the task.
-	InputSnapshotPolicyAll InputSnapshotPolicy = "All"
-	// InputSnapshotPolicyLatest indicates that all the latest annotated value of this input
-	// is used for the execution of the task.
-	InputSnapshotPolicyLatest InputSnapshotPolicy = "Latest"
-)
 
 // TaskOutputSpec holds the specification of a single output of a task
 type TaskOutputSpec struct {
@@ -97,28 +74,18 @@ const (
 
 // GetMinSequenceLength returns MinSequenceLength with a default of 1.
 func (tis TaskInputSpec) GetMinSequenceLength() int {
+	if tis.RequiredSequenceLength != nil {
+		return int(*tis.RequiredSequenceLength)
+	}
 	return int(util.Int64OrDefault(tis.MinSequenceLength, 1))
 }
 
 // GetMaxSequenceLength returns MaxSequenceLength with a default of MinSequenceLength.
 func (tis TaskInputSpec) GetMaxSequenceLength() int {
-	return int(util.Int64OrDefault(tis.MaxSequenceLength, int64(tis.GetMinSequenceLength())))
-}
-
-// IsAll returns true when the given policy is "All"
-func (isp InputSnapshotPolicy) IsAll() bool { return isp == InputSnapshotPolicyAll || isp == "" }
-
-// IsLatest returns true when the given policy is "Latest"
-func (isp InputSnapshotPolicy) IsLatest() bool { return isp == InputSnapshotPolicyLatest }
-
-// Validate that the given readiness is a valid value.
-func (isp InputSnapshotPolicy) Validate() error {
-	switch isp {
-	case InputSnapshotPolicyAll, InputSnapshotPolicyLatest, "":
-		return nil
-	default:
-		return errors.Wrapf(ErrValidation, "Invalid InputSnapshotPolicy '%s'", string(isp))
+	if tis.RequiredSequenceLength != nil {
+		return int(*tis.RequiredSequenceLength)
 	}
+	return int(util.Int64OrDefault(tis.MaxSequenceLength, int64(tis.GetMinSequenceLength())))
 }
 
 // Validate that the given readiness is a valid value.
@@ -154,9 +121,6 @@ func (tis TaskInputSpec) Validate(ps PipelineSpec) error {
 	}
 	if _, found := ps.TypeByName(tis.TypeRef); !found {
 		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tis.TypeRef)
-	}
-	if err := tis.SnapshotPolicy.Validate(); err != nil {
-		return maskAny(err)
 	}
 	return nil
 }

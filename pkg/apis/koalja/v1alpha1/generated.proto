@@ -115,20 +115,6 @@ message PipelineStatus {
 }
 
 // TaskInputSpec holds the specification of a single input of a task.
-//
-// The task will execute when for the following condition is met for every input of the task.
-// - The number of fetched annotated values is >= MinSequenceLength.
-//
-// If the number of fetched annotated values equals to MaxSequenceLength
-// the following behavior applies:
-// - If SnapshotPolicy == "All", fetching annotated values for this input is
-//   paused (to be resumed after execution of the task).
-// - If SnapshotPolicy == "Latest", newly fetched annotated values replace
-//   the ones that have been fetched before.
-//   For example (MinSequenceLength=3, MaxSequenceLength=3, SnapshotPolicy="Latest"):
-//   If the sequence (of annotated values) for this input is A1,A2,A3
-//   then the arrival of A4 will change the sequence for this input to A2,A3,A4
-//   and A1 will be acknowledged.
 message TaskInputSpec {
   // Name of the input
   optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
@@ -136,18 +122,22 @@ message TaskInputSpec {
   // Reference to the type of the input
   optional string typeRef = 2 [(gogoproto.customname) = "TypeRef", (gogoproto.nullable) = false];
 
-  // SnapshotPolicy determines how to sample annotated values into a tuple
-  // that is the input for task execution.
-  // Defaults to "All".
-  optional string snapshotPolicy = 3 [(gogoproto.casttype) = "InputSnapshotPolicy", (gogoproto.customname) = "SnapshotPolicy", (gogoproto.nullable) = false];
+  // RequiredSequenceLength determines the minimum & maximum number of annotated values to fetch
+  // before this input is considered ready for execution.
+  // Semantics depend on the SnapshotPolicy of the task.
+  // Defaults to 1.
+  // If this value is set, MinSequenceLength & MaxSequenceLength are no longer used.
+  optional int64 requiredSequenceLength = 6 [(gogoproto.customname) = "RequiredSequenceLength"];
 
   // MinSequenceLength determines the minimum number of annotated values to fetch
   // before this input is considered ready for execution.
+  // Semantics depend on the SnapshotPolicy of the task.
   // Defaults to 1.
   optional int64 minSequenceLength = 4 [(gogoproto.customname) = "MinSequenceLength"];
 
   // MaxSequenceLength determines the maximum number of annotated values to fetch
   // before this input is considered ready for execution.
+  // Semantics depend on the SnapshotPolicy of the task.
   // Defaults to MinSequenceLength.
   optional int64 maxSequenceLength = 5 [(gogoproto.customname) = "MaxSequenceLength"];
 }
@@ -185,6 +175,9 @@ message TaskSpec {
 
   // Executor holds the spec of the execution part of the task
   optional k8s.io.api.core.v1.Container executor = 5 [(gogoproto.customname) = "Executor"];
+
+  // Policy determining how inputs are aggregated into snapshots
+  optional string snapshotPolicy = 6 [(gogoproto.casttype) = "SnapshotPolicy", (gogoproto.customname) = "SnapshotPolicy", (gogoproto.nullable) = false];
 }
 
 // TypeSpec holds the specification of a single type of data

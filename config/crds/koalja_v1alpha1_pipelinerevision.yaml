@@ -54,8 +54,9 @@ spec:
                           type: integer
                         name:
                           type: string
-                        snapshotPolicy:
-                          type: string
+                        requiredSequenceLength:
+                          format: int64
+                          type: integer
                         typeRef:
                           type: string
                       required:
@@ -82,6 +83,8 @@ spec:
                       - ready
                       type: object
                     type: array
+                  snapshotPolicy:
+                    type: string
                   type:
                     type: string
                 required:
