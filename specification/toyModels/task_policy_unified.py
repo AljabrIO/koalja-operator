@@ -56,7 +56,7 @@ timed_out = False
 # Main TASK policy switch
 #
 
-policy = sys.argv[1] # [ "swap_new4old", "all_new", "sliding_window", "align_stamps" ]
+policy = sys.argv[1] # [ "swap_new4old", "all_new", "sliding_window", "align_stamps", "merge" ]
 
 #
 # Additional TASK policy tuning "knobs"
@@ -69,8 +69,8 @@ keep_stream_on_timeout = True
 
 # Choose policy: required XOR min/max/timeout
 
-required[0] = 3
-required[1] = 2
+required[0] = 1
+required[1] = 1
 required[2] = 1
 
 #
@@ -114,9 +114,9 @@ def CheckPolicy():
                 print("Error, sliding_window policy asks for slide[] window bigger than schema")
                 return False
 
-        if policy == "swap_new4old":
+        if policy == "swap_new4old" or policy == "merge":
             if required[index] != 1 or minfill[index] != 1:
-                print("Error, swap_old4new policy is ambiguous when required[] / minfill[] partition bigger 1")
+                print("Error, swap_old4new / merge policy is ambiguous when required[] / minfill[] partition bigger 1")
                 return False
 
     print("*")
@@ -158,6 +158,11 @@ def UpdateAnnotatedValue():
         # If empty swap_new4old, leave snapshot alone
 
         if policy == "swap_new4old" and data == "":
+            ready[index] = True
+            continue
+
+        if policy == "merge":
+            snapshot[index] = data
             ready[index] = True
             continue
 
@@ -225,8 +230,13 @@ def CommitSnapshot():
                 print (clock_time , "Error (timeout) - no exec - flushing partial inputs")
     else:
 
-        # This print is really RUN CONTAINER
-        print (clock_time , "commit/exec (filled)" + "(" , snapshot , ")")
+        if policy == "merge":
+            for index in range(0,maxlinks):
+                if snapshot[index] != "":
+                    print (clock_time , "commit/exec (queued)" + "(" , snapshot[index], ")")
+        else:
+            # This print is really RUN CONTAINER
+            print (clock_time , "commit/exec (filled)" + "(" , snapshot , ")")
 
     # clear previous data from links according to policy
     
@@ -240,6 +250,9 @@ def CommitSnapshot():
         
         if policy == "all_new":
             snapshot[index].clear()
+
+        if policy == "merge":
+            snapshot[index] = ""
             
         if policy == "sliding_window":
             if len(snapshot[index]) > 0:
