@@ -43,6 +43,11 @@ type TaskInputSpec struct {
 	// Semantics depend on the SnapshotPolicy of the task.
 	// Defaults to MinSequenceLength.
 	MaxSequenceLength *int64 `json:"maxSequenceLength,omitempty" protobuf:"bytes,5,req,name=maxSequenceLength"`
+	// Slide specifies the maximum number of annotated values to slide
+	// out of the current snapshot when task execution is done.
+	// This property is not relevant when task.SnapshotPolicy != SlidingWindow.
+	// Defaults to 1.
+	Slide *int64 `json:"slide,omitempty" protobuf:"bytes,7,req,name=slide"`
 }
 
 // TaskOutputSpec holds the specification of a single output of a task
@@ -88,6 +93,11 @@ func (tis TaskInputSpec) GetMaxSequenceLength() int {
 	return int(util.Int64OrDefault(tis.MaxSequenceLength, int64(tis.GetMinSequenceLength())))
 }
 
+// GetSlide returns Slide with a default of 1.
+func (tis TaskInputSpec) GetSlide() int {
+	return int(util.Int64OrDefault(tis.Slide, 1))
+}
+
 // Validate that the given readiness is a valid value.
 func (or OutputReadiness) Validate() error {
 	switch or {
@@ -106,7 +116,7 @@ func (or OutputReadiness) IsSucceeded() bool { return or == OutputReadySucceeded
 
 // Validate the task input in the context of the given pipeline spec.
 // Return an error when an issue is found, nil when all ok.
-func (tis TaskInputSpec) Validate(ps PipelineSpec) error {
+func (tis TaskInputSpec) Validate(ps PipelineSpec, ts TaskSpec) error {
 	if err := ValidateName(tis.Name); err != nil {
 		return maskAny(err)
 	}
@@ -118,6 +128,29 @@ func (tis TaskInputSpec) Validate(ps PipelineSpec) error {
 	}
 	if tis.GetMaxSequenceLength() < tis.GetMinSequenceLength() {
 		return errors.Wrapf(ErrValidation, "MaxSequenceLength must be >= MinSequenceLength")
+	}
+	switch ts.SnapshotPolicy {
+	case SnapshotPolicyAllNew:
+		// Min/Max is unrestricted
+	case SnapshotPolicySwapNew4Old:
+		// Min=Max=1
+		if tis.GetMinSequenceLength() != 1 {
+			return errors.Wrapf(ErrValidation, "MinSequenceLength must be equal to 1")
+		}
+		if tis.GetMaxSequenceLength() != 1 {
+			return errors.Wrapf(ErrValidation, "MaxSequenceLength must be equal to 1")
+		}
+	case SnapshotPolicySlidingWindow:
+		// Min=Max
+		if tis.GetMinSequenceLength() != tis.GetMaxSequenceLength() {
+			return errors.Wrapf(ErrValidation, "MaxSequenceLength must be equal to MinSequenceLength")
+		}
+	}
+	if tis.GetSlide() < 1 {
+		return errors.Wrapf(ErrValidation, "Slide must be >= 1")
+	}
+	if tis.GetSlide() > tis.GetMinSequenceLength() {
+		return errors.Wrapf(ErrValidation, "Slide must be <= MinSequenceLength")
 	}
 	if _, found := ps.TypeByName(tis.TypeRef); !found {
 		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tis.TypeRef)

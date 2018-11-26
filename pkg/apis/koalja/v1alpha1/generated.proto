@@ -140,6 +140,12 @@ message TaskInputSpec {
   // Semantics depend on the SnapshotPolicy of the task.
   // Defaults to MinSequenceLength.
   optional int64 maxSequenceLength = 5 [(gogoproto.customname) = "MaxSequenceLength"];
+
+  // Slide specifies the maximum number of annotated values to slide
+  // out of the current snapshot when task execution is done.
+  // This property is not relevant when task.SnapshotPolicy != SlidingWindow.
+  // Defaults to 1.
+  optional int64 slide = 7 [(gogoproto.customname) = "Slide"];
 }
 
 // TaskOutputSpec holds the specification of a single output of a task
