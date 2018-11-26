@@ -31,21 +31,21 @@ class Graph extends Component {
         stats: stats
       };
     });
-    let inputNodes = flatten(taskNodes.map(n => (n.task.inputs || []).map(x => ({
+    let inputNodes = flatten(taskNodes.map(n => (n.task.inputs || []).map((x, i, l) => ({
       name: `${n.task.name}/${x.name}`,
       category: 'input',
       x: n.x - n.symbolSize / 2,
-      y: n.y,
+      y: n.y - ((l.length/2) - (i + 0.5)) * n.symbolSize / 4,
       fixed: n.fixed,
       symbol: 'roundRect',
       stats: (n.stats.inputs || []).find(s => s.name === x.name),
       task: n.task
     }))));
-    let outputNodes = flatten(taskNodes.map(n => (n.task.outputs || []).map(x => ({
+    let outputNodes = flatten(taskNodes.map(n => (n.task.outputs || []).map((x, i, l) => ({
       name: `${n.task.name}/${x.name}`,
       category: 'output',
       x: n.x + n.symbolSize / 2,
-      y: n.y,
+      y: n.y - ((l.length/2) - (i + 0.5)) * n.symbolSize / 4,
       fixed: n.fixed,
       symbol: 'diamond',
       stats: (n.stats.outputs || []).find(s => s.name === x.name),
@@ -78,7 +78,8 @@ class Graph extends Component {
       return inputs.map(x => ({
         name: `${t.name}/${x.name}`,
         source: `${t.name}/${x.name}`,
-        target: t.name,
+        target: (x.mergeInto) ? `${t.name}/${x.mergeInto}` : t.name,
+        symbol: (x.mergeInto) ? ['none', 'arrow'] : undefined,
         value: 1
       }));
     }));
