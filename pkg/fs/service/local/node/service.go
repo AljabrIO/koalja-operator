@@ -19,6 +19,7 @@ package node
 import (
 	"context"
 	"io/ioutil"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -153,8 +154,11 @@ func (s *Service) CreateFileView(ctx context.Context, req *local.CreateFileViewR
 		return nil, err
 	}
 
+	// Detect content type
+	contentType := http.DetectContentType(content)
+
 	return &fs.CreateFileViewResponse{
 		Content:     content,
-		ContentType: "text/plain", // TODO
+		ContentType: contentType,
 	}, nil
 }
