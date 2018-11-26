@@ -42,7 +42,6 @@ func init() {
 	cmdMain.AddCommand(cmdDBQuery)
 
 	cmdDBQuery.Flags().StringVar(&dbQuery.LargeDataFolder, "target", "", "Directory to store large data files into")
-	cmdDBQuery.Flags().StringVar(&dbQuery.VolumeName, "volume-name", "", "Name of volume containing target")
 	cmdDBQuery.Flags().StringVar(&dbQuery.MountPath, "mount-path", "", "Mount path of volume containing target")
 	cmdDBQuery.Flags().StringVar(&dbQuery.NodeName, "node-name", "", "Name of node we're running on")
 	cmdDBQuery.Flags().StringVar(&dbQuery.OutputName, "output-name", "", "Name of output of the task we're serving")

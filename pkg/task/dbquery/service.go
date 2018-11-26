@@ -39,8 +39,6 @@ import (
 type Config struct {
 	// Local directory path where to drop large data files
 	LargeDataFolder string
-	// Name of volume that contains LargeDataFolder
-	VolumeName string
 	// Mount path of volume that contains LargeDataFolder
 	MountPath string
 	// Name of node we're running on
@@ -72,9 +70,6 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	// Check arguments
 	if cfg.LargeDataFolder == "" {
 		return nil, fmt.Errorf("LargeDataFolder expected")
-	}
-	if cfg.VolumeName == "" {
-		return nil, fmt.Errorf("VolumeName expected")
 	}
 	if cfg.MountPath == "" {
 		return nil, fmt.Errorf("MountPath expected")

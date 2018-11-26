@@ -116,19 +116,14 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 	} else if resp.GetVolumePath() != "" {
 		// Mount VolumePath as HostPath volume
-		var hostPathType corev1.HostPathType
-		if resp.GetIsDir() {
-			hostPathType = corev1.HostPathDirectory
-		} else {
-			hostPathType = corev1.HostPathFile
-		}
+		dirType := corev1.HostPathDirectoryOrCreate
 		// Add volume for the pod
 		vol := corev1.Volume{
 			Name: volName,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: resp.GetVolumePath(),
-					Type: &hostPathType,
+					Type: &dirType,
 				},
 			},
 		}
