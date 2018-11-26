@@ -33,10 +33,41 @@ type TaskSpec struct {
 	Outputs []TaskOutputSpec `json:"outputs" protobuf:"bytes,4,rep,name=outputs"`
 	// Executor holds the spec of the execution part of the task
 	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt,name=executor"`
+	// Policy determining how inputs are aggregated into snapshots
+	SnapshotPolicy SnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,6,opt,name=snapshotPolicy"`
 }
 
 // TaskType identifies a well know type of task.
 type TaskType string
+
+// SnapshotPolicy determines how to sample annotated values into a tuple
+// that is the input for task execution.
+type SnapshotPolicy string
+
+const (
+	// SnapshotPolicySwapNew4Old policy replaces old values in the snapshot with new
+	// values as soon as they come in.
+	SnapshotPolicySwapNew4Old SnapshotPolicy = "SwapNew4Old"
+	// SnapshotPolicyAllNew policy flushes all values when the task has been executed
+	// on a snapshot and starts filling all inputs from scratch.
+	SnapshotPolicyAllNew SnapshotPolicy = "AllNew"
+)
+
+// IsSwapNew4Old returns true when the given policy is "SwapNew4Old"
+func (sp SnapshotPolicy) IsSwapNew4Old() bool { return sp == SnapshotPolicySwapNew4Old }
+
+// IsAllNew returns true when the given policy is "AllNew"
+func (sp SnapshotPolicy) IsAllNew() bool { return sp == SnapshotPolicyAllNew || sp == "" }
+
+// Validate that the given readiness is a valid value.
+func (sp SnapshotPolicy) Validate() error {
+	switch sp {
+	case SnapshotPolicySwapNew4Old, SnapshotPolicyAllNew, "":
+		return nil
+	default:
+		return errors.Wrapf(ErrValidation, "Invalid SnapshotPolicy '%s'", string(sp))
+	}
+}
 
 // InputByName returns the input of the task that has the given name.
 // Returns false if not found.
@@ -97,17 +128,8 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 			return errors.Wrapf(ErrValidation, "Executor of task '%s' must have an image", ts.Name)
 		}
 	}
-	if len(ts.Inputs) > 0 {
-		hasAllPolicy := false
-		for _, ti := range ts.Inputs {
-			if ti.SnapshotPolicy.IsAll() {
-				hasAllPolicy = true
-				break
-			}
-		}
-		if !hasAllPolicy {
-			return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 input with an '%s' snapshot policy", ts.Name, InputSnapshotPolicyAll)
-		}
+	if err := ts.SnapshotPolicy.Validate(); err != nil {
+		return maskAny(err)
 	}
 	return nil
 }
