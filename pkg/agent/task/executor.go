@@ -336,7 +336,8 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 	var nodeName *string
 	var resources []runtime.Object
 	var outputProcessors []ExecutorOutputProcessor
-	for _, tis := range e.taskSpec.Inputs {
+	snapshotInputs := e.taskSpec.SnapshotInputs()
+	for _, tis := range snapshotInputs {
 		target := &ExecutorInputBuilderTarget{
 			Container: c,
 			Pod:       pod,

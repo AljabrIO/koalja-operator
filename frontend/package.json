@@ -20,7 +20,7 @@
   "devDependencies": {
     "react-scripts": "2.1.1"
   },
-  "proxy": "http://linecount.default.example.com",
+  "proxy": "http://linecount-mergeinto.default.example.com",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

@@ -146,6 +146,12 @@ message TaskInputSpec {
   // This property is not relevant when task.SnapshotPolicy != SlidingWindow.
   // Defaults to 1.
   optional int64 slide = 7 [(gogoproto.customname) = "Slide"];
+
+  // MergeInto specifies the name of another input of this task.
+  // If set, all annotated values that are coming in through this input are merge into
+  // the stream of annotated values coming in to the link with that name.
+  // Inputs that have MergeInto set will not yield any arguments for the task executor.
+  optional string mergeInto = 8 [(gogoproto.customname) = "MergeInto", (gogoproto.nullable) = false];
 }
 
 // TaskOutputSpec holds the specification of a single output of a task

@@ -47,6 +47,8 @@ spec:
                         maxSequenceLength:
                           format: int64
                           type: integer
+                        mergeInto:
+                          type: string
                         minSequenceLength:
                           format: int64
                           type: integer
