@@ -1,0 +1,55 @@
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: linecount-slide
+  namespace: default
+spec:
+  tasks:
+  - name: fileDropInput
+    outputs:
+    - name: droppedFile
+      typeRef: singleTextFile
+      ready: Auto
+    type: FileDrop
+  - name: removeDuplicates
+    inputs:
+    - name: inputFile
+      typeRef: singleTextFile
+    outputs:
+    - name: outputFile
+      typeRef: singleTextFile
+      ready: Succeeded
+    executor:
+      image: alpine:latest
+      command:
+      - /bin/sh 
+      - -c 
+      - "cat {{.inputs.inputFile.path }} | uniq > {{.outputs.outputFile.path}}"
+  - name: countLines
+    snapshotPolicy: SlidingWindow
+    inputs:
+    - name: inputFile
+      typeRef: singleTextFile
+      requiredSequenceLength: 4
+      slide: 2
+    outputs:
+    - name: outputFile
+      typeRef: singleTextFile
+      ready: Succeeded
+    executor:
+      image: alpine:latest
+      command:
+      - /bin/sh 
+      - -c 
+      - "cat {{ range .inputs.inputFile }} {{ .path }} {{ end }} | wc -l > {{.outputs.outputFile.path}}"
+  links:
+  - name: fromToToUniq
+    sourceRef: fileDropInput/droppedFile
+    destinationRef: removeDuplicates/inputFile
+  - name: fromUniqToCount
+    sourceRef: removeDuplicates/outputFile
+    destinationRef: countLines/inputFile
+  types:
+  - name: singleTextFile
+    protocol: File
+    format: Text

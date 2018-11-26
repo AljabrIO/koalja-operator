@@ -224,7 +224,12 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 		if snapshotPolicy.IsAllNew() {
 			// Delete annotated value
 			il.snapshot.Delete(inp.Name)
-		} else {
+		} else if snapshotPolicy.IsSlidingWindow() {
+			// Remove Slide number of values
+			il.snapshot.Slide(inp.Name, inp.GetSlide())
+			// No need to acknowledge remaining values
+			il.snapshot.RemoveAck(inp.Name)
+		} else if snapshotPolicy.IsSwapNew4Old() {
 			// Remove need to acknowledge annotated value
 			il.snapshot.RemoveAck(inp.Name)
 		}

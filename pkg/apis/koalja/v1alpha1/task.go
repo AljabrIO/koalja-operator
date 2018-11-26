@@ -51,6 +51,9 @@ const (
 	// SnapshotPolicyAllNew policy flushes all values when the task has been executed
 	// on a snapshot and starts filling all inputs from scratch.
 	SnapshotPolicyAllNew SnapshotPolicy = "AllNew"
+	// SnapshotPolicySlidingWindow policy flushes a specifies amount of values out
+	// of the snapshot when the task has been executed.
+	SnapshotPolicySlidingWindow SnapshotPolicy = "SlidingWindow"
 )
 
 // IsSwapNew4Old returns true when the given policy is "SwapNew4Old"
@@ -59,10 +62,13 @@ func (sp SnapshotPolicy) IsSwapNew4Old() bool { return sp == SnapshotPolicySwapN
 // IsAllNew returns true when the given policy is "AllNew"
 func (sp SnapshotPolicy) IsAllNew() bool { return sp == SnapshotPolicyAllNew || sp == "" }
 
+// IsSlidingWindow returns true when the given policy is "SlidingWindow"
+func (sp SnapshotPolicy) IsSlidingWindow() bool { return sp == SnapshotPolicySlidingWindow }
+
 // Validate that the given readiness is a valid value.
 func (sp SnapshotPolicy) Validate() error {
 	switch sp {
-	case SnapshotPolicySwapNew4Old, SnapshotPolicyAllNew, "":
+	case SnapshotPolicySwapNew4Old, SnapshotPolicyAllNew, SnapshotPolicySlidingWindow, "":
 		return nil
 	default:
 		return errors.Wrapf(ErrValidation, "Invalid SnapshotPolicy '%s'", string(sp))
@@ -103,13 +109,16 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 	if len(ts.Outputs) == 0 {
 		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 output", ts.Name)
 	}
+	if err := ts.SnapshotPolicy.Validate(); err != nil {
+		return maskAny(err)
+	}
 	names := make(map[string]struct{})
 	for _, x := range ts.Inputs {
 		if _, found := names[x.Name]; found {
 			return errors.Wrapf(ErrValidation, "Duplicate input name '%s' in task '%s'", x.Name, ts.Name)
 		}
 		names[x.Name] = struct{}{}
-		if err := x.Validate(ps); err != nil {
+		if err := x.Validate(ps, ts); err != nil {
 			return maskAny(err)
 		}
 	}
@@ -127,9 +136,6 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 		if ts.Executor.Image == "" {
 			return errors.Wrapf(ErrValidation, "Executor of task '%s' must have an image", ts.Name)
 		}
-	}
-	if err := ts.SnapshotPolicy.Validate(); err != nil {
-		return maskAny(err)
 	}
 	return nil
 }

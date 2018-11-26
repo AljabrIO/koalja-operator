@@ -55,6 +55,9 @@ spec:
                         requiredSequenceLength:
                           format: int64
                           type: integer
+                        slide:
+                          format: int64
+                          type: integer
                         typeRef:
                           type: string
                       required:

@@ -107,6 +107,19 @@ func (ip *inputPair) AckAll(ctx context.Context) error {
 	return nil
 }
 
+// Slide a given number of annotated value out of the sequence.
+// Does not acnowledge the annotated value!
+func (ip *inputPair) Slide(count int) {
+	l := len(ip.sequence)
+	if count < l {
+		// Slice so the remaining values are left
+		ip.sequence = ip.sequence[count:]
+	} else {
+		// All values must be slided out
+		ip.sequence = nil
+	}
+}
+
 // RemoveAck removes the acknowledge callback for all annotated values in the sequence.
 func (ip *inputPair) RemoveAck() {
 	for i := range ip.sequence {
@@ -187,6 +200,15 @@ func (s *InputSnapshot) Set(ctx context.Context, inputName string, av *annotated
 // Does not acnowledge the annotated value!
 func (s *InputSnapshot) Delete(inputName string) {
 	delete(s.m(), inputName)
+}
+
+// Slide a given number of annotated value out of the sequence for the given
+// input name.
+// Does not acnowledge the annotated value!
+func (s *InputSnapshot) Slide(inputName string, count int) {
+	if x, found := s.m()[inputName]; found {
+		x.Slide(count)
+	}
 }
 
 // RemoveAck removes the acknowledge callback for the annotated value at the given input name.
