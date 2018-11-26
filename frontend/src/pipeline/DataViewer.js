@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
-import { Button, Embed, Modal } from 'semantic-ui-react';
+import { Button, Modal } from 'semantic-ui-react';
 import api from '../api/api';
 import contentType from 'content-type';
+import { Highlight } from 'react-fast-highlight';
+import hjs from 'highlight.js';
 
 let isText = (x) => {
   const ct = contentType.parse(x || "");
@@ -59,16 +61,17 @@ class DataViewer extends Component {
     if (!data) {
       return (<div>empty...</div>)
     }
+    let langs = hjs.listLanguages();
+    console.log(langs);
     let content = this.state.content;
     if (content) {
       return (
         <Modal trigger={<Button basic small="true" floated="right" circular icon="eye"/>}>
           <Modal.Header>Content</Modal.Header>
           <Modal.Content scrolling>
-            <Embed
-              active={true}
-              content={this.state.content}
-            />
+            <Highlight languages={langs}>
+              {this.state.content}
+            </Highlight>
           </Modal.Content>
         </Modal>
       );
