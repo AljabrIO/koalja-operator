@@ -86,6 +86,17 @@ func (ts TaskSpec) InputByName(name string) (TaskInputSpec, bool) {
 	return TaskInputSpec{}, false
 }
 
+// SnapshotInputs returns a list of inputs that we use in the building of snapshots (leave out ones with MergeInto)
+func (ts TaskSpec) SnapshotInputs() []TaskInputSpec {
+	snapshotInputs := make([]TaskInputSpec, 0, len(ts.Inputs))
+	for _, i := range ts.Inputs {
+		if !i.HasMergeInto() {
+			snapshotInputs = append(snapshotInputs, i)
+		}
+	}
+	return snapshotInputs
+}
+
 // OutputByName returns the output of the task that has the given name.
 // Returns false if not found.
 func (ts TaskSpec) OutputByName(name string) (TaskOutputSpec, bool) {

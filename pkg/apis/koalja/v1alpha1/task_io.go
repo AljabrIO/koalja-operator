@@ -48,6 +48,11 @@ type TaskInputSpec struct {
 	// This property is not relevant when task.SnapshotPolicy != SlidingWindow.
 	// Defaults to 1.
 	Slide *int64 `json:"slide,omitempty" protobuf:"bytes,7,req,name=slide"`
+	// MergeInto specifies the name of another input of this task.
+	// If set, all annotated values that are coming in through this input are merge into
+	// the stream of annotated values coming in to the link with that name.
+	// Inputs that have MergeInto set will not yield any arguments for the task executor.
+	MergeInto string `json:"mergeInto,omitempty" protobuf:"bytes,8,req,name=mergeInto"`
 }
 
 // TaskOutputSpec holds the specification of a single output of a task
@@ -96,6 +101,11 @@ func (tis TaskInputSpec) GetMaxSequenceLength() int {
 // GetSlide returns Slide with a default of 1.
 func (tis TaskInputSpec) GetSlide() int {
 	return int(util.Int64OrDefault(tis.Slide, 1))
+}
+
+// HasMergeInto returns true if MergeInto is set to a non-empty value.
+func (tis TaskInputSpec) HasMergeInto() bool {
+	return tis.MergeInto != ""
 }
 
 // Validate that the given readiness is a valid value.
@@ -154,6 +164,18 @@ func (tis TaskInputSpec) Validate(ps PipelineSpec, ts TaskSpec) error {
 	}
 	if _, found := ps.TypeByName(tis.TypeRef); !found {
 		return errors.Wrapf(ErrValidation, "TypeRef '%s' not found", tis.TypeRef)
+	}
+	if tis.HasMergeInto() {
+		if mergeInto, found := ts.InputByName(tis.MergeInto); !found {
+			return errors.Wrapf(ErrValidation, "MergeInto input '%s' not found", tis.MergeInto)
+		} else if mergeInto.HasMergeInto() {
+			return errors.Wrapf(ErrValidation, "MergeInto refers to input '%s' that has also set MergeInto", tis.MergeInto)
+		} else if tis.TypeRef != mergeInto.TypeRef {
+			return errors.Wrapf(ErrValidation, "MergeInto refers to input '%s' that has another type", tis.MergeInto)
+		}
+		if tis.MergeInto == tis.Name {
+			return errors.Wrapf(ErrValidation, "MergeInto input '%s' must not use the name of the same input", tis.MergeInto)
+		}
 	}
 	return nil
 }

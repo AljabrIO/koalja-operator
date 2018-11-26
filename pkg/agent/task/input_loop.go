@@ -209,8 +209,11 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 		return err
 	}
 
+	// Build list of inputs that we use in the snapshot (leave out ones with MergeInto)
+	snapshotInputs := il.spec.SnapshotInputs()
+
 	// See if we should execute the task now
-	if !il.snapshot.IsReadyForExecution(len(il.spec.Inputs)) {
+	if !il.snapshot.IsReadyForExecution(len(snapshotInputs)) {
 		// Not all inputs have received sufficient annotated values yet
 		return nil
 	}
@@ -220,7 +223,7 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 	il.executionCount++
 
 	// Prepare snapshot for next execution
-	for _, inp := range il.spec.Inputs {
+	for _, inp := range snapshotInputs {
 		if snapshotPolicy.IsAllNew() {
 			// Delete annotated value
 			il.snapshot.Delete(inp.Name)
@@ -250,6 +253,10 @@ func (il *inputLoop) processAnnotatedValue(ctx context.Context, av *annotatedval
 func (il *inputLoop) watchInput(ctx context.Context, snapshotPolicy koalja.SnapshotPolicy, tis koalja.TaskInputSpec, stats *tracking.TaskInputStatistics) error {
 	// Create client
 	address := il.inputAddressMap[tis.Name]
+	tisOut := tis
+	if tis.HasMergeInto() {
+		tisOut, _ = il.spec.InputByName(tis.MergeInto)
+	}
 
 	// Prepare loop
 	subscribeAndReadLoop := func(ctx context.Context, c avclient.AnnotatedValueSourceClient) error {
@@ -293,7 +300,7 @@ func (il *inputLoop) watchInput(ctx context.Context, snapshotPolicy koalja.Snaps
 				// Process annotated value (if any)
 				if av := resp.GetAnnotatedValue(); av != nil {
 					atomic.AddInt64(&stats.AnnotatedValuesReceived, 1)
-					if err := il.processAnnotatedValue(ctx, av, snapshotPolicy, tis, stats, ack); err != nil {
+					if err := il.processAnnotatedValue(ctx, av, snapshotPolicy, tisOut, stats, ack); err != nil {
 						il.log.Error().Err(err).Msg("Failed to process annotated value")
 					}
 				}
