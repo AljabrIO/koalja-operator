@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,7 +33,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -251,49 +251,8 @@ func (lfs *localFS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolu
 	uid := strings.ToLower(uniuri.New())
 	volumePath := filepath.Join(lfs.LocalPathPrefix, uid)
 
-	// Prepare storage quantity
-	q, err := resource.ParseQuantity("8Gi")
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a PV
-	pv := &corev1.PersistentVolume{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "koalja-local-" + uid,
-			Labels: map[string]string{
-				uidKey: uid,
-			},
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			PersistentVolumeSource: corev1.PersistentVolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: volumePath,
-				},
-			},
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
-			},
-			Capacity: corev1.ResourceList{
-				corev1.ResourceStorage: q,
-			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			StorageClassName:              lfs.StorageClassName,
-			NodeAffinity: &corev1.VolumeNodeAffinity{
-				Required: createNodeSelector(nodeName),
-			},
-		},
-	}
-	if owner := req.GetOwner(); owner != nil {
-		pv.ObjectMeta.SetOwnerReferences(append(pv.ObjectMeta.GetOwnerReferences(), *owner))
-	}
-	if err := lfs.Client.Create(ctx, pv); err != nil {
-		log.Warn().Err(err).Msg("Failed to create PersistentVolume")
-		return nil, err
-	}
-
 	return &fs.CreateVolumeForWriteResponse{
-		VolumeName:     pv.GetName(),
+		VolumePath:     volumePath,
 		NodeName:       nodeName,
 		DeleteAfterUse: true,
 	}, nil
@@ -304,6 +263,7 @@ func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequ
 	log := lfs.log.With().
 		Str("scheme", req.GetScheme()).
 		Str("volName", req.GetVolumeName()).
+		Str("volPath", req.GetVolumePath()).
 		Str("nodeName", req.GetNodeName()).
 		Str("localPath", req.GetLocalPath()).
 		Bool("isDir", req.IsDir).
@@ -321,14 +281,24 @@ func (lfs *localFS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIRequ
 		return nil, fmt.Errorf("NodeName cannot be empty")
 	}
 
-	// Read original PV
-	var originalPV corev1.PersistentVolume
-	if err := lfs.Client.Get(ctx, client.ObjectKey{Name: req.GetVolumeName()}, &originalPV); err != nil {
-		log.Warn().Msg("Failed to get PersistentVolume")
-		return nil, err
+	// Find UID
+	var uid string
+	if req.GetVolumeName() != "" {
+		// Read original PV
+		var originalPV corev1.PersistentVolume
+		if err := lfs.Client.Get(ctx, client.ObjectKey{Name: req.GetVolumeName()}, &originalPV); err != nil {
+			log.Warn().Msg("Failed to get PersistentVolume")
+			return nil, err
+		}
+		// Fetch UID
+		uid = originalPV.GetLabels()[uidKey]
+	} else if req.GetVolumePath() != "" {
+		// Extract UID from volume path
+		uid = path.Base(req.GetVolumePath())
+	} else {
+		// Invalid request
+		return nil, fmt.Errorf("VolumeName and VolumePath cannot both be empty")
 	}
-	// Fetch UID
-	uid := originalPV.GetLabels()[uidKey]
 
 	// Create URI
 	q := url.Values{}
@@ -363,50 +333,12 @@ func (lfs *localFS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolum
 	localPath := uri.Fragment
 	isDir, _ := strconv.ParseBool(uri.Query().Get(dirKey))
 
-	// Prepare storage quantity
-	q, err := resource.ParseQuantity("8Gi")
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a PV
+	// Create volume path
 	volumePath := filepath.Join(lfs.LocalPathPrefix, uid)
-	pv := &corev1.PersistentVolume{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "koalja-local-ro-" + strings.ToLower(uniuri.New()),
-			Labels: map[string]string{
-				uidKey: uid,
-			},
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			PersistentVolumeSource: corev1.PersistentVolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: volumePath,
-				},
-			},
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
-			},
-			Capacity: corev1.ResourceList{
-				corev1.ResourceStorage: q,
-			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			StorageClassName:              lfs.StorageClassName,
-			NodeAffinity: &corev1.VolumeNodeAffinity{
-				Required: createNodeSelector(nodeName),
-			},
-		},
-	}
-	if owner := req.GetOwner(); owner != nil {
-		pv.ObjectMeta.SetOwnerReferences(append(pv.ObjectMeta.GetOwnerReferences(), *owner))
-	}
-	if err := lfs.Client.Create(ctx, pv); err != nil {
-		log.Warn().Err(err).Msg("Failed to create PersistentVolume")
-		return nil, err
-	}
 
+	// Return response
 	return &fs.CreateVolumeForReadResponse{
-		VolumeName:     pv.GetName(),
+		VolumePath:     volumePath,
 		NodeName:       nodeName,
 		LocalPath:      localPath,
 		IsDir:          isDir,

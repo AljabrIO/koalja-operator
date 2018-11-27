@@ -42,6 +42,7 @@ func init() {
 
 	cmdFileDrop.Flags().StringVar(&fileDrop.DropFolder, "target", "", "Directory to drop files into")
 	cmdFileDrop.Flags().StringVar(&fileDrop.VolumeName, "volume-name", "", "Name of volume containing target")
+	cmdFileDrop.Flags().StringVar(&fileDrop.VolumePath, "volume-path", "", "Path of volume containing target")
 	cmdFileDrop.Flags().StringVar(&fileDrop.MountPath, "mount-path", "", "Mount path of volume containing target")
 	cmdFileDrop.Flags().StringVar(&fileDrop.NodeName, "node-name", "", "Name of node we're running on")
 	cmdFileDrop.Flags().StringVar(&fileDrop.OutputName, "output-name", "", "Name of output of the task we're serving")

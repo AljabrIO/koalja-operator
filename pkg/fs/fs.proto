@@ -56,6 +56,9 @@ message CreateVolumeForWriteResponse {
     string NodeName = 2;
     // If set, the caller must delete the PersistentVolume after use
     bool DeleteAfterUse = 3;
+    // Path of Node that contains the Volume (as HostPath volume)
+    // Either VolumeName or VolumePath must be set, not both.
+    string VolumePath = 4;
 }
 
 // CreateFileURIRequest contains arguments for CreateFileURI
@@ -66,10 +69,13 @@ message CreateFileURIRequest {
     string VolumeName = 2;
     // Name of the Node on which the volume resides
     string NodeName = 3;
-    // Local path of the file/dir in the PersistentVolume
+    // Local path of the file/dir in the Volume
     string LocalPath = 4;
     // IsDir indicates if the URI is for a file (false) or a directory (true)
     bool IsDir = 5;
+    // Path of Node that contains the Volume (as HostPath volume)
+    // Either VolumeName or VolumePath must be set, not both.
+    string VolumePath = 6;
 }
 
 // CreateFileURIRequest contains results for CreateFileURI
@@ -98,6 +104,9 @@ message CreateVolumeForReadResponse {
     bool IsDir = 4;
     // If set, the caller must delete the PersistentVolume after use
     bool DeleteAfterUse = 5;
+    // Path of Node that contains the Volume (as HostPath volume)
+    // Either VolumeName or VolumePath must be set, not both.
+    string VolumePath = 6;
 }
 
 message CreateFileViewRequest {
