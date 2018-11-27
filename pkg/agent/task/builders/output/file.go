@@ -126,6 +126,19 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 			},
 		}
 		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+		// Ensure pod is schedule on node
+		if nodeName := resp.GetNodeName(); nodeName != "" {
+			if target.Pod.Spec.NodeName == "" {
+				target.Pod.Spec.NodeName = nodeName
+			} else if target.Pod.Spec.NodeName != nodeName {
+				// Found conflict
+				deps.Log.Error().
+					Str("pod-nodeName", target.Pod.Spec.NodeName).
+					Str("pod-nodeNameRequest", nodeName).
+					Msg("Conflicting pod node spec")
+				return maskAny(fmt.Errorf("Conflicting Node assignment"))
+			}
+		}
 	} else {
 		// No valid respond
 		return maskAny(fmt.Errorf("FileSystem service return invalid response"))
