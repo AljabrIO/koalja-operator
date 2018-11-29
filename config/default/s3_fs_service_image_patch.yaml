@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: s3-fs
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      # Change the value of image field below to your fs image URL
+      - image: koalja:latest
+        name: fs-service

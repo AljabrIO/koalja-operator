@@ -48,10 +48,11 @@ var (
 		Long:  "Run filesystem node daemon",
 	}
 	fileSystemOptions struct {
-		Type             string
-		LocalPathPrefix  string
-		StorageClassName string
-		S3DaemonImage    string
+		Type              string
+		LocalPathPrefix   string
+		StorageClassName  string
+		S3MountPathPrefix string
+		S3DaemonImage     string
 	}
 	fileSystemNodeOptions node.Config
 )
@@ -63,6 +64,7 @@ func init() {
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Type, "filesystem", "", "Set filesystem type: local|s3")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.StorageClassName, "storageClassName", "", "Name of the StorageClass")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.LocalPathPrefix, "localPathPrefix", "/var/lib/koalja/local-fs", "Path prefix on nodes for volume storage")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.S3MountPathPrefix, "s3MountPathPrefix", "/var/lib/koalja/s3-fs", "Path prefix on nodes for volume storage")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.S3DaemonImage, "s3DaemonImage", "ewoutp/goofys", "Docker image used for S3 mount daemonset")
 
 	cmdFileSystemNode.Flags().IntVar(&fileSystemNodeOptions.Port, "port", 8080, "Port to listen on")
@@ -97,7 +99,7 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 		opts := s3.Config{
 			PodName:         os.Getenv(constants.EnvPodName),
 			Namespace:       os.Getenv(constants.EnvNamespace),
-			MountPathPrefix: fileSystemOptions.LocalPathPrefix,
+			MountPathPrefix: fileSystemOptions.S3MountPathPrefix,
 			DaemonImage:     fileSystemOptions.S3DaemonImage,
 		}
 		apiBuilder = s3.NewS3FileSystemBuilder(cliLog, opts)

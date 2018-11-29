@@ -79,6 +79,7 @@ func createOrUpdateNodeDaemonset(ctx context.Context, log zerolog.Logger, client
 	}
 
 	bidirectional := corev1.MountPropagationBidirectional
+	privileged := true
 	for bcIdx, bc := range cfg.Buckets {
 		// Create container for each bucket
 		volName := fmt.Sprintf("volume-%d", bcIdx)
@@ -122,6 +123,9 @@ func createOrUpdateNodeDaemonset(ctx context.Context, log zerolog.Logger, client
 						},
 					},
 				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &privileged,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				corev1.VolumeMount{

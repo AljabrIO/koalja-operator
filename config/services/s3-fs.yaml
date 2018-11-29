@@ -1,58 +1,55 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: koalja-local-fs-service
+  name: koalja-s3-fs-service
   namespace: system
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: koalja-local-fs-service
+  name: koalja-s3-fs-service
 rules:
 - apiGroups: [""]
-  resources: ["persistentvolumes", "persistentvolumeclaims", "endpoints", "events", "services"]
+  resources: ["endpoints", "events", "services"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "update"]
 - apiGroups: [""]
-  resources: ["secrets"]
+  resources: ["configmaps", "secrets"]
   verbs: ["get"]
 - apiGroups: [""]
-  resources: ["namespaces", "nodes"]
+  resources: ["namespaces"]
   verbs: ["get", "list"]
 - apiGroups: ["apps"]
   resources: ["daemonsets", "statefulsets"]
-  verbs: ["*"]
-- apiGroups: ["storage.k8s.io"]
-  resources: ["storageclasses"]
   verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: koalja-local-fs-service
+  name: koalja-s3-fs-service
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: koalja-local-fs-service
+  name: koalja-s3-fs-service
 subjects:
 - kind: ServiceAccount
-  name: koalja-local-fs-service
+  name: koalja-s3-fs-service
   namespace: system
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: local-fs-service
+  name: s3-fs-service
   namespace: system
   labels:
-    control-plane: local-fs
+    control-plane: s3-fs
     controller-tools.k8s.io: "1.0"
-    #koalja.aljabr.io/serviceType: FileSystem
+    koalja.aljabr.io/serviceType: FileSystem
 spec:
   selector:
-    control-plane: local-fs
+    control-plane: s3-fs
     controller-tools.k8s.io: "1.0"
   ports:
   - name: grpc-api
@@ -61,28 +58,28 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: local-fs
+  name: s3-fs
   namespace: system
   labels:
-    control-plane: local-fs
+    control-plane: s3-fs
     controller-tools.k8s.io: "1.0"
 spec:
   selector:
     matchLabels:
-      control-plane: local-fs
+      control-plane: s3-fs
       controller-tools.k8s.io: "1.0"
   serviceName: local-fs-service
   template:
     metadata:
       labels:
-        control-plane: local-fs
+        control-plane: s3-fs
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
       - command:
         - /apps/services
         - filesystem
-        - --filesystem=local
+        - --filesystem=s3
         image: koalja-services:latest
         name: fs-service
         resources:
@@ -103,5 +100,5 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-      serviceAccountName: koalja-local-fs-service
+      serviceAccountName: koalja-s3-fs-service
       terminationGracePeriodSeconds: 10

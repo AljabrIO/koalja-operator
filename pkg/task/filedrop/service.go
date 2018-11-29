@@ -68,9 +68,6 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	if cfg.MountPath == "" {
 		return nil, fmt.Errorf("MountPath expected")
 	}
-	if cfg.NodeName == "" {
-		return nil, fmt.Errorf("NodeName expected")
-	}
 	if cfg.OutputName == "" {
 		return nil, fmt.Errorf("OutputName expected")
 	}

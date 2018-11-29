@@ -207,9 +207,6 @@ func (s3fs *s3FS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIReques
 	if req.GetLocalPath() == "" {
 		return nil, fmt.Errorf("LocalPath cannot be empty")
 	}
-	if req.GetNodeName() == "" {
-		return nil, fmt.Errorf("NodeName cannot be empty")
-	}
 
 	// Find UID
 	var uid, mountPath string
