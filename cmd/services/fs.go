@@ -29,6 +29,7 @@ import (
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
 	"github.com/AljabrIO/koalja-operator/pkg/fs/service/local"
 	"github.com/AljabrIO/koalja-operator/pkg/fs/service/local/node"
+	"github.com/AljabrIO/koalja-operator/pkg/fs/service/s3"
 )
 
 // TODO: Add cleanup of files
@@ -47,8 +48,10 @@ var (
 		Long:  "Run filesystem node daemon",
 	}
 	fileSystemOptions struct {
-		Type  string
-		local local.Config
+		Type             string
+		LocalPathPrefix  string
+		StorageClassName string
+		S3DaemonImage    string
 	}
 	fileSystemNodeOptions node.Config
 )
@@ -57,9 +60,10 @@ func init() {
 	cmdMain.AddCommand(cmdFileSystem)
 	cmdFileSystem.AddCommand(cmdFileSystemNode)
 
-	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Type, "filesystem", "", "Set filesystem type: local")
-	cmdFileSystem.Flags().StringVar(&fileSystemOptions.local.StorageClassName, "storageClassName", "", "Name of the StorageClass")
-	cmdFileSystem.Flags().StringVar(&fileSystemOptions.local.LocalPathPrefix, "localPathPrefix", "/var/lib/koalja/local-fs", "Path prefix on nodes for volume storage")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Type, "filesystem", "", "Set filesystem type: local|s3")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.StorageClassName, "storageClassName", "", "Name of the StorageClass")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.LocalPathPrefix, "localPathPrefix", "/var/lib/koalja/local-fs", "Path prefix on nodes for volume storage")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.S3DaemonImage, "s3DaemonImage", "ewoutp/goofys", "Docker image used for S3 mount daemonset")
 
 	cmdFileSystemNode.Flags().IntVar(&fileSystemNodeOptions.Port, "port", 8080, "Port to listen on")
 	cmdFileSystemNode.Flags().StringVar(&fileSystemNodeOptions.RegistryAddress, "registry", "", "Address of the Node Registry")
@@ -79,12 +83,24 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 	var apiBuilder fssvc.APIBuilder
 	switch fileSystemOptions.Type {
 	case "local":
-		fileSystemOptions.local.PodName = os.Getenv(constants.EnvPodName)
-		fileSystemOptions.local.Namespace = os.Getenv(constants.EnvNamespace)
-		if fileSystemOptions.local.StorageClassName == "" {
-			fileSystemOptions.local.StorageClassName = "koalja-local-storage"
+		opts := local.Config{
+			PodName:          os.Getenv(constants.EnvPodName),
+			Namespace:        os.Getenv(constants.EnvNamespace),
+			LocalPathPrefix:  fileSystemOptions.LocalPathPrefix,
+			StorageClassName: fileSystemOptions.StorageClassName,
 		}
-		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, fileSystemOptions.local)
+		if opts.StorageClassName == "" {
+			opts.StorageClassName = "koalja-local-storage"
+		}
+		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, opts)
+	case "s3":
+		opts := s3.Config{
+			PodName:         os.Getenv(constants.EnvPodName),
+			Namespace:       os.Getenv(constants.EnvNamespace),
+			MountPathPrefix: fileSystemOptions.LocalPathPrefix,
+			DaemonImage:     fileSystemOptions.S3DaemonImage,
+		}
+		apiBuilder = s3.NewS3FileSystemBuilder(cliLog, opts)
 	default:
 		cliLog.Fatal().Str("filesystem", fileSystemOptions.Type).Msg("Unknown filesystem type")
 	}

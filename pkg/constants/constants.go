@@ -152,6 +152,18 @@ const (
 	// ConfigMapDomain is the name of the configmap that holds the domain
 	// name configuration.
 	ConfigMapDomain = "koalja-domain-config"
+
+	// ConfigMapS3Storage is the name of the configmap that holds the storage
+	// configuration for the S3 filesystem service.
+	ConfigMapS3Storage = "koalja-s3-storage-config"
+
+	// SecretKeyS3AccessKey is the name of the key used in a Secret to storage
+	// the access key of an S3 storage server.
+	SecretKeyS3AccessKey = "access-key"
+
+	// SecretKeyS3SecretKey is the name of the key used in a Secret to storage
+	// the secret key of an S3 storage server.
+	SecretKeyS3SecretKey = "secret-key"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name
