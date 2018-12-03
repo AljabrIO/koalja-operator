@@ -58,7 +58,7 @@ func cmdInstallRun(cmd *cobra.Command, args []string) {
 	}
 
 	// Ensure driver dir exists
-	driverDir := filepath.Join(installFlags.driverFolder, fmt.Sprintf("%s~%s", vendorName, driverName), driverName)
+	driverDir := filepath.Join(installFlags.driverFolder, fmt.Sprintf("%s~%s", vendorName, driverName))
 	if err := os.MkdirAll(driverDir, 0755); err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to ensure driver folder exists")
 	}
@@ -91,6 +91,6 @@ func cmdInstallRun(cmd *cobra.Command, args []string) {
 		cliLog.Fatal().Err(err).Msg("Failed to move to temporary executable file to target path")
 	}
 
-	// Wait forever 
+	// Wait forever
 	<-context.Background().Done()
 }
