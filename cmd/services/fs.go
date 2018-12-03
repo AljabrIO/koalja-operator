@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
+	"github.com/AljabrIO/koalja-operator/pkg/apis"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
 	"github.com/AljabrIO/koalja-operator/pkg/fs/service/local"
@@ -53,19 +54,29 @@ var (
 		StorageClassName  string
 		S3MountPathPrefix string
 		S3DaemonImage     string
+		volumePluginDir   string
 	}
 	fileSystemNodeOptions node.Config
+)
+
+const (
+	defaultVolumePluginDir = "/usr/libexec/kubernetes/kubelet-plugins/volume/exec/"
 )
 
 func init() {
 	cmdMain.AddCommand(cmdFileSystem)
 	cmdFileSystem.AddCommand(cmdFileSystemNode)
 
+	defVolumePluginDir := os.Getenv("FLEX_VOLUME_PLUGIN_DIR")
+	if defVolumePluginDir == "" {
+		defVolumePluginDir = defaultVolumePluginDir
+	}
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.Type, "filesystem", "", "Set filesystem type: local|s3")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.StorageClassName, "storageClassName", "", "Name of the StorageClass")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.LocalPathPrefix, "localPathPrefix", "/var/lib/koalja/local-fs", "Path prefix on nodes for volume storage")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.S3MountPathPrefix, "s3MountPathPrefix", "/var/lib/koalja/s3-fs", "Path prefix on nodes for volume storage")
 	cmdFileSystem.Flags().StringVar(&fileSystemOptions.S3DaemonImage, "s3DaemonImage", "ewoutp/goofys", "Docker image used for S3 mount daemonset")
+	cmdFileSystem.Flags().StringVar(&fileSystemOptions.volumePluginDir, "volume-plugin-dir", defVolumePluginDir, "Flex Volume driver folder")
 
 	cmdFileSystemNode.Flags().IntVar(&fileSystemNodeOptions.Port, "port", 8080, "Port to listen on")
 	cmdFileSystemNode.Flags().StringVar(&fileSystemNodeOptions.RegistryAddress, "registry", "", "Address of the Node Registry")
@@ -80,6 +91,9 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 
 	// Setup Scheme for all resources
 	scheme := scheme.Scheme
+	if err := apis.AddToScheme(scheme); err != nil {
+		cliLog.Fatal().Err(err).Msg("Failed to add API to scheme")
+	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	var apiBuilder fssvc.APIBuilder
@@ -106,7 +120,7 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 	default:
 		cliLog.Fatal().Str("filesystem", fileSystemOptions.Type).Msg("Unknown filesystem type")
 	}
-	svc, err := fssvc.NewService(cfg, scheme, apiBuilder)
+	svc, err := fssvc.NewService(cliLog, cfg, scheme, apiBuilder, fileSystemOptions.volumePluginDir)
 	if err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to create FileSystem service")
 	}

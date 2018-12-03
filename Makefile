@@ -12,6 +12,7 @@ OPERATORIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
 AGENTSIMG ?= $(DOCKERNAMESPACE)/koalja-agents:$(VERSION)
 SERVICESIMG ?= $(DOCKERNAMESPACE)/koalja-services:$(VERSION)
 TASKSIMG ?= $(DOCKERNAMESPACE)/koalja-tasks:$(VERSION)
+FLEXS3IMG ?= $(DOCKERNAMESPACE)/koalja-flex-s3:$(VERSION)
 
 # Frontend defines
 FRONTENDDIR := $(ROOTDIR)/frontend
@@ -44,7 +45,7 @@ test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager agents services tasks
+build: manager agents services tasks koalja-flex-s3
 
 # Build manager binary
 manager: bin/$(GOOS)/$(GOARCH)/manager
@@ -73,6 +74,13 @@ tasks: bin/$(GOOS)/$(GOARCH)/tasks
 bin/$(GOOS)/$(GOARCH)/tasks: generate fmt vet $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
+
+# Build s3 flex volume driver binary
+koalja-flex-s3: bin/$(GOOS)/$(GOARCH)/koalja-flex-s3
+
+bin/$(GOOS)/$(GOARCH)/koalja-flex-s3: generate fmt vet $(SOURCES) 
+	mkdir -p bin/$(GOOS)/$(GOARCH)/
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/koalja-flex-s3 $(GOMOD)/pkg/fs/service/s3/flexdriver
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -129,6 +137,7 @@ docker-build: check-vars build
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/agents/Dockerfile -t $(AGENTSIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/operator/Dockerfile -t $(OPERATORIMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/services/Dockerfile -t $(SERVICESIMG) .
+	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/services/Dockerfile.s3-flexdriver -t $(FLEXS3IMG) .
 	docker build --build-arg=GOARCH=$(GOARCH) -f ./docker/tasks/Dockerfile -t $(TASKSIMG) .
 
 # Push docker images
@@ -136,6 +145,7 @@ docker-push: docker-build
 	docker push $(AGENTSIMG)
 	docker push $(OPERATORIMG)
 	docker push $(SERVICESIMG)
+	docker push $(FLEXS3IMG)
 	docker push $(TASKSIMG)
 
 # Set image IDs in patch files
@@ -152,6 +162,7 @@ docker-patch-config:
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filedrop_executor_image_patch.yaml > ./config/default/$(VERSION)/filedrop_executor_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/filesplit_executor_image_patch.yaml > ./config/default/$(VERSION)/filesplit_executor_image_patch.yaml
 	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' ./config/default/jsonquery_executor_image_patch.yaml > ./config/default/$(VERSION)/jsonquery_executor_image_patch.yaml
+	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(FLEXS3IMG))"'!' ./config/default/flex_s3_image_patch.yaml > ./config/default/$(VERSION)/flex_s3_image_patch.yaml
 	cd config/default/$(VERSION) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base ".." && kustomize edit add patch "*_patch.yaml"
 
 bootstrap:
