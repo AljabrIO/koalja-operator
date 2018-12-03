@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -89,4 +90,7 @@ func cmdInstallRun(cmd *cobra.Command, args []string) {
 	if err := os.Rename(tmpPath, targetPath); err != nil {
 		cliLog.Fatal().Err(err).Msg("Failed to move to temporary executable file to target path")
 	}
+
+	// Wait forever 
+	<-context.Background().Done()
 }
