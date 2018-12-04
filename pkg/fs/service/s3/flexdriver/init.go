@@ -32,5 +32,10 @@ func init() {
 }
 
 func cmdInitRun(cmd *cobra.Command, args []string) {
-	sendOutput(FlexOutput{Status: FlexStatusSuccess})
+	sendOutput(FlexOutput{
+		Status: FlexStatusSuccess,
+		Capabilities: &FlexCapabilities{
+			Attach: false,
+		},
+	})
 }

@@ -18,10 +18,13 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -73,6 +76,20 @@ func kill(pid int, s os.Signal) (err error) {
 	return
 }
 
+func isMounted(mountDir string) (bool, error) {
+	// findmnt -n /mnt/test --output TARGET
+	c := exec.Command("findmnt", "-n", mountDir, "--output", "TARGET")
+	output, err := c.CombinedOutput()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); !ok {
+			// Not just exitcode 1
+			return false, err
+		}
+	}
+	result := strings.TrimSpace(string(output))
+	return result == mountDir, nil
+}
+
 // mount <mount dir> <json options>
 func cmdMountRun(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
@@ -101,14 +118,30 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 	if region == "" {
 		region = constants.DefaultFlexVolumeOptionS3Region
 	}
-	accessKey := requireJSONOpt(mountAccessKeyKey)
-	secretKey := requireJSONOpt(mountSecretKeyKey)
+	accessKeyBase64 := requireJSONOpt(mountAccessKeyKey)
+	secretKeyBase64 := requireJSONOpt(mountSecretKeyKey)
+	accessKey, _ := base64.StdEncoding.DecodeString(accessKeyBase64)
+	secretKey, _ := base64.StdEncoding.DecodeString(secretKeyBase64)
+
 	log := cliLog.With().
 		Str("endpoint", endpoint).
 		Str("bucket", bucket).
 		Str("region", region).
 		Str("mountpoint", mountDir).
+		Str("access-key", string(accessKey)).
+		Str("secret-key", string(secretKey)).
 		Logger()
+
+	// Test if mount already exists
+	if mounted, err := isMounted(mountDir); err != nil {
+		// isMounted check failed
+		sendOutput(FlexOutput{Status: FlexStatusFailure, Message: fmt.Sprintf("Unable to check mount status: %s", err)})
+		os.Exit(1)
+	} else if mounted {
+		// We're done
+		sendOutput(FlexOutput{Status: FlexStatusSuccess})
+		os.Exit(0)
+	}
 
 	// Now fork a child process
 	var wg sync.WaitGroup
@@ -131,6 +164,9 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 		wg.Wait()
 		defer ctx.Release()
 
+		// Ensure mountDir exists
+		os.MkdirAll(mountDir, 0755)
+
 		// Prepare to mount
 		config := goofys.Config{
 			MountPoint: mountDir,
@@ -138,8 +174,8 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 			FileMode:   0644,
 			Endpoint:   endpoint,
 			Region:     region,
-			AccessKey:  accessKey,
-			SecretKey:  secretKey,
+			AccessKey:  string(accessKey),
+			SecretKey:  string(secretKey),
 		}
 
 		log.Debug().Msg("Mounting...")
