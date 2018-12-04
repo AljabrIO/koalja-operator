@@ -173,6 +173,11 @@ const (
 	// to configure the bucket for an S3 flexvolume.
 	FlexVolumeOptionS3BucketKey = "bucket"
 
+	// FlexVolumeOptionS3RegionKey is the name of the option key used
+	// to configure the region for an S3 flexvolume.
+	FlexVolumeOptionS3RegionKey     = "region"
+	DefaultFlexVolumeOptionS3Region = "us-east-1"
+
 	// FlexVolumeS3VendorName is the vendor name of the S3 flexvolume driver.
 	FlexVolumeS3VendorName = "aljabrio"
 	// FlexVolumeS3DriverName is the driver name of the S3 flexvolume driver.

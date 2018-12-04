@@ -31,20 +31,26 @@ const (
 var (
 	cliLog  = util.MustCreateLogger()
 	cmdMain = &cobra.Command{
-		Use: driverName,
-		Run: cmdUsage,
+		Use:           driverName,
+		Run:           cmdUsage,
+		SilenceErrors: true,
 	}
 	notSupportedCommands = []string{"attach", "detach", "waitforattach", "isattached", "mountdevice", "unmountdevice"}
 )
 
-func main() {
-	cmdMain.Execute()
+func init() {
 	for _, use := range notSupportedCommands {
 		cmd := &cobra.Command{
 			Use: use,
 			Run: cmdNotSupported,
 		}
 		cmdMain.AddCommand(cmd)
+	}
+}
+
+func main() {
+	if err := cmdMain.Execute(); err != nil {
+		cmdNotSupported(nil, nil)
 	}
 }
 

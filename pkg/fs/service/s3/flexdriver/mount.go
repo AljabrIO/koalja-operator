@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -96,11 +97,16 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 	}
 	endpoint := requireJSONOpt(constants.FlexVolumeOptionS3EndpointKey)
 	bucket := requireJSONOpt(constants.FlexVolumeOptionS3BucketKey)
+	region := jsonOptions[constants.FlexVolumeOptionS3RegionKey]
+	if region == "" {
+		region = constants.DefaultFlexVolumeOptionS3Region
+	}
 	accessKey := requireJSONOpt(mountAccessKeyKey)
 	secretKey := requireJSONOpt(mountSecretKeyKey)
 	log := cliLog.With().
 		Str("endpoint", endpoint).
 		Str("bucket", bucket).
+		Str("region", region).
 		Str("mountpoint", mountDir).
 		Logger()
 
@@ -109,7 +115,9 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 	var waitedForSignal os.Signal
 	waitForSignal(&wg, &waitedForSignal)
 
-	ctx := new(daemon.Context)
+	ctx := &daemon.Context{
+		LogFileName: filepath.Join("/var/log/", driverName+".log"),
+	}
 	child, err := ctx.Reborn()
 	if err != nil {
 		sendOutput(FlexOutput{Status: FlexStatusFailure, Message: fmt.Sprintf("Unable to daemonize: %s", err)})
@@ -129,6 +137,7 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 			DirMode:    0755,
 			FileMode:   0644,
 			Endpoint:   endpoint,
+			Region:     region,
 			AccessKey:  accessKey,
 			SecretKey:  secretKey,
 		}
@@ -146,6 +155,7 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 			kill(os.Getppid(), syscall.SIGUSR1)
 			// Wait until mount terminates
 			mp.Join(context.Background())
+			log.Info().Msg("Mount removed")
 		}
 	} else {
 		// I'm running as parent process now.
