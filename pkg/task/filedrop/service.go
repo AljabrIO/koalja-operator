@@ -36,8 +36,12 @@ type Config struct {
 	DropFolder string
 	// Name of volume that contains DropFolder
 	VolumeName string
+	// Name of volume claim that contains DropFolder
+	VolumeClaimName string
 	// Path of volume that contains DropFolder
 	VolumePath string
+	// SubPath on the volume
+	SubPath string
 	// Mount path of volume that contains DropFolder
 	MountPath string
 	// Name of node we're running on
@@ -62,8 +66,8 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	if cfg.DropFolder == "" {
 		return nil, fmt.Errorf("DropFolder expected")
 	}
-	if cfg.VolumeName == "" && cfg.VolumePath == "" {
-		return nil, fmt.Errorf("VolumeName or VolumePath expected")
+	if cfg.VolumeName == "" && cfg.VolumeClaimName == "" && cfg.VolumePath == "" {
+		return nil, fmt.Errorf("VolumeName, VolumeClaimName or VolumePath expected")
 	}
 	if cfg.MountPath == "" {
 		return nil, fmt.Errorf("MountPath expected")

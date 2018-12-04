@@ -43,6 +43,14 @@ func cmdUnmountRun(cmd *cobra.Command, args []string) {
 	}
 	mountDir := args[0]
 
+	// Check is mountDir is actually mounted
+	isMounted, err := isMounted(mountDir)
+	if err == nil && !isMounted {
+		// umount is not needed
+		sendOutput(FlexOutput{Status: FlexStatusSuccess})
+		os.Exit(0)
+	}
+
 	// Call umount
 	c := exec.Command("umount", mountDir)
 	output, err := c.CombinedOutput()

@@ -129,17 +129,22 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 			target.Resources = append(target.Resources, &pvc)
 		}
 
-		// Add volume for the pod
-		vol := corev1.Volume{
-			Name: volName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: resp.GetVolumeClaimName(),
-					ReadOnly:  false,
+		// Add volume for the pod, unless such a volume already exists
+		if vol, found := util.GetVolumeWithForPVC(&target.Pod.Spec, resp.GetVolumeClaimName()); !found {
+			vol := corev1.Volume{
+				Name: volName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: resp.GetVolumeClaimName(),
+						ReadOnly:  false,
+					},
 				},
-			},
+			}
+			target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+		} else {
+			volName = vol.Name
+			vol.PersistentVolumeClaim.ReadOnly = false
 		}
-		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
 	} else if resp.GetVolumePath() != "" {
 		// Mount VolumePath as HostPath volume
 		dirType := corev1.HostPathDirectoryOrCreate

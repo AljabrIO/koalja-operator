@@ -90,12 +90,14 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp, err := s.fsClient.CreateFileURI(ctx, &fs.CreateFileURIRequest{
-		Scheme:     s.fsScheme,
-		VolumeName: s.VolumeName,
-		VolumePath: s.VolumePath,
-		NodeName:   s.NodeName,
-		LocalPath:  relLocalPath,
-		IsDir:      false,
+		Scheme:          s.fsScheme,
+		VolumeName:      s.VolumeName,
+		VolumeClaimName: s.VolumeClaimName,
+		VolumePath:      s.VolumePath,
+		SubPath:         s.SubPath,
+		NodeName:        s.NodeName,
+		LocalPath:       relLocalPath,
+		IsDir:           false,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create file URI")

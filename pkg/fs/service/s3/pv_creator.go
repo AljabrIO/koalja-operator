@@ -72,11 +72,12 @@ func createOrUpdatePersistentVolume(ctx context.Context, log zerolog.Logger, cli
 				FlexVolume: &corev1.FlexPersistentVolumeSource{
 					Driver: constants.FlexVolumeS3VendorName + "/" + constants.FlexVolumeS3DriverName,
 					SecretRef: &corev1.SecretReference{
-						Name: cfg.Bucket.SecretName,
+						Name:      cfg.Bucket.SecretName,
+						Namespace: cfg.Namespace,
 					},
 					Options: map[string]string{
 						constants.FlexVolumeOptionS3BucketKey:   cfg.Bucket.Name,
-						constants.FlexVolumeOptionS3EndpointKey: cfg.Bucket.Endpoint,
+						constants.FlexVolumeOptionS3EndpointKey: cfg.Bucket.EndpointAsURL(),
 					},
 				},
 			},

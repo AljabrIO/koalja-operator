@@ -21,6 +21,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"reflect"
 	"sort"
 	"strings"
@@ -99,6 +100,7 @@ func newStorageConfigFromConfigMap(ctx context.Context, configMap *corev1.Config
 		if err != nil {
 			return nil, err
 		}
+		bc.fixEndpoint()
 		bc.isDefault = k == "default"
 
 		// Try loading the secret
@@ -141,6 +143,16 @@ func newStorageConfigFromConfigMap(ctx context.Context, configMap *corev1.Config
 	return &sc, nil
 }
 
+// fixEndpoint removes the scheme from the endpoint
+func (bc *BucketConfig) fixEndpoint() {
+	if u, err := url.Parse(bc.Endpoint); err == nil {
+		bc.Endpoint = u.Host
+		if strings.ToLower(u.Scheme) == "https" {
+			bc.Secure = true
+		}
+	}
+}
+
 // hash returns a lower-case hash that uniquely identifies the bucket name & endpoint.
 func (bc BucketConfig) hash() string {
 	source := strings.ToLower(bc.Name + "/" + bc.Endpoint)
@@ -157,4 +169,13 @@ func (bc BucketConfig) PersistentVolumeName(prefix string) string {
 func (bc BucketConfig) Matches(endpoint, bucketName string) bool {
 	return strings.ToLower(endpoint) == strings.ToLower(bc.Endpoint) &&
 		strings.ToLower(bucketName) == strings.ToLower(bc.Name)
+}
+
+// EndpointAsURL returns the endpoint of the bucket including scheme.
+func (bc BucketConfig) EndpointAsURL() string {
+	prefix := "http://"
+	if bc.Secure {
+		prefix = "https://"
+	}
+	return prefix + bc.Endpoint
 }

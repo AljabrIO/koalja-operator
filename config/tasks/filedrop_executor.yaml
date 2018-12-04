@@ -15,8 +15,12 @@ spec:
     - "{{(index .outputs ((index .task.Outputs 0).Name)).path}}"
     - --volume-name
     - "{{(index .outputs ((index .task.Outputs 0).Name)).volumeName}}"
+    - --volume-claim-name
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).volumeClaimName}}"
     - --volume-path
     - "{{(index .outputs ((index .task.Outputs 0).Name)).volumePath}}"
+    - --sub-path
+    - "{{(index .outputs ((index .task.Outputs 0).Name)).subPath}}"
     - --mount-path
     - "{{(index .outputs ((index .task.Outputs 0).Name)).mountPath}}"
     - --node-name
