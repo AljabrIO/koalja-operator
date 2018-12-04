@@ -23,7 +23,9 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -90,6 +92,32 @@ func isMounted(mountDir string) (bool, error) {
 	return result == mountDir, nil
 }
 
+// Return the UID and GID of this process.
+func myUserAndGroup() (uid int, gid int, err error) {
+	// Ask for the current user.
+	user, err := user.Current()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// Parse UID.
+	uid64, err := strconv.ParseInt(user.Uid, 10, 32)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Parsing UID (%s): %v", user.Uid, err)
+	}
+
+	// Parse GID.
+	gid64, err := strconv.ParseInt(user.Gid, 10, 32)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Parsing GID (%s): %v", user.Gid, err)
+	}
+
+	uid = int(uid64)
+	gid = int(gid64)
+
+	return uid, gid, nil
+}
+
 // mount <mount dir> <json options>
 func cmdMountRun(cmd *cobra.Command, args []string) {
 	if len(args) < 2 {
@@ -128,9 +156,14 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 		Str("bucket", bucket).
 		Str("region", region).
 		Str("mountpoint", mountDir).
-		Str("access-key", string(accessKey)).
-		Str("secret-key", string(secretKey)).
 		Logger()
+
+	// Fetch UID/GID
+	/*uid, gid, err := myUserAndGroup()
+	if err != nil {
+		sendOutput(FlexOutput{Status: FlexStatusFailure, Message: fmt.Sprintf("Unable to fetch UID/GID: %s", err)})
+		os.Exit(1)
+	}*/
 
 	// Test if mount already exists
 	if mounted, err := isMounted(mountDir); err != nil {
@@ -172,10 +205,15 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 			MountPoint: mountDir,
 			DirMode:    0755,
 			FileMode:   0644,
-			Endpoint:   endpoint,
-			Region:     region,
-			AccessKey:  string(accessKey),
-			SecretKey:  string(secretKey),
+			//Uid:          uint32(uid),
+			//Gid:          uint32(gid),
+			StorageClass: "STANDARD",
+			DebugFuse:    true,
+			DebugS3:      true,
+			Endpoint:     endpoint,
+			Region:       region,
+			AccessKey:    string(accessKey),
+			SecretKey:    string(secretKey),
 		}
 
 		log.Debug().Msg("Mounting...")

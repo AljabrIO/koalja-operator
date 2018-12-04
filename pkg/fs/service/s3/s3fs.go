@@ -426,6 +426,13 @@ func (s3fs *s3FS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRequ
 		return nil, fmt.Errorf("Bucket cannot be found for given endpoint & name")
 	}
 
+	log = log.With().
+		Str("endpoint", endpoint).
+		Str("bucket", bucketName).
+		Str("access-key", bucket.accessKey). // TODO remove me
+		Str("secret-key", bucket.secretKey). // TODO remove me
+		Logger()
+
 	// Initialize minio client object.
 	mc, err := minio.New(endpoint, bucket.accessKey, bucket.secretKey, bucket.Secure)
 	if err != nil {

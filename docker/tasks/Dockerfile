@@ -1,5 +1,5 @@
 # Copy the binaries into the image
-FROM scratch
+FROM alpine
 ARG GOARCH=amd64
 
 WORKDIR /apps/

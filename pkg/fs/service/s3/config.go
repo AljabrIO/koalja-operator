@@ -117,7 +117,7 @@ func newStorageConfigFromConfigMap(ctx context.Context, configMap *corev1.Config
 		} else {
 			return nil, maskAny(fmt.Errorf("Config %#v refers to Secret '%s' that has no '%s' field", configMap.Data, bc.SecretName, constants.SecretKeyS3AccessKey))
 		}
-		if raw, found := secret.Data[constants.SecretKeyS3AccessKey]; found {
+		if raw, found := secret.Data[constants.SecretKeyS3SecretKey]; found {
 			bc.secretKey = string(raw)
 		} else {
 			return nil, maskAny(fmt.Errorf("Config %#v refers to Secret '%s' that has no '%s' field", configMap.Data, bc.SecretName, constants.SecretKeyS3SecretKey))
