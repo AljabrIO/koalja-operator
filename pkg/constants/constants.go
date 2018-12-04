@@ -164,6 +164,19 @@ const (
 	// SecretKeyS3SecretKey is the name of the key used in a Secret to storage
 	// the secret key of an S3 storage server.
 	SecretKeyS3SecretKey = "secret-key"
+
+	// FlexVolumeOptionS3EndpointKey is the name of the option key used
+	// to configure the endpoint for an S3 flexvolume.
+	FlexVolumeOptionS3EndpointKey = "endpoint"
+
+	// FlexVolumeOptionS3BucketKey is the name of the option key used
+	// to configure the bucket for an S3 flexvolume.
+	FlexVolumeOptionS3BucketKey = "bucket"
+
+	// FlexVolumeS3VendorName is the vendor name of the S3 flexvolume driver.
+	FlexVolumeS3VendorName = "aljabrio"
+	// FlexVolumeS3DriverName is the driver name of the S3 flexvolume driver.
+	FlexVolumeS3DriverName = "koalja-flex-s3"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

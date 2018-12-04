@@ -106,6 +106,54 @@ func ObjectMetaEqual(prefix string, spec, actual metav1.ObjectMeta) []Diff {
 		LabelsEqual(prefix+".labels", spec.GetLabels(), actual.GetLabels())...)
 }
 
+// PersistentVolumeEqual returns zero-length result when the given objects have the same specs.
+func PersistentVolumeEqual(spec, actual corev1.PersistentVolume) []Diff {
+	return append(
+		ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		PersistentVolumeSpecEqual("spec", spec.Spec, actual.Spec)...)
+}
+
+// PersistentVolumeClaimEqual returns zero-length result when the given objects have the same specs.
+func PersistentVolumeClaimEqual(spec, actual corev1.PersistentVolumeClaim) []Diff {
+	return append(
+		ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),
+		PersistentVolumeClaimSpecEqual("spec", spec.Spec, actual.Spec)...)
+}
+
+// PersistentVolumeSpecEqual returns zero-length result when the given objects have the same specs.
+func PersistentVolumeSpecEqual(prefix string, spec, actual corev1.PersistentVolumeSpec) []Diff {
+	return append(
+		AccessModesEqual(prefix+".accessModes", spec.AccessModes, actual.AccessModes),
+		PersistentVolumeSourceEqual(prefix, spec.PersistentVolumeSource, actual.PersistentVolumeSource)...)
+	// TODO compare remaining fields
+}
+
+// PersistentVolumeClaimSpecEqual returns zero-length result when the given objects have the same specs.
+func PersistentVolumeClaimSpecEqual(prefix string, spec, actual corev1.PersistentVolumeClaimSpec) []Diff {
+	return append(append(
+		AccessModesEqual(prefix+".accessModes", spec.AccessModes, actual.AccessModes),
+		StringEqual(prefix+"volumeName", spec.VolumeName, actual.VolumeName)...),
+		StringEqual(prefix+"storageClassName", StringOrDefault(spec.StorageClassName, "!"), StringOrDefault(actual.StorageClassName, "!"))...)
+	// TODO compare remaining fields
+}
+
+// AccessModesEqual returns zero-length result when the given objects have the same specs.
+func AccessModesEqual(prefix string, spec, actual []corev1.PersistentVolumeAccessMode) []Diff {
+	s, a := fmt.Sprintf("%s", spec), fmt.Sprintf("%s", actual)
+	if s != a {
+		return []Diff{Diff(fmt.Sprintf("%s: expected '%s', got '%s'", prefix, s, a))}
+	}
+	return nil
+}
+
+// PersistentVolumeSourceEqual returns zero-length result when the given objects have the same specs.
+func PersistentVolumeSourceEqual(prefix string, spec, actual corev1.PersistentVolumeSource) []Diff {
+	if !reflect.DeepEqual(spec, actual) {
+		return []Diff{Diff(fmt.Sprintf("%s: expected '%#v', got '%#v'", prefix, spec, actual))}
+	}
+	return nil
+}
+
 // ServiceAccountEqual returns zero-length result when the given objects have the same specs.
 func ServiceAccountEqual(spec, actual corev1.ServiceAccount) []Diff {
 	return ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta)

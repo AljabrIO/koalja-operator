@@ -23,18 +23,22 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dchest/uniuri"
+	"github.com/minio/minio-go"
 	"github.com/rs/zerolog"
 	grpc "google.golang.org/grpc"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	agentsv1alpha1 "github.com/AljabrIO/koalja-operator/pkg/apis/agents/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	fssvc "github.com/AljabrIO/koalja-operator/pkg/fs/service"
@@ -51,6 +55,8 @@ type Config struct {
 	PodName string
 	// Namespace that contains the pod running this service
 	Namespace string
+	// StorageClassName is the name of the StorageClass used for this FS
+	StorageClassName string
 	// MountPathPrefix is the directory on nodes where buckets are mounted from
 	MountPathPrefix string
 	// Image to use for the mount daemonset
@@ -108,18 +114,29 @@ func (b *s3FSBuilder) NewFileSystem(ctx context.Context, deps fssvc.APIDependenc
 		return nil, maskAny(err)
 	}
 
-	// Fetch StorageConfig
-	var storageConfig *StorageConfig
+	// Ensure storageclass
+	bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
+	stgClass := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: b.StorageClassName,
+		},
+		VolumeBindingMode: &bindingMode,
+		Provisioner:       agentsv1alpha1.SchemeGroupVersion.Group + "/s3-fs",
+	}
+	var found storagev1.StorageClass
 	if err := retry.Do(ctx, func(ctx context.Context) error {
-		var err error
-		storageConfig, err = NewStorageConfig(ctx, deps.Client, b.Config.Namespace)
-		if err != nil {
-			return maskAny(err)
+		if err := deps.Client.Get(ctx, client.ObjectKey{Name: stgClass.GetName()}, &found); err != nil {
+			// Create storage class
+			if err := deps.Client.Create(ctx, stgClass); err != nil {
+				return err
+			}
+		} else {
+			// TODO compare StorageClass and update if needed
 		}
 		return nil
 	}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
-		b.log.Error().Err(err).Msg("Failed to load Storage Config")
-		return nil, maskAny(err)
+		b.log.Error().Err(err).Msg("Failed to get/create StorageClass")
+		return nil, err
 	}
 
 	return &s3FS{
@@ -128,7 +145,6 @@ func (b *s3FSBuilder) NewFileSystem(ctx context.Context, deps fssvc.APIDependenc
 		Config:          b.Config,
 		statefulSetName: ownerName,
 		owner:           &sfs,
-		storageConfig:   storageConfig,
 	}, nil
 }
 
@@ -143,7 +159,10 @@ type s3FS struct {
 	Config
 	statefulSetName string
 	owner           metav1.Object
-	storageConfig   *StorageConfig
+	storageConfig   struct {
+		mutex   sync.Mutex
+		current StorageConfig
+	}
 }
 
 // Register GRPC services
@@ -155,15 +174,50 @@ func (s3fs *s3FS) Register(svr *grpc.Server) {
 func (s3fs *s3FS) Run(ctx context.Context) error {
 	log := s3fs.log
 	for {
-		// Ensure node daemonset is up to date
-		if err := createOrUpdateNodeDaemonset(ctx, log, s3fs.Client, nodeDaemonConfig{
-			Name:              s3fs.statefulSetName,
-			Namespace:         s3fs.Config.Namespace,
-			Image:             s3fs.Config.DaemonImage,
-			NodeRootMountPath: s3fs.Config.MountPathPrefix,
-			Buckets:           s3fs.storageConfig.Buckets,
-		}, s3fs.owner, s3fs.APIDependencies.Scheme); err != nil {
-			log.Error().Err(err).Msg("Failed to create/update node DaemonSet")
+		// Fetch StorageConfig
+		var storageConfig *StorageConfig
+		delay := time.Second * 5
+		if err := retry.Do(ctx, func(ctx context.Context) error {
+			var err error
+			storageConfig, err = NewStorageConfig(ctx, s3fs.Client, s3fs.Config.Namespace)
+			if err != nil {
+				return maskAny(err)
+			}
+			return nil
+		}, retry.Timeout(constants.TimeoutAPIServer)); err != nil {
+			log.Error().Err(err).Msg("Failed to load Storage Config")
+		} else {
+			// Update storage config
+			s3fs.storageConfig.mutex.Lock()
+			s3fs.storageConfig.current = *storageConfig
+			s3fs.storageConfig.mutex.Unlock()
+			if len(storageConfig.Buckets) > 0 {
+				delay = time.Minute
+			}
+		}
+
+		// Ensure PersistentVolumes are created for all buckets
+		s3fs.storageConfig.mutex.Lock()
+		buckets := s3fs.storageConfig.current.Buckets
+		s3fs.storageConfig.mutex.Unlock()
+		for _, b := range buckets {
+			if err := createOrUpdatePersistentVolume(ctx, log, s3fs.Client, pvConfig{
+				Name:             b.PersistentVolumeName(s3fs.statefulSetName),
+				Namespace:        s3fs.Config.Namespace,
+				StorageClassName: s3fs.Config.StorageClassName,
+				Bucket:           b,
+			}); err != nil {
+				log.Error().Err(err).Msg("Failed to create/update PersistentVolume")
+			}
+		}
+
+		// Wait a bit
+		select {
+		case <-time.After(delay):
+			// Continue
+		case <-ctx.Done():
+			// Context canceled
+			return nil
 		}
 	}
 }
@@ -177,14 +231,34 @@ func (s3fs *s3FS) CreateVolumeForWrite(ctx context.Context, req *fs.CreateVolume
 		Logger()
 	log.Debug().Msg("CreateVolumeForWrite request")
 
+	// Select bucket to use
+	s3fs.storageConfig.mutex.Lock()
+	buckets := s3fs.storageConfig.current.Buckets
+	s3fs.storageConfig.mutex.Unlock()
+	if len(buckets) == 0 {
+		return nil, maskAny(fmt.Errorf("No buckets configured"))
+	}
+	bucket := buckets[0]
+	pvcName := bucket.PersistentVolumeName(s3fs.statefulSetName)
+
+	// Ensure PVC exists in namespace
+	if err := createOrUpdatePersistentVolumeClaim(ctx, log, s3fs.Client, pvConfig{
+		Name:             pvcName,
+		Namespace:        req.GetNamespace(),
+		StorageClassName: s3fs.Config.StorageClassName,
+		Bucket:           bucket,
+	}); err != nil {
+		log.Debug().Err(err).Msg("Failed to create PersistentVolumeClaim")
+		return nil, maskAny(err)
+	}
+
 	// Now create a unique local path of the node
 	uid := strings.ToLower(uniuri.New())
-	bucketMountPath := s3fs.storageConfig.Buckets[0].NodeMountPoint(s3fs.Config.MountPathPrefix)
-	volumePath := filepath.Join(bucketMountPath, uid)
 
 	return &fs.CreateVolumeForWriteResponse{
-		VolumePath:     volumePath,
-		DeleteAfterUse: true,
+		VolumeClaimName: pvcName,
+		SubPath:         uid,
+		DeleteAfterUse:  false,
 	}, nil
 }
 
@@ -193,7 +267,9 @@ func (s3fs *s3FS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIReques
 	log := s3fs.log.With().
 		Str("scheme", req.GetScheme()).
 		Str("volName", req.GetVolumeName()).
+		Str("volClaimName", req.GetVolumeClaimName()).
 		Str("volPath", req.GetVolumePath()).
+		Str("subPath", req.GetSubPath()).
 		Str("nodeName", req.GetNodeName()).
 		Str("localPath", req.GetLocalPath()).
 		Bool("isDir", req.IsDir).
@@ -207,30 +283,35 @@ func (s3fs *s3FS) CreateFileURI(ctx context.Context, req *fs.CreateFileURIReques
 	if req.GetLocalPath() == "" {
 		return nil, fmt.Errorf("LocalPath cannot be empty")
 	}
-
-	// Find UID
-	var uid, mountPath string
-	if req.GetVolumePath() != "" {
-		// Extract UID from volume path
-		uid = path.Base(req.GetVolumePath())
-		mountPath = path.Dir(req.GetVolumePath())
-	} else {
-		// Invalid request
-		return nil, fmt.Errorf("VolumePath cannot be empty")
+	if req.GetVolumeClaimName() == "" {
+		return nil, fmt.Errorf("VolumeClaimName cannot be empty")
 	}
 
-	// Find bucket for mountpath
+	// Find UID
+	var uid string
+	if req.GetSubPath() != "" {
+		// Extract UID from volume path
+		uid = req.GetSubPath()
+	} else {
+		// Invalid request
+		return nil, fmt.Errorf("SubPath cannot be empty")
+	}
+
+	// Find bucket for PVC name
 	var bucket BucketConfig
 	foundBucket := false
-	for _, bc := range s3fs.storageConfig.Buckets {
-		if bc.NodeMountPoint(s3fs.Config.MountPathPrefix) == mountPath {
+	s3fs.storageConfig.mutex.Lock()
+	buckets := s3fs.storageConfig.current.Buckets
+	s3fs.storageConfig.mutex.Unlock()
+	for _, bc := range buckets {
+		if bc.PersistentVolumeName(s3fs.statefulSetName) == req.GetVolumeClaimName() {
 			bucket = bc
 			foundBucket = true
 			break
 		}
 	}
 	if !foundBucket {
-		return nil, fmt.Errorf("Bucket cannot be found for given VolumePath")
+		return nil, fmt.Errorf("Bucket cannot be found for given VolumeClaimName")
 	}
 
 	// Create URI
@@ -272,7 +353,10 @@ func (s3fs *s3FS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolumeF
 	// Find bucket for endpoint & name
 	var bucket BucketConfig
 	foundBucket := false
-	for _, bc := range s3fs.storageConfig.Buckets {
+	s3fs.storageConfig.mutex.Lock()
+	buckets := s3fs.storageConfig.current.Buckets
+	s3fs.storageConfig.mutex.Unlock()
+	for _, bc := range buckets {
 		if bc.Matches(endpoint, bucketName) {
 			bucket = bc
 			foundBucket = true
@@ -283,15 +367,25 @@ func (s3fs *s3FS) CreateVolumeForRead(ctx context.Context, req *fs.CreateVolumeF
 		return nil, fmt.Errorf("Bucket cannot be found for given endpoint & name")
 	}
 
-	// Create volume path
-	volumePath := filepath.Join(bucket.NodeMountPoint(s3fs.Config.MountPathPrefix), uid)
+	// Ensure PVC exists in namespace
+	pvcName := bucket.PersistentVolumeName(s3fs.statefulSetName)
+	if err := createOrUpdatePersistentVolumeClaim(ctx, log, s3fs.Client, pvConfig{
+		Name:             pvcName,
+		Namespace:        req.GetNamespace(),
+		StorageClassName: s3fs.Config.StorageClassName,
+		Bucket:           bucket,
+	}); err != nil {
+		log.Debug().Err(err).Msg("Failed to create PersistentVolumeClaim")
+		return nil, maskAny(err)
+	}
 
 	// Return response
 	return &fs.CreateVolumeForReadResponse{
-		VolumePath:     volumePath,
-		LocalPath:      localPath,
-		IsDir:          isDir,
-		DeleteAfterUse: true,
+		VolumeClaimName: bucket.PersistentVolumeName(s3fs.statefulSetName),
+		SubPath:         uid,
+		LocalPath:       localPath,
+		IsDir:           isDir,
+		DeleteAfterUse:  false,
 	}, nil
 }
 
@@ -318,7 +412,10 @@ func (s3fs *s3FS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRequ
 	// Find bucket for endpoint & name
 	var bucket BucketConfig
 	foundBucket := false
-	for _, bc := range s3fs.storageConfig.Buckets {
+	s3fs.storageConfig.mutex.Lock()
+	buckets := s3fs.storageConfig.current.Buckets
+	s3fs.storageConfig.mutex.Unlock()
+	for _, bc := range buckets {
 		if bc.Matches(endpoint, bucketName) {
 			bucket = bc
 			foundBucket = true
@@ -329,14 +426,26 @@ func (s3fs *s3FS) CreateFileView(ctx context.Context, req *fs.CreateFileViewRequ
 		return nil, fmt.Errorf("Bucket cannot be found for given endpoint & name")
 	}
 
-	// Create volume path
-	volumePath := filepath.Join(bucket.NodeMountPoint(s3fs.Config.MountPathPrefix), uid)
-	fullPath := filepath.Join(volumePath, localPath)
-
-	// Read file
-	content, err := ioutil.ReadFile(fullPath)
+	// Initialize minio client object.
+	mc, err := minio.New(endpoint, bucket.accessKey, bucket.secretKey, bucket.Secure)
 	if err != nil {
-		log.Debug().Err(err).Msg("Failed to read file")
+		log.Debug().Err(err).Msg("Failed to create minio client")
+		return nil, fmt.Errorf("Failed to create client for bucket")
+	}
+
+	// Fetch object
+	objectName := path.Join(uid, localPath)
+	obj, err := mc.GetObjectWithContext(ctx, bucket.Name, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to get object from storage")
+		return nil, fmt.Errorf("Failed to get object: %s", err)
+	}
+	defer obj.Close()
+
+	// Read the object
+	content, err := ioutil.ReadAll(obj)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to read object content")
 		return nil, err
 	}
 

@@ -24,3 +24,12 @@ func Int64OrDefault(valueRef *int64, defaultValue int64) int64 {
 	}
 	return *valueRef
 }
+
+// StringOrDefault returns the value referenced by the given reference
+// or the given default value if the given reference is nil.
+func StringOrDefault(valueRef *string, defaultValue string) string {
+	if valueRef == nil {
+		return defaultValue
+	}
+	return *valueRef
+}

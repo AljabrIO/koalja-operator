@@ -35,17 +35,19 @@ type CreateVolumeForWriteRequest struct {
 	// If not set, a random node is picked.
 	NodeName string `protobuf:"bytes,2,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
 	// If set and allow, this the PersistentVolume will be owned by this owner reference.
-	Owner                *v1.OwnerReference `protobuf:"bytes,3,opt,name=Owner" json:"Owner,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Owner *v1.OwnerReference `protobuf:"bytes,3,opt,name=Owner" json:"Owner,omitempty"`
+	// Namespace of the resources created for this request.
+	Namespace            string   `protobuf:"bytes,4,opt,name=Namespace,proto3" json:"Namespace,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *CreateVolumeForWriteRequest) Reset()         { *m = CreateVolumeForWriteRequest{} }
 func (m *CreateVolumeForWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForWriteRequest) ProtoMessage()    {}
 func (*CreateVolumeForWriteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{0}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{0}
 }
 func (m *CreateVolumeForWriteRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -95,17 +97,28 @@ func (m *CreateVolumeForWriteRequest) GetOwner() *v1.OwnerReference {
 	return nil
 }
 
+func (m *CreateVolumeForWriteRequest) GetNamespace() string {
+	if m != nil {
+		return m.Namespace
+	}
+	return ""
+}
+
 // CreateVolumeForWriteResponse contains results for CreateVolumeForWrite.
 type CreateVolumeForWriteResponse struct {
 	// Name of the created PersistentVolume
 	VolumeName string `protobuf:"bytes,1,opt,name=VolumeName,proto3" json:"VolumeName,omitempty"`
-	// Name of the Node on which the volume is created
-	NodeName string `protobuf:"bytes,2,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
-	// If set, the caller must delete the PersistentVolume after use
-	DeleteAfterUse bool `protobuf:"varint,3,opt,name=DeleteAfterUse,proto3" json:"DeleteAfterUse,omitempty"`
+	// Name of the PersistentVolumeClaim to mount
+	VolumeClaimName string `protobuf:"bytes,2,opt,name=VolumeClaimName,proto3" json:"VolumeClaimName,omitempty"`
 	// Path of Node that contains the Volume (as HostPath volume)
 	// Either VolumeName or VolumePath must be set, not both.
-	VolumePath           string   `protobuf:"bytes,4,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	VolumePath string `protobuf:"bytes,3,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	// SubPath to add to VolumeName, VolumeClaimName or VolumePath.
+	SubPath string `protobuf:"bytes,4,opt,name=SubPath,proto3" json:"SubPath,omitempty"`
+	// Name of the Node on which the volume is created
+	NodeName string `protobuf:"bytes,5,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
+	// If set, the caller must delete the PersistentVolume or PersistentVolumeClaim after use
+	DeleteAfterUse       bool     `protobuf:"varint,6,opt,name=DeleteAfterUse,proto3" json:"DeleteAfterUse,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -115,7 +128,7 @@ func (m *CreateVolumeForWriteResponse) Reset()         { *m = CreateVolumeForWri
 func (m *CreateVolumeForWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForWriteResponse) ProtoMessage()    {}
 func (*CreateVolumeForWriteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{1}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{1}
 }
 func (m *CreateVolumeForWriteResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -151,6 +164,27 @@ func (m *CreateVolumeForWriteResponse) GetVolumeName() string {
 	return ""
 }
 
+func (m *CreateVolumeForWriteResponse) GetVolumeClaimName() string {
+	if m != nil {
+		return m.VolumeClaimName
+	}
+	return ""
+}
+
+func (m *CreateVolumeForWriteResponse) GetVolumePath() string {
+	if m != nil {
+		return m.VolumePath
+	}
+	return ""
+}
+
+func (m *CreateVolumeForWriteResponse) GetSubPath() string {
+	if m != nil {
+		return m.SubPath
+	}
+	return ""
+}
+
 func (m *CreateVolumeForWriteResponse) GetNodeName() string {
 	if m != nil {
 		return m.NodeName
@@ -165,28 +199,25 @@ func (m *CreateVolumeForWriteResponse) GetDeleteAfterUse() bool {
 	return false
 }
 
-func (m *CreateVolumeForWriteResponse) GetVolumePath() string {
-	if m != nil {
-		return m.VolumePath
-	}
-	return ""
-}
-
 // CreateFileURIRequest contains arguments for CreateFileURI
 type CreateFileURIRequest struct {
 	// Scheme of the generated URI
 	Scheme string `protobuf:"bytes,1,opt,name=Scheme,proto3" json:"Scheme,omitempty"`
 	// Name of the PersistentVolume that contains the file/dir
 	VolumeName string `protobuf:"bytes,2,opt,name=VolumeName,proto3" json:"VolumeName,omitempty"`
-	// Name of the Node on which the volume resides
-	NodeName string `protobuf:"bytes,3,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
-	// Local path of the file/dir in the Volume
-	LocalPath string `protobuf:"bytes,4,opt,name=LocalPath,proto3" json:"LocalPath,omitempty"`
-	// IsDir indicates if the URI is for a file (false) or a directory (true)
-	IsDir bool `protobuf:"varint,5,opt,name=IsDir,proto3" json:"IsDir,omitempty"`
+	// Name of the PersistentVolumeClaim that contains the file/dir
+	VolumeClaimName string `protobuf:"bytes,3,opt,name=VolumeClaimName,proto3" json:"VolumeClaimName,omitempty"`
 	// Path of Node that contains the Volume (as HostPath volume)
-	// Either VolumeName or VolumePath must be set, not both.
-	VolumePath           string   `protobuf:"bytes,6,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	// One of VolumeName, VolumeClaimName or VolumePath must be set, not multiple.
+	VolumePath string `protobuf:"bytes,4,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	// SubPath to add to VolumeName or VolumePath.
+	SubPath string `protobuf:"bytes,5,opt,name=SubPath,proto3" json:"SubPath,omitempty"`
+	// Name of the Node on which the volume resides
+	NodeName string `protobuf:"bytes,6,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
+	// Local path of the file/dir in the Volume
+	LocalPath string `protobuf:"bytes,7,opt,name=LocalPath,proto3" json:"LocalPath,omitempty"`
+	// IsDir indicates if the URI is for a file (false) or a directory (true)
+	IsDir                bool     `protobuf:"varint,8,opt,name=IsDir,proto3" json:"IsDir,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -196,7 +227,7 @@ func (m *CreateFileURIRequest) Reset()         { *m = CreateFileURIRequest{} }
 func (m *CreateFileURIRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateFileURIRequest) ProtoMessage()    {}
 func (*CreateFileURIRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{2}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{2}
 }
 func (m *CreateFileURIRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -239,6 +270,27 @@ func (m *CreateFileURIRequest) GetVolumeName() string {
 	return ""
 }
 
+func (m *CreateFileURIRequest) GetVolumeClaimName() string {
+	if m != nil {
+		return m.VolumeClaimName
+	}
+	return ""
+}
+
+func (m *CreateFileURIRequest) GetVolumePath() string {
+	if m != nil {
+		return m.VolumePath
+	}
+	return ""
+}
+
+func (m *CreateFileURIRequest) GetSubPath() string {
+	if m != nil {
+		return m.SubPath
+	}
+	return ""
+}
+
 func (m *CreateFileURIRequest) GetNodeName() string {
 	if m != nil {
 		return m.NodeName
@@ -260,13 +312,6 @@ func (m *CreateFileURIRequest) GetIsDir() bool {
 	return false
 }
 
-func (m *CreateFileURIRequest) GetVolumePath() string {
-	if m != nil {
-		return m.VolumePath
-	}
-	return ""
-}
-
 // CreateFileURIRequest contains results for CreateFileURI
 type CreateFileURIResponse struct {
 	// The created URI
@@ -280,7 +325,7 @@ func (m *CreateFileURIResponse) Reset()         { *m = CreateFileURIResponse{} }
 func (m *CreateFileURIResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateFileURIResponse) ProtoMessage()    {}
 func (*CreateFileURIResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{3}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{3}
 }
 func (m *CreateFileURIResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -321,17 +366,19 @@ type CreateVolumeForReadRequest struct {
 	// The URI to read
 	URI string `protobuf:"bytes,1,opt,name=URI,proto3" json:"URI,omitempty"`
 	// If set and allow, this the PersistentVolume will be owned by this owner reference.
-	Owner                *v1.OwnerReference `protobuf:"bytes,2,opt,name=Owner" json:"Owner,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Owner *v1.OwnerReference `protobuf:"bytes,2,opt,name=Owner" json:"Owner,omitempty"`
+	// Namespace of the resources created for this request.
+	Namespace            string   `protobuf:"bytes,3,opt,name=Namespace,proto3" json:"Namespace,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *CreateVolumeForReadRequest) Reset()         { *m = CreateVolumeForReadRequest{} }
 func (m *CreateVolumeForReadRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForReadRequest) ProtoMessage()    {}
 func (*CreateVolumeForReadRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{4}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{4}
 }
 func (m *CreateVolumeForReadRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -374,21 +421,32 @@ func (m *CreateVolumeForReadRequest) GetOwner() *v1.OwnerReference {
 	return nil
 }
 
+func (m *CreateVolumeForReadRequest) GetNamespace() string {
+	if m != nil {
+		return m.Namespace
+	}
+	return ""
+}
+
 // CreateVolumeForReadResponse contains results for CreateVolumeForRead
 type CreateVolumeForReadResponse struct {
 	// Name of the created PersistentVolume
 	VolumeName string `protobuf:"bytes,1,opt,name=VolumeName,proto3" json:"VolumeName,omitempty"`
-	// Name of the Node on which the volume is resides
-	NodeName string `protobuf:"bytes,2,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
-	// Local path of the file/dir in the PersistentVolume
-	LocalPath string `protobuf:"bytes,3,opt,name=LocalPath,proto3" json:"LocalPath,omitempty"`
-	// IsDir indicates if the URI is for a file (false) or a directory (true)
-	IsDir bool `protobuf:"varint,4,opt,name=IsDir,proto3" json:"IsDir,omitempty"`
-	// If set, the caller must delete the PersistentVolume after use
-	DeleteAfterUse bool `protobuf:"varint,5,opt,name=DeleteAfterUse,proto3" json:"DeleteAfterUse,omitempty"`
+	// Name of the PersistentVolumeClaim to mount
+	VolumeClaimName string `protobuf:"bytes,2,opt,name=VolumeClaimName,proto3" json:"VolumeClaimName,omitempty"`
 	// Path of Node that contains the Volume (as HostPath volume)
-	// Either VolumeName or VolumePath must be set, not both.
-	VolumePath           string   `protobuf:"bytes,6,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	// One of VolumeName, VolumeClaimName or VolumePath must be set, not multiple.
+	VolumePath string `protobuf:"bytes,3,opt,name=VolumePath,proto3" json:"VolumePath,omitempty"`
+	// SubPath to add to VolumeName or VolumePath.
+	SubPath string `protobuf:"bytes,4,opt,name=SubPath,proto3" json:"SubPath,omitempty"`
+	// Name of the Node on which the volume is resides
+	NodeName string `protobuf:"bytes,5,opt,name=NodeName,proto3" json:"NodeName,omitempty"`
+	// Local path of the file/dir in the PersistentVolume
+	LocalPath string `protobuf:"bytes,6,opt,name=LocalPath,proto3" json:"LocalPath,omitempty"`
+	// IsDir indicates if the URI is for a file (false) or a directory (true)
+	IsDir bool `protobuf:"varint,7,opt,name=IsDir,proto3" json:"IsDir,omitempty"`
+	// If set, the caller must delete the PersistentVolume after use
+	DeleteAfterUse       bool     `protobuf:"varint,8,opt,name=DeleteAfterUse,proto3" json:"DeleteAfterUse,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -398,7 +456,7 @@ func (m *CreateVolumeForReadResponse) Reset()         { *m = CreateVolumeForRead
 func (m *CreateVolumeForReadResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateVolumeForReadResponse) ProtoMessage()    {}
 func (*CreateVolumeForReadResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{5}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{5}
 }
 func (m *CreateVolumeForReadResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -434,6 +492,27 @@ func (m *CreateVolumeForReadResponse) GetVolumeName() string {
 	return ""
 }
 
+func (m *CreateVolumeForReadResponse) GetVolumeClaimName() string {
+	if m != nil {
+		return m.VolumeClaimName
+	}
+	return ""
+}
+
+func (m *CreateVolumeForReadResponse) GetVolumePath() string {
+	if m != nil {
+		return m.VolumePath
+	}
+	return ""
+}
+
+func (m *CreateVolumeForReadResponse) GetSubPath() string {
+	if m != nil {
+		return m.SubPath
+	}
+	return ""
+}
+
 func (m *CreateVolumeForReadResponse) GetNodeName() string {
 	if m != nil {
 		return m.NodeName
@@ -462,13 +541,6 @@ func (m *CreateVolumeForReadResponse) GetDeleteAfterUse() bool {
 	return false
 }
 
-func (m *CreateVolumeForReadResponse) GetVolumePath() string {
-	if m != nil {
-		return m.VolumePath
-	}
-	return ""
-}
-
 type CreateFileViewRequest struct {
 	// The URI of the file to create a view for
 	URI string `protobuf:"bytes,1,opt,name=URI,proto3" json:"URI,omitempty"`
@@ -483,7 +555,7 @@ func (m *CreateFileViewRequest) Reset()         { *m = CreateFileViewRequest{} }
 func (m *CreateFileViewRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateFileViewRequest) ProtoMessage()    {}
 func (*CreateFileViewRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{6}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{6}
 }
 func (m *CreateFileViewRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -540,7 +612,7 @@ func (m *CreateFileViewResponse) Reset()         { *m = CreateFileViewResponse{}
 func (m *CreateFileViewResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateFileViewResponse) ProtoMessage()    {}
 func (*CreateFileViewResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fs_a8b2c0a0f534a38e, []int{7}
+	return fileDescriptor_fs_35504d5828a6e9fa, []int{7}
 }
 func (m *CreateFileViewResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -811,6 +883,12 @@ func (m *CreateVolumeForWriteRequest) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if len(m.Namespace) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.Namespace)))
+		i += copy(dAtA[i:], m.Namespace)
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -838,14 +916,32 @@ func (m *CreateVolumeForWriteResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeName)))
 		i += copy(dAtA[i:], m.VolumeName)
 	}
-	if len(m.NodeName) > 0 {
+	if len(m.VolumeClaimName) > 0 {
 		dAtA[i] = 0x12
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeClaimName)))
+		i += copy(dAtA[i:], m.VolumeClaimName)
+	}
+	if len(m.VolumePath) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
+		i += copy(dAtA[i:], m.VolumePath)
+	}
+	if len(m.SubPath) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.SubPath)))
+		i += copy(dAtA[i:], m.SubPath)
+	}
+	if len(m.NodeName) > 0 {
+		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintFs(dAtA, i, uint64(len(m.NodeName)))
 		i += copy(dAtA[i:], m.NodeName)
 	}
 	if m.DeleteAfterUse {
-		dAtA[i] = 0x18
+		dAtA[i] = 0x30
 		i++
 		if m.DeleteAfterUse {
 			dAtA[i] = 1
@@ -853,12 +949,6 @@ func (m *CreateVolumeForWriteResponse) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i++
-	}
-	if len(m.VolumePath) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
-		i += copy(dAtA[i:], m.VolumePath)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -893,20 +983,38 @@ func (m *CreateFileURIRequest) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeName)))
 		i += copy(dAtA[i:], m.VolumeName)
 	}
-	if len(m.NodeName) > 0 {
+	if len(m.VolumeClaimName) > 0 {
 		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeClaimName)))
+		i += copy(dAtA[i:], m.VolumeClaimName)
+	}
+	if len(m.VolumePath) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
+		i += copy(dAtA[i:], m.VolumePath)
+	}
+	if len(m.SubPath) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.SubPath)))
+		i += copy(dAtA[i:], m.SubPath)
+	}
+	if len(m.NodeName) > 0 {
+		dAtA[i] = 0x32
 		i++
 		i = encodeVarintFs(dAtA, i, uint64(len(m.NodeName)))
 		i += copy(dAtA[i:], m.NodeName)
 	}
 	if len(m.LocalPath) > 0 {
-		dAtA[i] = 0x22
+		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintFs(dAtA, i, uint64(len(m.LocalPath)))
 		i += copy(dAtA[i:], m.LocalPath)
 	}
 	if m.IsDir {
-		dAtA[i] = 0x28
+		dAtA[i] = 0x40
 		i++
 		if m.IsDir {
 			dAtA[i] = 1
@@ -914,12 +1022,6 @@ func (m *CreateFileURIRequest) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i++
-	}
-	if len(m.VolumePath) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
-		i += copy(dAtA[i:], m.VolumePath)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -985,6 +1087,12 @@ func (m *CreateVolumeForReadRequest) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
+	if len(m.Namespace) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.Namespace)))
+		i += copy(dAtA[i:], m.Namespace)
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -1012,20 +1120,38 @@ func (m *CreateVolumeForReadResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeName)))
 		i += copy(dAtA[i:], m.VolumeName)
 	}
-	if len(m.NodeName) > 0 {
+	if len(m.VolumeClaimName) > 0 {
 		dAtA[i] = 0x12
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumeClaimName)))
+		i += copy(dAtA[i:], m.VolumeClaimName)
+	}
+	if len(m.VolumePath) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
+		i += copy(dAtA[i:], m.VolumePath)
+	}
+	if len(m.SubPath) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintFs(dAtA, i, uint64(len(m.SubPath)))
+		i += copy(dAtA[i:], m.SubPath)
+	}
+	if len(m.NodeName) > 0 {
+		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintFs(dAtA, i, uint64(len(m.NodeName)))
 		i += copy(dAtA[i:], m.NodeName)
 	}
 	if len(m.LocalPath) > 0 {
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x32
 		i++
 		i = encodeVarintFs(dAtA, i, uint64(len(m.LocalPath)))
 		i += copy(dAtA[i:], m.LocalPath)
 	}
 	if m.IsDir {
-		dAtA[i] = 0x20
+		dAtA[i] = 0x38
 		i++
 		if m.IsDir {
 			dAtA[i] = 1
@@ -1035,7 +1161,7 @@ func (m *CreateVolumeForReadResponse) MarshalTo(dAtA []byte) (int, error) {
 		i++
 	}
 	if m.DeleteAfterUse {
-		dAtA[i] = 0x28
+		dAtA[i] = 0x40
 		i++
 		if m.DeleteAfterUse {
 			dAtA[i] = 1
@@ -1043,12 +1169,6 @@ func (m *CreateVolumeForReadResponse) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i++
-	}
-	if len(m.VolumePath) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintFs(dAtA, i, uint64(len(m.VolumePath)))
-		i += copy(dAtA[i:], m.VolumePath)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1152,6 +1272,10 @@ func (m *CreateVolumeForWriteRequest) Size() (n int) {
 		l = m.Owner.Size()
 		n += 1 + l + sovFs(uint64(l))
 	}
+	l = len(m.Namespace)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1168,16 +1292,24 @@ func (m *CreateVolumeForWriteResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
 	}
+	l = len(m.VolumeClaimName)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.VolumePath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.SubPath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
 	l = len(m.NodeName)
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
 	}
 	if m.DeleteAfterUse {
 		n += 2
-	}
-	l = len(m.VolumePath)
-	if l > 0 {
-		n += 1 + l + sovFs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1199,6 +1331,18 @@ func (m *CreateFileURIRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
 	}
+	l = len(m.VolumeClaimName)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.VolumePath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.SubPath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
 	l = len(m.NodeName)
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
@@ -1209,10 +1353,6 @@ func (m *CreateFileURIRequest) Size() (n int) {
 	}
 	if m.IsDir {
 		n += 2
-	}
-	l = len(m.VolumePath)
-	if l > 0 {
-		n += 1 + l + sovFs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1250,6 +1390,10 @@ func (m *CreateVolumeForReadRequest) Size() (n int) {
 		l = m.Owner.Size()
 		n += 1 + l + sovFs(uint64(l))
 	}
+	l = len(m.Namespace)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1266,6 +1410,18 @@ func (m *CreateVolumeForReadResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
 	}
+	l = len(m.VolumeClaimName)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.VolumePath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
+	l = len(m.SubPath)
+	if l > 0 {
+		n += 1 + l + sovFs(uint64(l))
+	}
 	l = len(m.NodeName)
 	if l > 0 {
 		n += 1 + l + sovFs(uint64(l))
@@ -1279,10 +1435,6 @@ func (m *CreateVolumeForReadResponse) Size() (n int) {
 	}
 	if m.DeleteAfterUse {
 		n += 2
-	}
-	l = len(m.VolumePath)
-	if l > 0 {
-		n += 1 + l + sovFs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1452,6 +1604,35 @@ func (m *CreateVolumeForWriteRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Namespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFs(dAtA[iNdEx:])
@@ -1534,7 +1715,7 @@ func (m *CreateVolumeForWriteResponse) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field VolumeClaimName", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1559,29 +1740,9 @@ func (m *CreateVolumeForWriteResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.NodeName = string(dAtA[iNdEx:postIndex])
+			m.VolumeClaimName = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeleteAfterUse", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.DeleteAfterUse = bool(v != 0)
-		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field VolumePath", wireType)
 			}
@@ -1610,6 +1771,84 @@ func (m *CreateVolumeForWriteResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.VolumePath = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SubPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SubPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DeleteAfterUse", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DeleteAfterUse = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFs(dAtA[iNdEx:])
@@ -1721,7 +1960,7 @@ func (m *CreateFileURIRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field VolumeClaimName", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1746,58 +1985,9 @@ func (m *CreateFileURIRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.NodeName = string(dAtA[iNdEx:postIndex])
+			m.VolumeClaimName = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LocalPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthFs
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.LocalPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field IsDir", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.IsDir = bool(v != 0)
-		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field VolumePath", wireType)
 			}
@@ -1826,6 +2016,113 @@ func (m *CreateFileURIRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.VolumePath = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SubPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SubPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LocalPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LocalPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IsDir", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IsDir = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFs(dAtA[iNdEx:])
@@ -2019,6 +2316,35 @@ func (m *CreateVolumeForReadRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Namespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFs(dAtA[iNdEx:])
@@ -2101,7 +2427,7 @@ func (m *CreateVolumeForReadResponse) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field VolumeClaimName", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -2126,78 +2452,9 @@ func (m *CreateVolumeForReadResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.NodeName = string(dAtA[iNdEx:postIndex])
+			m.VolumeClaimName = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LocalPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthFs
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.LocalPath = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field IsDir", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.IsDir = bool(v != 0)
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeleteAfterUse", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFs
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.DeleteAfterUse = bool(v != 0)
-		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field VolumePath", wireType)
 			}
@@ -2226,6 +2483,133 @@ func (m *CreateVolumeForReadResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.VolumePath = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SubPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SubPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LocalPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthFs
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LocalPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IsDir", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IsDir = bool(v != 0)
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DeleteAfterUse", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DeleteAfterUse = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFs(dAtA[iNdEx:])
@@ -2564,48 +2948,51 @@ var (
 	ErrIntOverflowFs   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("fs.proto", fileDescriptor_fs_a8b2c0a0f534a38e) }
+func init() { proto.RegisterFile("fs.proto", fileDescriptor_fs_35504d5828a6e9fa) }
 
-var fileDescriptor_fs_a8b2c0a0f534a38e = []byte{
-	// 633 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0xc5, 0x49, 0xd3, 0xa6, 0x53, 0xa8, 0x60, 0x29, 0x95, 0x31, 0x55, 0x1a, 0xe5, 0x80, 0x0a,
-	0x02, 0x5b, 0xfd, 0x38, 0x70, 0xe0, 0x52, 0x52, 0x8a, 0x82, 0x50, 0x5b, 0xb9, 0x1f, 0x08, 0x6e,
-	0x9b, 0x74, 0xec, 0xb8, 0xb1, 0xbd, 0x66, 0x77, 0xd3, 0xca, 0xfc, 0x12, 0xce, 0xfc, 0x05, 0xee,
-	0x9c, 0x39, 0x21, 0x2e, 0xdc, 0x51, 0xf9, 0x23, 0xc8, 0x5f, 0x8d, 0x63, 0x27, 0x15, 0x12, 0x5c,
-	0x22, 0xcf, 0x8c, 0x77, 0xe6, 0xbd, 0xe7, 0xb7, 0x13, 0xa8, 0x5b, 0x42, 0x0f, 0x38, 0x93, 0x8c,
-	0x54, 0x2c, 0xa1, 0x6d, 0x0d, 0x9e, 0x09, 0xdd, 0x61, 0x06, 0x0d, 0x1c, 0x8f, 0xf6, 0xfa, 0x8e,
-	0x8f, 0x3c, 0x34, 0x82, 0x81, 0x1d, 0x25, 0x84, 0xe1, 0xa1, 0xa4, 0xc6, 0xf9, 0xba, 0x61, 0xa3,
-	0x8f, 0x9c, 0x4a, 0x3c, 0x4d, 0x4e, 0x6a, 0x9b, 0xb6, 0x23, 0xfb, 0xc3, 0xae, 0xde, 0x63, 0x9e,
-	0x61, 0x33, 0x97, 0xfa, 0xb6, 0x11, 0x17, 0xba, 0x43, 0xcb, 0x08, 0x64, 0x18, 0xa0, 0x30, 0xd0,
-	0x0b, 0x64, 0x98, 0xfc, 0x26, 0x87, 0x5a, 0x5f, 0x14, 0x78, 0xd0, 0xe6, 0x48, 0x25, 0x9e, 0x30,
-	0x77, 0xe8, 0xe1, 0x2e, 0xe3, 0x6f, 0xb9, 0x23, 0xd1, 0xc4, 0x0f, 0x43, 0x14, 0x92, 0x3c, 0x81,
-	0x3b, 0x2f, 0x85, 0x74, 0xbc, 0x68, 0x4e, 0x9b, 0x06, 0xb4, 0xe7, 0xc8, 0x50, 0x55, 0x9a, 0xca,
-	0x5a, 0xd5, 0x2c, 0x17, 0x88, 0x06, 0xf5, 0x3d, 0x76, 0x8a, 0x7b, 0xd4, 0x43, 0xb5, 0xd2, 0x54,
-	0xd6, 0xe6, 0xcd, 0xab, 0x98, 0xbc, 0x86, 0xda, 0xfe, 0x85, 0x8f, 0x5c, 0xad, 0x36, 0x95, 0xb5,
-	0x85, 0x8d, 0x2d, 0x3d, 0x21, 0xa9, 0xe7, 0x49, 0xea, 0xc1, 0xc0, 0x8e, 0x12, 0x42, 0x8f, 0x48,
-	0xea, 0xe7, 0xeb, 0x7a, 0x7c, 0xc4, 0x44, 0x0b, 0x39, 0xfa, 0x3d, 0x34, 0x93, 0x16, 0xad, 0xcf,
-	0x0a, 0xac, 0x4c, 0x46, 0x2d, 0x02, 0xe6, 0x0b, 0x24, 0x0d, 0x80, 0xa4, 0x12, 0x43, 0x51, 0x62,
-	0x28, 0xb9, 0xcc, 0xb5, 0x40, 0x1f, 0xc2, 0xe2, 0x0e, 0xba, 0x28, 0x71, 0xdb, 0x92, 0xc8, 0x8f,
-	0x05, 0xc6, 0x88, 0xeb, 0x66, 0x21, 0x3b, 0x9a, 0x71, 0x40, 0x65, 0x5f, 0x9d, 0xc9, 0xcf, 0x88,
-	0x32, 0xad, 0xaf, 0x0a, 0x2c, 0x25, 0x20, 0x77, 0x1d, 0x17, 0x8f, 0xcd, 0x4e, 0xa6, 0xe9, 0x32,
-	0xcc, 0x1e, 0xf6, 0xfa, 0x78, 0x05, 0x2c, 0x8d, 0x0a, 0xa0, 0x2b, 0xd7, 0x82, 0xae, 0x16, 0x40,
-	0xaf, 0xc0, 0xfc, 0x1b, 0xd6, 0xa3, 0x6e, 0x0e, 0xcb, 0x28, 0x41, 0x96, 0xa0, 0xd6, 0x11, 0x3b,
-	0x0e, 0x57, 0x6b, 0x31, 0x93, 0x24, 0x28, 0x10, 0x98, 0x2d, 0x11, 0x78, 0x04, 0xf7, 0x0a, 0xf8,
-	0x53, 0x75, 0x6f, 0x43, 0xf5, 0xd8, 0xec, 0xa4, 0xe8, 0xa3, 0xc7, 0xd6, 0x47, 0xd0, 0x0a, 0xdf,
-	0xc3, 0x44, 0x7a, 0x9a, 0x11, 0x2e, 0xbd, 0x3f, 0x32, 0x43, 0xe5, 0xdf, 0xcd, 0xf0, 0xb3, 0x6c,
-	0xe1, 0x64, 0xf8, 0x7f, 0xf0, 0xc2, 0x98, 0xac, 0xd5, 0xa9, 0xb2, 0xce, 0xe4, 0x65, 0x2d, 0xfb,
-	0xa7, 0xf6, 0x17, 0xfe, 0x29, 0xcb, 0xdf, 0xce, 0xcb, 0x7f, 0xe2, 0xe0, 0xc5, 0x74, 0x39, 0x55,
-	0x98, 0x3b, 0xe0, 0x78, 0xee, 0xe0, 0x45, 0xcc, 0xa0, 0x6e, 0x66, 0x61, 0xeb, 0x08, 0x96, 0x8b,
-	0x4d, 0x52, 0x59, 0x54, 0x98, 0x6b, 0x33, 0x5f, 0xa2, 0x2f, 0xe3, 0x4e, 0x37, 0xcd, 0x2c, 0x24,
-	0x4d, 0x58, 0x48, 0x1f, 0x8f, 0xc2, 0x20, 0xd3, 0x24, 0x9f, 0xda, 0xf8, 0x5e, 0x01, 0x88, 0x1a,
-	0x1e, 0x86, 0x42, 0xa2, 0x47, 0xde, 0x65, 0x46, 0x1f, 0xbf, 0x8d, 0x64, 0x55, 0xb7, 0x84, 0x7e,
-	0xcd, 0x76, 0xd1, 0x9a, 0xd3, 0x5f, 0x48, 0x51, 0xee, 0xc0, 0xad, 0x31, 0x0f, 0x12, 0x75, 0x74,
-	0x64, 0xfc, 0x5a, 0x69, 0xf7, 0x27, 0x54, 0xd2, 0x2e, 0x27, 0x70, 0x77, 0x82, 0x43, 0x48, 0x63,
-	0xc2, 0xf8, 0x9c, 0x6f, 0xb5, 0xd5, 0xa9, 0xf5, 0xb4, 0xef, 0x2b, 0x58, 0x1c, 0x57, 0x97, 0x14,
-	0x40, 0xe4, 0x3e, 0x9b, 0xa6, 0x4d, 0x2a, 0x25, 0x8d, 0x5e, 0x3c, 0xff, 0x76, 0xd9, 0x50, 0x7e,
-	0x5c, 0x36, 0x94, 0x5f, 0x97, 0x0d, 0xe5, 0xd3, 0xef, 0xc6, 0x8d, 0xf7, 0x8f, 0x73, 0xdb, 0x7c,
-	0xdb, 0x3d, 0xa3, 0x5d, 0xde, 0xd9, 0x37, 0x06, 0x8c, 0xba, 0x67, 0xf4, 0x29, 0x0b, 0xa2, 0xc5,
-	0xcf, 0x78, 0xfc, 0x9f, 0x60, 0x89, 0xee, 0x6c, 0xbc, 0xcb, 0x37, 0xff, 0x04, 0x00, 0x00, 0xff,
-	0xff, 0x13, 0x31, 0xe4, 0x7e, 0x46, 0x06, 0x00, 0x00,
+var fileDescriptor_fs_35504d5828a6e9fa = []byte{
+	// 687 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x55, 0xcb, 0x6e, 0xd3, 0x50,
+	0x10, 0xc5, 0x4e, 0xf3, 0xe8, 0x14, 0x0a, 0x5c, 0x4a, 0x65, 0x4c, 0x95, 0x46, 0x59, 0xa0, 0x80,
+	0xc0, 0x56, 0x1f, 0x0b, 0x16, 0x6c, 0x4a, 0x4a, 0x51, 0x10, 0x6a, 0x2b, 0xf7, 0x81, 0x60, 0x77,
+	0xe3, 0x8e, 0x13, 0x37, 0xb6, 0xaf, 0xf1, 0xbd, 0x69, 0x95, 0x2d, 0x5f, 0x51, 0xfe, 0x88, 0x15,
+	0x82, 0x3f, 0x40, 0x45, 0xe2, 0x3b, 0x90, 0x5f, 0x89, 0xe3, 0x3a, 0x55, 0x17, 0x6c, 0xd8, 0x44,
+	0x9e, 0x99, 0xcc, 0xf1, 0x9c, 0x39, 0xe7, 0xfa, 0x42, 0xcd, 0xe2, 0x9a, 0x1f, 0x30, 0xc1, 0x88,
+	0x6c, 0x71, 0x75, 0x73, 0xf0, 0x92, 0x6b, 0x36, 0xd3, 0xa9, 0x6f, 0xbb, 0xd4, 0xec, 0xdb, 0x1e,
+	0x06, 0x23, 0xdd, 0x1f, 0xf4, 0xc2, 0x04, 0xd7, 0x5d, 0x14, 0x54, 0x3f, 0x5b, 0xd3, 0x7b, 0xe8,
+	0x61, 0x40, 0x05, 0x9e, 0xc4, 0x9d, 0xea, 0x46, 0xcf, 0x16, 0xfd, 0x61, 0x57, 0x33, 0x99, 0xab,
+	0xf7, 0x98, 0x43, 0xbd, 0x9e, 0x1e, 0x15, 0xba, 0x43, 0x4b, 0xf7, 0xc5, 0xc8, 0x47, 0xae, 0xa3,
+	0xeb, 0x8b, 0x51, 0xfc, 0x1b, 0x37, 0x35, 0x7f, 0x4a, 0xf0, 0xb8, 0x1d, 0x20, 0x15, 0x78, 0xcc,
+	0x9c, 0xa1, 0x8b, 0x3b, 0x2c, 0xf8, 0x10, 0xd8, 0x02, 0x0d, 0xfc, 0x3c, 0x44, 0x2e, 0xc8, 0x73,
+	0xb8, 0xff, 0x86, 0x0b, 0xdb, 0x0d, 0xdf, 0xd3, 0xa6, 0x3e, 0x35, 0x6d, 0x31, 0x52, 0xa4, 0x86,
+	0xd4, 0x2a, 0x19, 0x57, 0x0b, 0x44, 0x85, 0xda, 0x2e, 0x3b, 0xc1, 0x5d, 0xea, 0xa2, 0x22, 0x37,
+	0xa4, 0xd6, 0xbc, 0x31, 0x8e, 0xc9, 0x3b, 0x28, 0xef, 0x9d, 0x7b, 0x18, 0x28, 0xa5, 0x86, 0xd4,
+	0x5a, 0x58, 0xdf, 0xd4, 0x62, 0x92, 0x5a, 0x96, 0xa4, 0xe6, 0x0f, 0x7a, 0x61, 0x82, 0x6b, 0x21,
+	0x49, 0xed, 0x6c, 0x4d, 0x8b, 0x5a, 0x0c, 0xb4, 0x30, 0x40, 0xcf, 0x44, 0x23, 0x86, 0x20, 0x2b,
+	0x30, 0x1f, 0x62, 0x72, 0x9f, 0x9a, 0xa8, 0xcc, 0x45, 0x2f, 0x9a, 0x24, 0x9a, 0x7f, 0x24, 0x58,
+	0x29, 0xe6, 0xc4, 0x7d, 0xe6, 0x71, 0x24, 0x75, 0x80, 0xb8, 0x12, 0x0d, 0x2a, 0x45, 0xfd, 0x99,
+	0x0c, 0x69, 0xc1, 0xdd, 0x38, 0x6a, 0x3b, 0xd4, 0x76, 0x33, 0x6c, 0xf2, 0xe9, 0x09, 0xd2, 0x3e,
+	0x15, 0xfd, 0x88, 0xd9, 0x18, 0x29, 0xcc, 0x10, 0x05, 0xaa, 0x07, 0xc3, 0x6e, 0x54, 0x8c, 0xc7,
+	0x4c, 0xc3, 0xa9, 0x55, 0x95, 0x73, 0xab, 0x7a, 0x02, 0x8b, 0xdb, 0xe8, 0xa0, 0xc0, 0x2d, 0x4b,
+	0x60, 0x70, 0xc4, 0x51, 0xa9, 0x34, 0xa4, 0x56, 0xcd, 0xc8, 0x65, 0x9b, 0x5f, 0x64, 0x58, 0x8a,
+	0x89, 0xee, 0xd8, 0x0e, 0x1e, 0x19, 0x9d, 0x54, 0xb5, 0x65, 0xa8, 0x1c, 0x98, 0x7d, 0x1c, 0x93,
+	0x4b, 0xa2, 0x1c, 0x71, 0xf9, 0x26, 0xc4, 0x4b, 0x37, 0x21, 0x3e, 0x77, 0x1d, 0xf1, 0xf2, 0x6c,
+	0xe2, 0x95, 0x1c, 0xf1, 0x15, 0x98, 0x7f, 0xcf, 0x4c, 0xea, 0x44, 0x7d, 0xd5, 0x58, 0xd7, 0x71,
+	0x82, 0x2c, 0x41, 0xb9, 0xc3, 0xb7, 0xed, 0x40, 0xa9, 0x45, 0xdb, 0x88, 0x83, 0xe6, 0x53, 0x78,
+	0x98, 0xdb, 0x41, 0xa2, 0xf2, 0x3d, 0x28, 0x1d, 0x19, 0x9d, 0x64, 0x03, 0xe1, 0x63, 0xf3, 0x42,
+	0x02, 0x35, 0x67, 0x0c, 0x03, 0xe9, 0x49, 0xba, 0xb5, 0x2b, 0x0d, 0x13, 0xcf, 0xca, 0xff, 0xd8,
+	0xb3, 0xa5, 0xbc, 0x67, 0xbf, 0xca, 0x57, 0xce, 0x61, 0x3c, 0xda, 0x7f, 0x62, 0xd9, 0x29, 0xe5,
+	0x2a, 0x33, 0x95, 0xab, 0x66, 0x94, 0x2b, 0xb0, 0x79, 0xad, 0xd0, 0xe6, 0xed, 0xac, 0xc2, 0xc7,
+	0x36, 0x9e, 0xcf, 0x16, 0x4c, 0x81, 0xea, 0x7e, 0x80, 0x67, 0x36, 0x9e, 0x47, 0xf4, 0x6b, 0x46,
+	0x1a, 0x36, 0x0f, 0x61, 0x39, 0x0f, 0x92, 0xac, 0x56, 0x81, 0x6a, 0x9b, 0x79, 0x02, 0x3d, 0x11,
+	0x21, 0xdd, 0x36, 0xd2, 0x90, 0x34, 0x60, 0x21, 0x79, 0x3c, 0x1c, 0xf9, 0xe9, 0x42, 0xb3, 0xa9,
+	0xf5, 0xef, 0x32, 0x40, 0x08, 0x78, 0x30, 0xe2, 0x02, 0x5d, 0xf2, 0x31, 0x3d, 0x8f, 0xd3, 0x1f,
+	0x1e, 0xb2, 0xaa, 0x59, 0x5c, 0xbb, 0xe6, 0x33, 0xab, 0x36, 0x66, 0xff, 0x21, 0x99, 0x72, 0x1b,
+	0xee, 0x4c, 0xd9, 0x9c, 0x28, 0x93, 0x96, 0xe9, 0xd3, 0xaf, 0x3e, 0x2a, 0xa8, 0x24, 0x28, 0xc7,
+	0xf0, 0xa0, 0xc0, 0x65, 0xa4, 0x5e, 0xf0, 0xfa, 0xcc, 0xc9, 0x50, 0x57, 0x67, 0xd6, 0x13, 0xdc,
+	0xb7, 0xb0, 0x38, 0xbd, 0x5d, 0x92, 0x1b, 0x22, 0x23, 0x9b, 0xaa, 0x16, 0x95, 0x62, 0xa0, 0xd7,
+	0xaf, 0xbe, 0x5d, 0xd6, 0xa5, 0x1f, 0x97, 0x75, 0xe9, 0xd7, 0x65, 0x5d, 0xba, 0xf8, 0x5d, 0xbf,
+	0xf5, 0xe9, 0x59, 0xe6, 0x5a, 0xdb, 0x72, 0x4e, 0x69, 0x37, 0xe8, 0xec, 0xe9, 0x03, 0x46, 0x9d,
+	0x53, 0xfa, 0x82, 0xf9, 0xe1, 0x0d, 0xc8, 0x82, 0xe8, 0x72, 0xb4, 0x78, 0xb7, 0x12, 0x5d, 0x6a,
+	0x1b, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xda, 0x4a, 0xf6, 0x2e, 0x4f, 0x07, 0x00, 0x00,
 }

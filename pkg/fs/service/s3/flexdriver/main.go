@@ -19,12 +19,13 @@ package main
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 const (
-	vendorName = "aljabrio"
-	driverName = "koalja-flex-s3"
+	vendorName = constants.FlexVolumeS3VendorName
+	driverName = constants.FlexVolumeS3DriverName
 )
 
 var (

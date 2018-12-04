@@ -21,7 +21,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -65,12 +65,19 @@ type StorageConfig struct {
 	Buckets []BucketConfig
 }
 
+// Equals returns true if the given StorageConfig's are the same.
+func (sc StorageConfig) Equals(other StorageConfig) bool {
+	return reflect.DeepEqual(sc, other)
+}
+
 // BucketConfig contains all information needed to reach a single S3 bucket.
 type BucketConfig struct {
 	// Name of the bucket
 	Name string `yaml:"name"`
 	// Endpoint of the server used to reach this bucket
 	Endpoint string `yaml:"endpoint,omitempty"`
+	// Secure is set to true for using a secure connection, false for plain text connection.
+	Secure bool `yaml:"secure,omitempty"`
 	// Name of the secret containing the access & secret key for the bucket
 	SecretName string `yaml:"secretName"`
 	// isDefault is set to true for the bucket that is listed with the "default" key
@@ -141,9 +148,9 @@ func (bc BucketConfig) hash() string {
 	return strings.ToLower(hex.EncodeToString(hash[0:6]))
 }
 
-// NodeMountPoint returns the mountpoint of every node of the cluster.
-func (bc BucketConfig) NodeMountPoint(prefix string) string {
-	return filepath.Join(prefix, bc.hash())
+// PersistentVolumeName returns the name of the PV for this bucket.
+func (bc BucketConfig) PersistentVolumeName(prefix string) string {
+	return prefix + "-" + bc.hash()
 }
 
 // Matches returns true if this bucket config equals the given endpoint & name.

@@ -24,6 +24,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	goofys "github.com/kahing/goofys/api"
 	daemon "github.com/sevlyar/go-daemon"
 	"github.com/spf13/cobra"
@@ -37,9 +38,8 @@ var (
 )
 
 const (
-	mountEndpointKey  = "endpoint"
-	mountAccessKeyKey = "kubernetes.io/secret/accessKey"
-	mountSecretKeyKey = "kubernetes.io/secret/secretKey"
+	mountAccessKeyKey = "kubernetes.io/secret/" + constants.SecretKeyS3AccessKey
+	mountSecretKeyKey = "kubernetes.io/secret/" + constants.SecretKeyS3SecretKey
 )
 
 func init() {
@@ -94,9 +94,15 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 		}
 		return v
 	}
-	endpoint := requireJSONOpt(mountEndpointKey)
+	endpoint := requireJSONOpt(constants.FlexVolumeOptionS3EndpointKey)
+	bucket := requireJSONOpt(constants.FlexVolumeOptionS3BucketKey)
 	accessKey := requireJSONOpt(mountAccessKeyKey)
 	secretKey := requireJSONOpt(mountSecretKeyKey)
+	log := cliLog.With().
+		Str("endpoint", endpoint).
+		Str("bucket", bucket).
+		Str("mountpoint", mountDir).
+		Logger()
 
 	// Now fork a child process
 	var wg sync.WaitGroup
@@ -127,13 +133,15 @@ func cmdMountRun(cmd *cobra.Command, args []string) {
 			SecretKey:  secretKey,
 		}
 
-		if _, mp, err := goofys.Mount(context.Background(), "goofys", &config); err != nil {
+		log.Debug().Msg("Mounting...")
+		if _, mp, err := goofys.Mount(context.Background(), bucket, &config); err != nil {
 			// Signal parent that the mount failed
 			kill(os.Getppid(), syscall.SIGUSR2)
 			// Log & exit
-			cliLog.Fatal().Err(err).Str("mountpoint", config.MountPoint).Msg("Unable to mount")
+			log.Fatal().Err(err).Msg("Unable to mount")
 		} else {
 			// Mount succeeded
+			log.Info().Msg("Mount succeeded")
 			// Signal parent that the mount succeeded
 			kill(os.Getppid(), syscall.SIGUSR1)
 			// Wait until mount terminates

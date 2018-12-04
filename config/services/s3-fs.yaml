@@ -10,7 +10,7 @@ metadata:
   name: koalja-s3-fs-service
 rules:
 - apiGroups: [""]
-  resources: ["endpoints", "events", "services"]
+  resources: ["endpoints", "events", "persistentvolumes", "persistentvolumeclaims", "services"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["pods"]
@@ -23,6 +23,9 @@ rules:
   verbs: ["get", "list"]
 - apiGroups: ["apps"]
   resources: ["daemonsets", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
   verbs: ["*"]
 - apiGroups: ["agents.aljabr.io"]
   resources: ["flexvolumedrivers"]

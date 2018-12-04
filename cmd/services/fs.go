@@ -111,10 +111,14 @@ func cmdFileSystemRun(cmd *cobra.Command, args []string) {
 		apiBuilder = local.NewLocalFileSystemBuilder(cliLog, opts)
 	case "s3":
 		opts := s3.Config{
-			PodName:         os.Getenv(constants.EnvPodName),
-			Namespace:       os.Getenv(constants.EnvNamespace),
-			MountPathPrefix: fileSystemOptions.S3MountPathPrefix,
-			DaemonImage:     fileSystemOptions.S3DaemonImage,
+			PodName:          os.Getenv(constants.EnvPodName),
+			Namespace:        os.Getenv(constants.EnvNamespace),
+			MountPathPrefix:  fileSystemOptions.S3MountPathPrefix,
+			DaemonImage:      fileSystemOptions.S3DaemonImage,
+			StorageClassName: fileSystemOptions.StorageClassName,
+		}
+		if opts.StorageClassName == "" {
+			opts.StorageClassName = "koalja-s3-storage"
 		}
 		apiBuilder = s3.NewS3FileSystemBuilder(cliLog, opts)
 	default:
