@@ -51,8 +51,9 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 
 	// Prepare readonly volume for URI
 	resp, err := deps.FileSystem.CreateVolumeForRead(ctx, &fs.CreateVolumeForReadRequest{
-		URI:   uri,
-		Owner: &cfg.OwnerRef,
+		URI:       uri,
+		Owner:     &cfg.OwnerRef,
+		Namespace: cfg.Pipeline.GetNamespace(),
 	})
 	if err != nil {
 		return maskAny(err)
@@ -114,6 +115,37 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 			},
 		}
 		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+	} else if resp.GetVolumeClaimName() != "" {
+		// Add PVC to resources for deletion list (if needed)
+		if resp.DeleteAfterUse {
+			// Get created PersistentVolume
+			var pvc corev1.PersistentVolumeClaim
+			pvcKey := client.ObjectKey{
+				Name:      resp.GetVolumeClaimName(),
+				Namespace: cfg.Pipeline.GetNamespace(),
+			}
+			if err := deps.Client.Get(ctx, pvcKey, &pvc); err != nil {
+				deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolumeClaim")
+				return maskAny(err)
+			}
+			target.Resources = append(target.Resources, &pvc)
+		}
+
+		// Add volume for the pod, unless such a volume already exists
+		if vol, found := util.GetVolumeWithForPVC(&target.Pod.Spec, resp.GetVolumeClaimName()); !found {
+			vol := corev1.Volume{
+				Name: volName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: resp.GetVolumeClaimName(),
+						ReadOnly:  true,
+					},
+				},
+			}
+			target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+		} else {
+			volName = vol.Name
+		}
 	} else if resp.GetVolumePath() != "" {
 		// Mount VolumePath as HostPath volume
 		dirType := corev1.HostPathDirectoryOrCreate
@@ -152,15 +184,18 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		Name:      volName,
 		ReadOnly:  true,
 		MountPath: mountPath,
+		SubPath:   resp.GetSubPath(),
 	})
 
 	// Create template data
 	target.TemplateData = append(target.TemplateData, map[string]interface{}{
-		"volumeName": resp.GetVolumeName(),
-		"volumePath": resp.GetVolumePath(),
-		"mountPath":  mountPath,
-		"nodeName":   resp.GetNodeName(),
-		"path":       filepath.Join(mountPath, resp.GetLocalPath()),
+		"volumeName":      resp.GetVolumeName(),
+		"volumeClaimName": resp.GetVolumeClaimName(),
+		"volumePath":      resp.GetVolumePath(),
+		"mountPath":       mountPath,
+		"subPath":         resp.GetSubPath(),
+		"nodeName":        resp.GetNodeName(),
+		"path":            filepath.Join(mountPath, resp.GetLocalPath()),
 	})
 
 	return nil

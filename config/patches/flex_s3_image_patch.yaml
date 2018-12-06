@@ -1,0 +1,8 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: FlexVolumeDriver
+metadata:
+  name: koalja-flex-s3
+  namespace: default
+spec:
+  container:
+    image: koalja-flex-s3:latest

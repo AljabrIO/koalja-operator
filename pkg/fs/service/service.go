@@ -18,28 +18,32 @@ package service
 
 import (
 	"context"
-
-	fmt "fmt"
-	"log"
+	"fmt"
 	"net"
 
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/util/retry"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Service implements the filesystem service.
 type Service struct {
-	port int
-	uri  string
-	fs   FileSystemServer
+	log             zerolog.Logger
+	port            int
+	uri             string
+	fs              FileSystemServer
+	c               client.Client
+	scheme          *runtime.Scheme
+	ns              string
+	volumePluginDir string
 }
 
 // FileSystemServer API
@@ -70,7 +74,7 @@ type APIBuilder interface {
 }
 
 // NewService creates a new Service instance.
-func NewService(config *rest.Config, scheme *runtime.Scheme, builder APIBuilder) (*Service, error) {
+func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme, builder APIBuilder, volumePluginDir string) (*Service, error) {
 	var c client.Client
 	ctx := context.Background()
 	if err := retry.Do(ctx, func(ctx context.Context) error {
@@ -98,13 +102,22 @@ func NewService(config *rest.Config, scheme *runtime.Scheme, builder APIBuilder)
 		return nil, err
 	}
 	return &Service{
-		port: port,
-		fs:   fs,
+		log:             log,
+		port:            port,
+		fs:              fs,
+		c:               c,
+		scheme:          scheme,
+		ns:              ns,
+		volumePluginDir: volumePluginDir,
 	}, nil
 }
 
 // Run the pipeline agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
+	if err := s.createFlexDriverInstallDaemonsets(ctx); err != nil {
+		return maskAny(err)
+	}
+
 	g, lctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return s.runAPI(lctx) })
 	g.Go(func() error { return s.fs.Run(lctx) })
@@ -119,7 +132,7 @@ func (s *Service) runAPI(ctx context.Context) error {
 	addr := fmt.Sprintf("0.0.0.0:%d", s.port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		s.log.Fatal().Err(err).Msg("failed to listen")
 	}
 	svr := grpc.NewServer()
 	fs.RegisterFileSystemServer(svr, s.fs)
@@ -128,10 +141,10 @@ func (s *Service) runAPI(ctx context.Context) error {
 	reflection.Register(svr)
 	go func() {
 		if err := svr.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
+			s.log.Fatal().Err(err).Msg("failed to serve")
 		}
 	}()
-	log.Printf("Started filesystem, listening on %s", addr)
+	s.log.Info().Msgf("Started filesystem, listening on %s", addr)
 	<-ctx.Done()
 	svr.GracefulStop()
 	return nil

@@ -152,6 +152,36 @@ const (
 	// ConfigMapDomain is the name of the configmap that holds the domain
 	// name configuration.
 	ConfigMapDomain = "koalja-domain-config"
+
+	// ConfigMapS3Storage is the name of the configmap that holds the storage
+	// configuration for the S3 filesystem service.
+	ConfigMapS3Storage = "koalja-s3-storage-config"
+
+	// SecretKeyS3AccessKey is the name of the key used in a Secret to storage
+	// the access key of an S3 storage server.
+	SecretKeyS3AccessKey = "access-key"
+
+	// SecretKeyS3SecretKey is the name of the key used in a Secret to storage
+	// the secret key of an S3 storage server.
+	SecretKeyS3SecretKey = "secret-key"
+
+	// FlexVolumeOptionS3EndpointKey is the name of the option key used
+	// to configure the endpoint for an S3 flexvolume.
+	FlexVolumeOptionS3EndpointKey = "endpoint"
+
+	// FlexVolumeOptionS3BucketKey is the name of the option key used
+	// to configure the bucket for an S3 flexvolume.
+	FlexVolumeOptionS3BucketKey = "bucket"
+
+	// FlexVolumeOptionS3RegionKey is the name of the option key used
+	// to configure the region for an S3 flexvolume.
+	FlexVolumeOptionS3RegionKey     = "region"
+	DefaultFlexVolumeOptionS3Region = "us-east-1"
+
+	// FlexVolumeS3VendorName is the vendor name of the S3 flexvolume driver.
+	FlexVolumeS3VendorName = "aljabrio"
+	// FlexVolumeS3DriverName is the driver name of the S3 flexvolume driver.
+	FlexVolumeS3DriverName = "koalja-flex-s3"
 )
 
 // CreateInputLinkAddressAnnotationName creates a full annotation name

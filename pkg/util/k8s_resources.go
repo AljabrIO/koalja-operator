@@ -240,3 +240,55 @@ func EnsureDaemonSet(ctx context.Context, log zerolog.Logger, client client.Clie
 
 	return nil
 }
+
+// EnsurePersistentVolume creates of updates a PersistentVolume.
+func EnsurePersistentVolume(ctx context.Context, log zerolog.Logger, client client.Client, pv *corev1.PersistentVolume, description string) error {
+	// Check if PersistentVolume already exists
+	found := &corev1.PersistentVolume{}
+	if err := client.Get(ctx, types.NamespacedName{Name: pv.Name}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, pv); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := PersistentVolumeEqual(*pv, *found); len(diff) > 0 {
+			found.Spec = pv.Spec
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// EnsurePersistentVolumeClaim creates of updates a PersistentVolumeClaim.
+func EnsurePersistentVolumeClaim(ctx context.Context, log zerolog.Logger, client client.Client, pvc *corev1.PersistentVolumeClaim, description string) error {
+	// Check if PersistentVolume already exists
+	found := &corev1.PersistentVolumeClaim{}
+	if err := client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, pvc); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := PersistentVolumeClaimEqual(*pvc, *found); len(diff) > 0 {
+			found.Spec = pvc.Spec
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

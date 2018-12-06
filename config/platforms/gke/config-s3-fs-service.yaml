@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: koalja-s3-fs-service
+  namespace: koalja-system
+data:
+  FLEX_VOLUME_PLUGIN_DIR: /home/kubernetes/flexvolume

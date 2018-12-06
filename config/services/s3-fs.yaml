@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: koalja-s3-fs-service
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: koalja-s3-fs-service
+rules:
+- apiGroups: [""]
+  resources: ["endpoints", "events", "persistentvolumes", "persistentvolumeclaims", "services"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "update"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["*"]
+- apiGroups: ["agents.aljabr.io"]
+  resources: ["flexvolumedrivers"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: koalja-s3-fs-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: koalja-s3-fs-service
+subjects:
+- kind: ServiceAccount
+  name: koalja-s3-fs-service
+  namespace: system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3-fs-service
+  namespace: system
+  labels:
+    control-plane: s3-fs
+    controller-tools.k8s.io: "1.0"
+    koalja.aljabr.io/serviceType: FileSystem
+spec:
+  selector:
+    control-plane: s3-fs
+    controller-tools.k8s.io: "1.0"
+  ports:
+  - name: grpc-api
+    port: 7212
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: s3-fs
+  namespace: system
+  labels:
+    control-plane: s3-fs
+    controller-tools.k8s.io: "1.0"
+spec:
+  selector:
+    matchLabels:
+      control-plane: s3-fs
+      controller-tools.k8s.io: "1.0"
+  serviceName: local-fs-service
+  template:
+    metadata:
+      labels:
+        control-plane: s3-fs
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - command:
+        - /apps/services
+        - filesystem
+        - --filesystem=s3
+        image: koalja-services:latest
+        name: fs-service
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        env:
+        - name: FLEX_VOLUME_PLUGIN_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: koalja-s3-fs-service
+              key: FLEX_VOLUME_PLUGIN_DIR
+              optional: true
+        - name: KOALJA_API_PORT
+          value: "7212"
+        - name: KOALJA_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KOALJA_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      serviceAccountName: koalja-s3-fs-service
+      terminationGracePeriodSeconds: 10

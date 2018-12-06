@@ -55,6 +55,7 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		EstimatedCapacity: 0,
 		NodeName:          nodeName,
 		Owner:             &cfg.OwnerRef,
+		Namespace:         cfg.Pipeline.GetNamespace(),
 	})
 	if err != nil {
 		return maskAny(err)
@@ -112,6 +113,38 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 			},
 		}
 		target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+	} else if resp.GetVolumeClaimName() != "" {
+		// Add PVC to resources for deletion list (if needed)
+		if resp.DeleteAfterUse {
+			// Get created PersistentVolumeClaim
+			var pvc corev1.PersistentVolumeClaim
+			pvcKey := client.ObjectKey{
+				Name:      resp.GetVolumeName(),
+				Namespace: cfg.Pipeline.GetNamespace(),
+			}
+			if err := deps.Client.Get(ctx, pvcKey, &pvc); err != nil {
+				deps.Log.Warn().Err(err).Msg("Failed to get PersistentVolumeClaim")
+				return maskAny(err)
+			}
+			target.Resources = append(target.Resources, &pvc)
+		}
+
+		// Add volume for the pod, unless such a volume already exists
+		if vol, found := util.GetVolumeWithForPVC(&target.Pod.Spec, resp.GetVolumeClaimName()); !found {
+			vol := corev1.Volume{
+				Name: volName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: resp.GetVolumeClaimName(),
+						ReadOnly:  false,
+					},
+				},
+			}
+			target.Pod.Spec.Volumes = append(target.Pod.Spec.Volumes, vol)
+		} else {
+			volName = vol.Name
+			vol.PersistentVolumeClaim.ReadOnly = false
+		}
 	} else if resp.GetVolumePath() != "" {
 		// Mount VolumePath as HostPath volume
 		dirType := corev1.HostPathDirectoryOrCreate
@@ -150,27 +183,32 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		Name:      volName,
 		ReadOnly:  false,
 		MountPath: mountPath,
+		SubPath:   resp.GetSubPath(),
 	})
 
 	// Create template data
 	localPath := "output"
 	target.TemplateData = map[string]interface{}{
-		"volumeName": resp.GetVolumeName(),
-		"volumePath": resp.GetVolumePath(),
-		"mountPath":  mountPath,
-		"nodeName":   resp.GetNodeName(),
-		"path":       filepath.Join(mountPath, localPath),
+		"volumeName":      resp.GetVolumeName(),
+		"volumeClaimName": resp.GetVolumeClaimName(),
+		"volumePath":      resp.GetVolumePath(),
+		"subPath":         resp.GetSubPath(),
+		"mountPath":       mountPath,
+		"nodeName":        resp.GetNodeName(),
+		"path":            filepath.Join(mountPath, localPath),
 	}
 
 	// Prepare output processor
 	if cfg.OutputSpec.Ready.IsSucceeded() {
 		target.OutputProcessor = &fileOutputProcessor{
-			OutputName: cfg.OutputSpec.Name,
-			VolumeName: resp.GetVolumeName(),
-			VolumePath: resp.GetVolumePath(),
-			MountPath:  mountPath,
-			NodeName:   resp.GetNodeName(),
-			LocalPath:  localPath,
+			OutputName:      cfg.OutputSpec.Name,
+			VolumeName:      resp.GetVolumeName(),
+			VolumeClaimName: resp.GetVolumeClaimName(),
+			VolumePath:      resp.GetVolumePath(),
+			SubPath:         resp.GetSubPath(),
+			MountPath:       mountPath,
+			NodeName:        resp.GetNodeName(),
+			LocalPath:       localPath,
 		}
 	}
 
@@ -178,12 +216,14 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 }
 
 type fileOutputProcessor struct {
-	OutputName string
-	VolumeName string
-	VolumePath string
-	MountPath  string
-	NodeName   string
-	LocalPath  string
+	OutputName      string
+	VolumeName      string
+	VolumeClaimName string
+	VolumePath      string
+	SubPath         string
+	MountPath       string
+	NodeName        string
+	LocalPath       string
 }
 
 // Process a single file output
@@ -191,12 +231,14 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 	log := deps.Log
 	log.Debug().Msg("creating URI for output")
 	resp, err := deps.FileSystem.CreateFileURI(ctx, &fs.CreateFileURIRequest{
-		Scheme:     string(annotatedvalue.SchemeFile),
-		VolumeName: p.VolumeName,
-		VolumePath: p.VolumePath,
-		NodeName:   p.NodeName,
-		LocalPath:  p.LocalPath,
-		IsDir:      false, // TODO
+		Scheme:          string(annotatedvalue.SchemeFile),
+		VolumeName:      p.VolumeName,
+		VolumeClaimName: p.VolumeClaimName,
+		VolumePath:      p.VolumePath,
+		SubPath:         p.SubPath,
+		NodeName:        p.NodeName,
+		LocalPath:       p.LocalPath,
+		IsDir:           false, // TODO
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create file URI")
