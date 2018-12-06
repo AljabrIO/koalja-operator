@@ -96,6 +96,12 @@ spec:
             cpu: 100m
             memory: 20Mi
         env:
+        - name: FLEX_VOLUME_PLUGIN_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: koalja-s3-fs-service
+              key: FLEX_VOLUME_PLUGIN_DIR
+              optional: true
         - name: KOALJA_API_PORT
           value: "7212"
         - name: KOALJA_NAMESPACE
