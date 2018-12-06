@@ -6,6 +6,7 @@ VERSION ?= dev
 GOOS ?= linux
 GOARCH ?= amd64
 GOMOD=github.com/AljabrIO/koalja-operator
+STORAGETYPE ?= s3
 
 # Image URL to use all building/pushing image targets
 OPERATORIMG ?= $(DOCKERNAMESPACE)/koalja-operator:$(VERSION)
@@ -28,6 +29,9 @@ SOURCES := $(shell find . -name '*.go') $(shell find . -name '*.proto')
 # Configs
 PATCHESDIR := $(ROOTDIR)/config/patches
 OPERATOROVERLAYDIR := $(ROOTDIR)/config/operator/overlays/$(VERSION)
+LOCALSTORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/local/overlays/$(VERSION)
+S3STORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/s3/overlays/$(VERSION)
+STORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/$(STORAGETYPE)/overlays/$(VERSION)
 
 all: check-vars build test
 
@@ -98,13 +102,18 @@ install: manifests
 # Uninstall CRDs and namespaces
 uninstall: manifests
 	@kustomize build $(OPERATOROVERLAYDIR) | kubectl delete -f - || true
+	@kustomize build $(LOCALSTORAGEOVERLAYDIR) | kubectl delete -f - || true
+	@kustomize build $(S3STORAGEOVERLAYDIR) | kubectl delete -f - || true
 	kubectl delete -f config/namespaces
 	kubectl delete -f config/crds
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install
 	@kustomize build $(OPERATOROVERLAYDIR) | kubectl delete -f - || true
+	@kustomize build $(LOCALSTORAGEOVERLAYDIR) | kubectl delete -f - || true
+	@kustomize build $(S3STORAGEOVERLAYDIR) | kubectl delete -f - || true
 	kustomize build $(OPERATOROVERLAYDIR) | kubectl apply -f -
+	kustomize build $(STORAGEOVERLAYDIR) | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
@@ -160,20 +169,24 @@ docker-push: docker-build
 
 # Set image IDs in patch files
 docker-patch-config:
-	mkdir -p config/operator/overlays/$(VERSION)
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/pipeline_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/pipeline_agent_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/stub_link_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/stub_link_agent_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/task_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/task_agent_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(OPERATORIMG))"'!' $(PATCHESDIR)/manager_image_patch.yaml > $(OPERATOROVERLAYDIR)/manager_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/stub_annotatedvalue_registry_image_patch.yaml > $(OPERATOROVERLAYDIR)/stub_annotatedvalue_registry_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/local_fs_service_image_patch.yaml > $(OPERATOROVERLAYDIR)/local_fs_service_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/s3_fs_service_image_patch.yaml > $(OPERATOROVERLAYDIR)/s3_fs_service_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/dbquery_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/dbquery_executor_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filedrop_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filedrop_executor_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filesplit_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filesplit_executor_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/jsonquery_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/jsonquery_executor_image_patch.yaml
-	sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(FLEXS3IMG))"'!' $(PATCHESDIR)/flex_s3_image_patch.yaml > $(OPERATOROVERLAYDIR)/flex_s3_image_patch.yaml
+	@mkdir -p $(OPERATOROVERLAYDIR)
+	@mkdir -p $(LOCALSTORAGEOVERLAYDIR)
+	@mkdir -p $(S3STORAGEOVERLAYDIR)
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/pipeline_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/pipeline_agent_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/stub_link_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/stub_link_agent_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/task_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/task_agent_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(OPERATORIMG))"'!' $(PATCHESDIR)/manager_image_patch.yaml > $(OPERATOROVERLAYDIR)/manager_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/stub_annotatedvalue_registry_image_patch.yaml > $(OPERATOROVERLAYDIR)/stub_annotatedvalue_registry_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/local_fs_service_image_patch.yaml > $(LOCALSTORAGEOVERLAYDIR)/local_fs_service_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/s3_fs_service_image_patch.yaml > $(S3STORAGEOVERLAYDIR)/s3_fs_service_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/dbquery_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/dbquery_executor_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filedrop_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filedrop_executor_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filesplit_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filesplit_executor_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/jsonquery_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/jsonquery_executor_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(FLEXS3IMG))"'!' $(PATCHESDIR)/flex_s3_image_patch.yaml > $(S3STORAGEOVERLAYDIR)/flex_s3_image_patch.yaml
 	cd $(OPERATOROVERLAYDIR) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base "../../base" && kustomize edit add patch "*_patch.yaml"
+	cd $(LOCALSTORAGEOVERLAYDIR) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base "../../base" && kustomize edit add patch "*_patch.yaml"
+	cd $(S3STORAGEOVERLAYDIR) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base "../../base" && kustomize edit add patch "*_patch.yaml"
 
 bootstrap:
 	go get github.com/jessevdk/go-assets-builder
