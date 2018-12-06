@@ -58,3 +58,5 @@ data:
   # will only be used if no other domain matches.
   example.com: ""
 ```
+
+## Storage Management

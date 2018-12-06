@@ -18,18 +18,17 @@ namePrefix: koalja-
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- ../manager/namespace.yaml
-- ../rbac/rbac_role.yaml
-- ../rbac/rbac_role_binding.yaml
-- ../agents/pipeline_agent.yaml
-- ../agents/link_agent.yaml
-- ../agents/task_agent.yaml
-- ../manager/manager.yaml
-- ../services/annotatedvalue_registry.yaml
-- ../services/local-fs.yaml
-- ../services/flex-s3.yaml
-- ../services/s3-fs.yaml
-- ../tasks/dbquery_executor.yaml
-- ../tasks/filedrop_executor.yaml
-- ../tasks/filesplit_executor.yaml
-- ../tasks/jsonquery_executor.yaml
+- ../../rbac/rbac_role.yaml
+- ../../rbac/rbac_role_binding.yaml
+- ../../agents/pipeline_agent.yaml
+- ../../agents/link_agent.yaml
+- ../../agents/task_agent.yaml
+- ../../manager/manager.yaml
+- ../../services/annotatedvalue_registry.yaml
+- ../../services/local-fs.yaml
+- ../../services/flex-s3.yaml
+- ../../services/s3-fs.yaml
+- ../../tasks/dbquery_executor.yaml
+- ../../tasks/filedrop_executor.yaml
+- ../../tasks/filesplit_executor.yaml
+- ../../tasks/jsonquery_executor.yaml
