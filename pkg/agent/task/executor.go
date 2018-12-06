@@ -41,12 +41,14 @@ import (
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
 	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
+	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
 )
 
 // Executor describes the API implemented by a task executor
 type Executor interface {
+	ptask.OutputFileSystemServiceServer
 	// Run the executor until the given context is canceled.
 	Run(ctx context.Context) error
 	// Execute on the task with the given snapshot as input.
@@ -55,7 +57,7 @@ type Executor interface {
 
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
-	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputReadyNotifierPort int,
+	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputServicesPort int,
 	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
@@ -97,24 +99,25 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 	}
 
 	return &executor{
-		Client:                  client,
-		Cache:                   cache,
-		FileSystemClient:        fileSystem,
-		log:                     log,
-		taskSpec:                taskSpec,
-		pipeline:                pipeline,
-		outputAddressesMap:      outputAddressesMap,
-		taskExecContainer:       taskExecContainer,
-		taskExecLabels:          taskExecLabels,
-		executorServiceName:     executorServiceName,
-		myPod:                   pod,
-		dnsName:                 dnsName,
-		namespace:               pod.GetNamespace(),
-		outputReadyNotifierPort: outputReadyNotifierPort,
-		podChanges:              make(chan *corev1.Pod),
-		outputPublisher:         outputPublisher,
-		podGC:                   podGC,
-		statistics:              statistics,
+		Client:                         client,
+		Cache:                          cache,
+		FileSystemClient:               fileSystem,
+		log:                            log,
+		taskSpec:                       taskSpec,
+		pipeline:                       pipeline,
+		outputAddressesMap:             outputAddressesMap,
+		taskExecContainer:              taskExecContainer,
+		taskExecLabels:                 taskExecLabels,
+		executorServiceName:            executorServiceName,
+		myPod:                          pod,
+		dnsName:                        dnsName,
+		namespace:                      pod.GetNamespace(),
+		outputServicesPort:             outputServicesPort,
+		podChanges:                     make(chan *corev1.Pod),
+		outputPublisher:                outputPublisher,
+		podGC:                          podGC,
+		statistics:                     statistics,
+		createFileSystemURIRequestChan: make(chan createFileSystemURIRequest),
 	}, nil
 }
 
@@ -122,22 +125,42 @@ type executor struct {
 	client.Client
 	cache.Cache
 	fs.FileSystemClient
-	mutex                   sync.Mutex
-	log                     zerolog.Logger
-	taskSpec                *koalja.TaskSpec
-	pipeline                *koalja.Pipeline
-	outputAddressesMap      map[string][]string
-	taskExecContainer       *corev1.Container
-	taskExecLabels          map[string]string
-	executorServiceName     string
-	myPod                   *corev1.Pod
-	dnsName                 string
-	namespace               string
-	outputReadyNotifierPort int
-	podChanges              chan *corev1.Pod
-	outputPublisher         OutputPublisher
-	podGC                   PodGarbageCollector
-	statistics              *tracking.TaskStatistics
+	mutex                          sync.Mutex
+	log                            zerolog.Logger
+	taskSpec                       *koalja.TaskSpec
+	pipeline                       *koalja.Pipeline
+	outputAddressesMap             map[string][]string
+	taskExecContainer              *corev1.Container
+	taskExecLabels                 map[string]string
+	executorServiceName            string
+	myPod                          *corev1.Pod
+	dnsName                        string
+	namespace                      string
+	outputServicesPort             int
+	podChanges                     chan *corev1.Pod
+	outputPublisher                OutputPublisher
+	podGC                          PodGarbageCollector
+	statistics                     *tracking.TaskStatistics
+	createFileSystemURIRequestChan chan createFileSystemURIRequest
+}
+
+type createFileSystemURIRequest struct {
+	// Name of the task output that is data belongs to.
+	OutputName string
+	// Local path of the file/dir in the Volume
+	LocalPath string
+	// IsDir indicates if the URI is for a file (false) or a directory (true)
+	IsDir bool
+
+	// Response channel
+	Response chan createFileSystemURIResponse
+}
+
+type createFileSystemURIResponse struct {
+	// URI holds the created URI
+	URI string
+	// Error in case something went wrong
+	Error error
 }
 
 const (
@@ -249,49 +272,7 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	// Prepare garbage collector
 	e.podGC.Set(podGCLabels, pod.Namespace)
 
-	// Wait for the pod to finish
-waitLoop:
-	for {
-		change := <-e.podChanges
-		// Match pod name
-		if change.GetName() != pod.Name {
-			continue
-		}
-		// Match pod UID (in label)
-		if lbls := change.GetLabels(); lbls != nil {
-			if changeUID := lbls["uid"]; changeUID != uid {
-				continue
-			}
-		}
-
-		switch change.Status.Phase {
-		case corev1.PodSucceeded:
-			// We're done with a valid result
-			e.log.Debug().Msg("pod succeeded")
-			break waitLoop
-		case corev1.PodFailed:
-			// Pod has failed
-			e.log.Warn().Msg("Pod failed")
-			return fmt.Errorf("Pod has failed")
-		}
-		// Check executor container status
-		for _, cs := range change.Status.ContainerStatuses {
-			if cs.Name == execCont.Name {
-				if cs.State.Terminated != nil {
-					switch cs.State.Terminated.ExitCode {
-					case 0:
-						e.log.Debug().Msg("executor container succeeded")
-						break waitLoop
-					default:
-						e.log.Warn().Int32("exitCode", cs.State.Terminated.ExitCode).Msg("Executor container failed")
-						return fmt.Errorf("Executor container has failed")
-					}
-				}
-			}
-		}
-	}
-
-	// Process results
+	// Prepare for output
 	cfg := ExecutorOutputProcessorConfig{
 		Snapshot: args,
 	}
@@ -301,6 +282,90 @@ waitLoop:
 		FileSystem:      e.FileSystemClient,
 		OutputPublisher: e.outputPublisher,
 	}
+	createFileSystemURIRequestHandler := func(req createFileSystemURIRequest) {
+		defer close(req.Response)
+		log := e.log.With().
+			Str("outputName", req.OutputName).
+			Str("localPath", req.LocalPath).
+			Bool("isDir", req.IsDir).
+			Logger()
+		log.Debug().Msg("handling createFileSystemURIRequest")
+
+		// Find output processor
+		var outputProcessor ExecutorOutputProcessor
+		for _, op := range outputProcessors {
+			if op.GetOutputName() == req.OutputName {
+				outputProcessor = op
+				break
+			}
+			log.Debug().
+				Str("currentOutputProcessor", op.GetOutputName()).
+				Msg("This output processor is not the one I'm looking for")
+		}
+		if outputProcessor == nil {
+			log.Debug().Msg("No such output")
+			req.Response <- createFileSystemURIResponse{
+				Error: fmt.Errorf("Unknown output %s", req.OutputName),
+			}
+		} else {
+			uri, err := outputProcessor.CreateFileURI(ctx, req.LocalPath, req.IsDir, cfg, deps)
+			if err != nil {
+				log.Debug().Err(err).Msg("CreateFileURI failed")
+			}
+			req.Response <- createFileSystemURIResponse{
+				URI:   uri,
+				Error: maskAny(err),
+			}
+		}
+	}
+
+	// Wait for the pod to finish
+waitLoop:
+	for {
+		select {
+		case req := <-e.createFileSystemURIRequestChan:
+			createFileSystemURIRequestHandler(req)
+		case change := <-e.podChanges:
+			// Match pod name
+			if change.GetName() != pod.Name {
+				continue
+			}
+			// Match pod UID (in label)
+			if lbls := change.GetLabels(); lbls != nil {
+				if changeUID := lbls["uid"]; changeUID != uid {
+					continue
+				}
+			}
+
+			switch change.Status.Phase {
+			case corev1.PodSucceeded:
+				// We're done with a valid result
+				e.log.Debug().Msg("pod succeeded")
+				break waitLoop
+			case corev1.PodFailed:
+				// Pod has failed
+				e.log.Warn().Msg("Pod failed")
+				return fmt.Errorf("Pod has failed")
+			}
+			// Check executor container status
+			for _, cs := range change.Status.ContainerStatuses {
+				if cs.Name == execCont.Name {
+					if cs.State.Terminated != nil {
+						switch cs.State.Terminated.ExitCode {
+						case 0:
+							e.log.Debug().Msg("executor container succeeded")
+							break waitLoop
+						default:
+							e.log.Warn().Int32("exitCode", cs.State.Terminated.ExitCode).Msg("Executor container failed")
+							return fmt.Errorf("Executor container has failed")
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Process results
 	for _, p := range outputProcessors {
 		if err := p.Process(ctx, cfg, deps); err != nil {
 			e.log.Error().Err(err).Msg("Failed to process output")
@@ -314,6 +379,42 @@ waitLoop:
 	}
 
 	return nil
+}
+
+// CreateFileURI creates a URI for the given file/dir
+func (e *executor) CreateFileURI(ctx context.Context, in *ptask.CreateFileURIRequest) (*ptask.CreateFileURIResponse, error) {
+	respChan := make(chan createFileSystemURIResponse, 1)
+	req := createFileSystemURIRequest{
+		OutputName: in.GetOutputName(),
+		LocalPath:  in.GetLocalPath(),
+		IsDir:      in.GetIsDir(),
+		Response:   respChan,
+	}
+	// Try to send request
+	select {
+	case e.createFileSystemURIRequestChan <- req:
+		// Request was queued
+	case <-ctx.Done():
+		// Context was canceled
+		close(respChan)
+		return nil, ctx.Err()
+	}
+
+	// Wait for response
+	// Note: respChan is closed by receiver of e.createFileSystemURIRequestChan
+	select {
+	case resp := <-respChan:
+		// Response received
+		if resp.Error != nil {
+			return nil, maskAny(resp.Error)
+		}
+		return &ptask.CreateFileURIResponse{
+			URI: resp.URI,
+		}, nil
+	case <-ctx.Done():
+		// Context was canceled
+		return nil, ctx.Err()
+	}
 }
 
 // createExecContainer creates a container to execute
@@ -398,11 +499,17 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 	}
 
 	// Append container environment variables
+	outputServicesAddress := net.JoinHostPort(e.dnsName, strconv.Itoa(e.outputServicesPort))
 	c.Env = append(c.Env,
 		// Pass address of OutputReadyNotifier
 		corev1.EnvVar{
 			Name:  constants.EnvOutputReadyNotifierAddress,
-			Value: net.JoinHostPort(e.dnsName, strconv.Itoa(e.outputReadyNotifierPort)),
+			Value: outputServicesAddress,
+		},
+		// Pass address of OutputFileSystemService
+		corev1.EnvVar{
+			Name:  constants.EnvOutputFileSystemServiceAddress,
+			Value: outputServicesAddress,
 		},
 		// Pass address of FileSystem service
 		corev1.EnvVar{

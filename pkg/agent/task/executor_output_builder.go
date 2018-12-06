@@ -38,6 +38,10 @@ type ExecutorOutputBuilder interface {
 // ExecutorOutputProcessor is called when a task executor has completed
 // to process its output.
 type ExecutorOutputProcessor interface {
+	// Gets the name of the output this processor is intended for
+	GetOutputName() string
+	// CreateFileURI creates a URI for the given file/dir
+	CreateFileURI(ctx context.Context, localPath string, isDir bool, cfg ExecutorOutputProcessorConfig, deps ExecutorOutputProcessorDependencies) (string, error)
 	Process(context.Context, ExecutorOutputProcessorConfig, ExecutorOutputProcessorDependencies) error
 }
 

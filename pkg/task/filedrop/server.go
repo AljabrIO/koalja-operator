@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/AljabrIO/koalja-operator/pkg/fs"
 	"github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
 
@@ -89,15 +88,10 @@ func (s *Service) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	resp, err := s.fsClient.CreateFileURI(ctx, &fs.CreateFileURIRequest{
-		Scheme:          s.fsScheme,
-		VolumeName:      s.VolumeName,
-		VolumeClaimName: s.VolumeClaimName,
-		VolumePath:      s.VolumePath,
-		SubPath:         s.SubPath,
-		NodeName:        s.NodeName,
-		LocalPath:       relLocalPath,
-		IsDir:           false,
+	resp, err := s.ofsClient.CreateFileURI(ctx, &task.CreateFileURIRequest{
+		OutputName: s.OutputName,
+		LocalPath:  relLocalPath,
+		IsDir:      false,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create file URI")
