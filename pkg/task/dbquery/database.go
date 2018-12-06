@@ -20,11 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
 	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 )
 
 // Database provides the API implemented by various database types.
@@ -40,7 +39,7 @@ type QueryDependencies struct {
 	// Logger
 	Log zerolog.Logger
 	// Client for FS service
-	FileSystemClient fs.FileSystemClient
+	FileSystemClient taskclient.OutputFileSystemServiceClient
 	// Scheme to use for FS URI's
 	FileSystemScheme string
 	// OutputReady is to be called by a database for publishing output notifications.

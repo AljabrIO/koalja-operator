@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/AljabrIO/koalja-operator/pkg/constants"
-	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	"github.com/AljabrIO/koalja-operator/pkg/task"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
 	"github.com/AljabrIO/koalja-operator/pkg/util"
@@ -58,7 +57,7 @@ type Config struct {
 type Service struct {
 	Config
 	log       zerolog.Logger
-	fsClient  fs.FileSystemClient
+	ofsClient taskclient.OutputFileSystemServiceClient
 	fsScheme  string
 	ornClient taskclient.OutputReadyNotifierClient
 	scheme    *runtime.Scheme
@@ -105,7 +104,7 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	}, retry.Timeout(constants.TimeoutK8sClient)); err != nil {
 		return nil, err
 	}
-	fsClient, err := fs.NewFileSystemClient()
+	ofsClient, err := taskclient.CreateOutputFileSystemServiceClient()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create filesystem client")
 		return nil, maskAny(err)
@@ -123,7 +122,7 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	return &Service{
 		Config:    cfg,
 		log:       log,
-		fsClient:  fsClient,
+		ofsClient: ofsClient,
 		fsScheme:  fsScheme,
 		ornClient: ornClient,
 		k8sClient: k8sClient,
@@ -168,7 +167,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// Run query
 	deps := QueryDependencies{
 		Log:                  s.log,
-		FileSystemClient:     s.fsClient,
+		FileSystemClient:     s.ofsClient,
 		FileSystemScheme:     s.fsScheme,
 		OutputReady:          s.outputReady,
 		KubernetesClient:     s.k8sClient,
