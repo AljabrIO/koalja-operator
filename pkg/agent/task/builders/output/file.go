@@ -199,35 +199,44 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 	}
 
 	// Prepare output processor
-	if cfg.OutputSpec.Ready.IsSucceeded() {
-		target.OutputProcessor = &fileOutputProcessor{
-			OutputName:      cfg.OutputSpec.Name,
-			VolumeName:      resp.GetVolumeName(),
-			VolumeClaimName: resp.GetVolumeClaimName(),
-			VolumePath:      resp.GetVolumePath(),
-			SubPath:         resp.GetSubPath(),
-			MountPath:       mountPath,
-			NodeName:        resp.GetNodeName(),
-			LocalPath:       localPath,
-		}
+	target.OutputProcessor = &fileOutputProcessor{
+		ReadyOnSucceeded: cfg.OutputSpec.Ready.IsSucceeded(),
+		OutputName:       cfg.OutputSpec.Name,
+		VolumeName:       resp.GetVolumeName(),
+		VolumeClaimName:  resp.GetVolumeClaimName(),
+		VolumePath:       resp.GetVolumePath(),
+		SubPath:          resp.GetSubPath(),
+		MountPath:        mountPath,
+		NodeName:         resp.GetNodeName(),
+		LocalPath:        localPath,
 	}
 
 	return nil
 }
 
 type fileOutputProcessor struct {
-	OutputName      string
-	VolumeName      string
-	VolumeClaimName string
-	VolumePath      string
-	SubPath         string
-	MountPath       string
-	NodeName        string
-	LocalPath       string
+	ReadyOnSucceeded bool
+	OutputName       string
+	VolumeName       string
+	VolumeClaimName  string
+	VolumePath       string
+	SubPath          string
+	MountPath        string
+	NodeName         string
+	LocalPath        string
+}
+
+// Gets the name of the output this processor is intended for
+func (p *fileOutputProcessor) GetOutputName() string {
+	return p.OutputName
 }
 
 // Process a single file output
 func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutputProcessorConfig, deps task.ExecutorOutputProcessorDependencies) error {
+	if !p.ReadyOnSucceeded {
+		// Nothing todo here
+		return nil
+	}
 	log := deps.Log
 	log.Debug().Msg("creating URI for output")
 	resp, err := deps.FileSystem.CreateFileURI(ctx, &fs.CreateFileURIRequest{
@@ -278,4 +287,28 @@ func (p *fileOutputProcessor) Process(ctx context.Context, cfg task.ExecutorOutp
 			return ctx.Err()
 		}
 	}
+}
+
+// CreateFileURI creates a URI for the given file/dir
+func (p *fileOutputProcessor) CreateFileURI(ctx context.Context, localPath string, isDir bool, cfg task.ExecutorOutputProcessorConfig, deps task.ExecutorOutputProcessorDependencies) (string, error) {
+	log := deps.Log.With().
+		Str("localPath", localPath).
+		Bool("isDir", isDir).
+		Logger()
+	log.Debug().Msg("creating URI for file")
+	resp, err := deps.FileSystem.CreateFileURI(ctx, &fs.CreateFileURIRequest{
+		Scheme:          string(annotatedvalue.SchemeFile),
+		VolumeName:      p.VolumeName,
+		VolumeClaimName: p.VolumeClaimName,
+		VolumePath:      p.VolumePath,
+		SubPath:         p.SubPath,
+		NodeName:        p.NodeName,
+		LocalPath:       localPath,
+		IsDir:           isDir,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create file URI")
+		return "", maskAny(err)
+	}
+	return resp.GetURI(), nil
 }

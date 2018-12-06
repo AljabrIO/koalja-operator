@@ -29,3 +29,24 @@ message OutputReadyResponse {
     // ID of the published annotated value
     string AnnotatedValueID = 2;
 }
+
+// OutputFileSystemService is the API provided by the task agent to
+// task executors regarding filesystem services.
+service OutputFileSystemService {
+    // CreateFileURI creates a URI for the given file/dir 
+    rpc CreateFileURI(CreateFileURIRequest) returns (CreateFileURIResponse);
+}
+
+message CreateFileURIRequest {
+    // Name of the task output that is data belongs to.
+    string OutputName = 2;
+    // Local path of the file/dir in the Volume
+    string LocalPath = 7;
+    // IsDir indicates if the URI is for a file (false) or a directory (true)
+    bool IsDir = 8;
+}
+
+message CreateFileURIResponse {
+    // The created URI
+    string URI = 1;
+}

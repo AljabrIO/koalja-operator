@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 
-	fs "github.com/AljabrIO/koalja-operator/pkg/fs/client"
 	taskclient "github.com/AljabrIO/koalja-operator/pkg/task/client"
 )
 
@@ -34,18 +33,8 @@ import (
 type Config struct {
 	// Local directory path where to drop files
 	DropFolder string
-	// Name of volume that contains DropFolder
-	VolumeName string
-	// Name of volume claim that contains DropFolder
-	VolumeClaimName string
-	// Path of volume that contains DropFolder
-	VolumePath string
-	// SubPath on the volume
-	SubPath string
 	// Mount path of volume that contains DropFolder
 	MountPath string
-	// Name of node we're running on
-	NodeName string
 	// Name of the task output we're serving
 	OutputName string
 }
@@ -54,7 +43,7 @@ type Config struct {
 type Service struct {
 	Config
 	log       zerolog.Logger
-	fsClient  fs.FileSystemClient
+	ofsClient taskclient.OutputFileSystemServiceClient
 	fsScheme  string
 	ornClient taskclient.OutputReadyNotifierClient
 	scheme    *runtime.Scheme
@@ -66,9 +55,6 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	if cfg.DropFolder == "" {
 		return nil, fmt.Errorf("DropFolder expected")
 	}
-	if cfg.VolumeName == "" && cfg.VolumeClaimName == "" && cfg.VolumePath == "" {
-		return nil, fmt.Errorf("VolumeName, VolumeClaimName or VolumePath expected")
-	}
 	if cfg.MountPath == "" {
 		return nil, fmt.Errorf("MountPath expected")
 	}
@@ -77,9 +63,9 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	}
 
 	// Create service clients
-	fsClient, err := fs.NewFileSystemClient()
+	ofsClient, err := taskclient.CreateOutputFileSystemServiceClient()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create filesystem client")
+		log.Error().Err(err).Msg("Failed to create output filesystem client")
 		return nil, maskAny(err)
 	}
 	fsScheme, err := constants.GetFileSystemScheme()
@@ -95,7 +81,7 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config, scheme *run
 	return &Service{
 		Config:    cfg,
 		log:       log,
-		fsClient:  fsClient,
+		ofsClient: ofsClient,
 		fsScheme:  fsScheme,
 		ornClient: ornClient,
 		scheme:    scheme,

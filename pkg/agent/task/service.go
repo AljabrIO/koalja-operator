@@ -259,6 +259,7 @@ func (s *Service) runServer(ctx context.Context) error {
 	}
 	svr := grpc.NewServer()
 	ptask.RegisterOutputReadyNotifierServer(svr, s.outputPublisher)
+	ptask.RegisterOutputFileSystemServiceServer(svr, s.executor)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {
