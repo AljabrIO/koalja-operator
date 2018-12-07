@@ -98,6 +98,10 @@ const (
 	// address of the OutputFileSystemService to a container.
 	EnvOutputFileSystemServiceAddress = "KOALJA_OUTPUT_FS_SERVICE_ADDRESS"
 
+	// EnvSnapshotServiceAddress is the name of the environment variable used to pass the
+	// address of the SnapshotService to a container.
+	EnvSnapshotServiceAddress = "KOALJA_SNAPSHOT_SERVICE_ADDRESS"
+
 	// EnvLinkName is the name of the environment variable used to pass the
 	// name of the link to an agent/sidecar.
 	EnvLinkName = "KOALJA_LINK_NAME"

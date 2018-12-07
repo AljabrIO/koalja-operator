@@ -69,6 +69,8 @@ spec:
                       - typeRef
                       type: object
                     type: array
+                  launchPolicy:
+                    type: string
                   name:
                     type: string
                   outputs:

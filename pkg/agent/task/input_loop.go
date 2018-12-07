@@ -50,11 +50,12 @@ type inputLoop struct {
 	executionCount  int32
 	execQueue       chan (*InputSnapshot)
 	executor        Executor
+	snapshotService SnapshotService
 	statistics      *tracking.TaskStatistics
 }
 
 // newInputLoop initializes a new input loop.
-func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor, statistics *tracking.TaskStatistics) (*inputLoop, error) {
+func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, executor Executor, snapshotService SnapshotService, statistics *tracking.TaskStatistics) (*inputLoop, error) {
 	inputAddressMap := make(map[string]string)
 	for _, tis := range spec.Inputs {
 		annKey := constants.CreateInputLinkAddressAnnotationName(tis.Name)
@@ -71,6 +72,7 @@ func newInputLoop(log zerolog.Logger, spec *koalja.TaskSpec, pod *corev1.Pod, ex
 		clientID:        uniuri.New(),
 		execQueue:       make(chan *InputSnapshot),
 		executor:        executor,
+		snapshotService: snapshotService,
 		statistics:      statistics,
 	}, nil
 }
@@ -88,10 +90,11 @@ func (il *inputLoop) Run(ctx context.Context) error {
 				return il.watchInput(lctx, il.spec.SnapshotPolicy, tis, stats)
 			})
 		}
-	} else {
-		// No inputs, run executor all the time
+	}
+	if il.spec.HasLaunchPolicyCustom() {
+		// Custom launch policy, run executor all the time
 		g.Go(func() error {
-			return il.runExecWithoutInputs(lctx)
+			return il.runExecWithCustomLaunchPolicy(lctx)
 		})
 	}
 	g.Go(func() error {
@@ -103,7 +106,9 @@ func (il *inputLoop) Run(ctx context.Context) error {
 	return nil
 }
 
-// processExecQueue pulls snapshots from the exec queue and executes them.
+// processExecQueue pulls snapshots from the exec queue and:
+// - executes them in case of tasks with auto launch policy or
+// - allows the executor to pull the snapshot in case of tasks with custom launch policy.
 func (il *inputLoop) processExecQueue(ctx context.Context) error {
 	for {
 		select {
@@ -111,10 +116,20 @@ func (il *inputLoop) processExecQueue(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			if err := il.execOnSnapshot(ctx, snapshot); ctx.Err() != nil {
-				return ctx.Err()
-			} else if err != nil {
-				il.log.Error().Err(err).Msg("Failed to execute task")
+			if il.spec.HasLaunchPolicyAuto() {
+				// Automatic launch policy; Go launch an executor
+				if err := il.execOnSnapshot(ctx, snapshot); ctx.Err() != nil {
+					return ctx.Err()
+				} else if err != nil {
+					il.log.Error().Err(err).Msg("Failed to execute task")
+				}
+			} else {
+				// Custom launch policy; Make snapshot available to snapshot service
+				if err := il.snapshotService.Execute(ctx, snapshot); ctx.Err() != nil {
+					return ctx.Err()
+				} else if err != nil {
+					il.log.Error().Err(err).Msg("Failed to execute task with custom launch policy")
+				}
 			}
 		case <-ctx.Done():
 			return ctx.Err()
@@ -122,8 +137,10 @@ func (il *inputLoop) processExecQueue(ctx context.Context) error {
 	}
 }
 
-// runExecWithoutInputs pulls snapshots from the exec queue and executes them.
-func (il *inputLoop) runExecWithoutInputs(ctx context.Context) error {
+// runExecWithCustomLaunchPolicy runs the executor continuesly without
+// providing it a valid snapshot when it starts.
+// The executor must use the SnapshotService to pull for new snapshots.
+func (il *inputLoop) runExecWithCustomLaunchPolicy(ctx context.Context) error {
 	b := breaker.New(5, 1, time.Second*10)
 	for {
 		snapshot := &InputSnapshot{}

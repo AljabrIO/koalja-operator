@@ -50,6 +50,7 @@ type Service struct {
 	log             zerolog.Logger
 	inputLoop       *inputLoop
 	executor        Executor
+	snapshotService SnapshotService
 	outputPublisher *outputPublisher
 	podGC           PodGarbageCollector
 	cache           cache.Cache
@@ -163,7 +164,11 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	il, err := newInputLoop(log.With().Str("component", "inputLoop").Logger(), &taskSpec, &pod, executor, statistics)
+	snapshotService, err := NewSnapshotService(log.With().Str("component", "snapshotService").Logger())
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	il, err := newInputLoop(log.With().Str("component", "inputLoop").Logger(), &taskSpec, &pod, executor, snapshotService, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -171,6 +176,7 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 		log:             log,
 		inputLoop:       il,
 		executor:        executor,
+		snapshotService: snapshotService,
 		podGC:           podGC,
 		outputPublisher: op,
 		cache:           cache,
@@ -211,6 +217,13 @@ func (s *Service) Run(ctx context.Context) error {
 	g.Go(func() error {
 		if err := s.inputLoop.Run(lctx); err != nil {
 			s.log.Error().Err(err).Msg("InputLoop failed to start")
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.snapshotService.Run(lctx); err != nil {
+			s.log.Error().Err(err).Msg("SnapshotService failed to start")
 			return maskAny(err)
 		}
 		return nil
@@ -260,6 +273,7 @@ func (s *Service) runServer(ctx context.Context) error {
 	svr := grpc.NewServer()
 	ptask.RegisterOutputReadyNotifierServer(svr, s.outputPublisher)
 	ptask.RegisterOutputFileSystemServiceServer(svr, s.executor)
+	ptask.RegisterSnapshotServiceServer(svr, s.snapshotService)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
 	go func() {

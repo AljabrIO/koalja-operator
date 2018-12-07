@@ -57,7 +57,7 @@ type Executor interface {
 
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
-	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, outputServicesPort int,
+	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, taskAgentServicesPort int,
 	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
@@ -112,7 +112,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		myPod:                          pod,
 		dnsName:                        dnsName,
 		namespace:                      pod.GetNamespace(),
-		outputServicesPort:             outputServicesPort,
+		taskAgentServicesPort:          taskAgentServicesPort,
 		podChanges:                     make(chan *corev1.Pod),
 		outputPublisher:                outputPublisher,
 		podGC:                          podGC,
@@ -136,7 +136,7 @@ type executor struct {
 	myPod                          *corev1.Pod
 	dnsName                        string
 	namespace                      string
-	outputServicesPort             int
+	taskAgentServicesPort          int
 	podChanges                     chan *corev1.Pod
 	outputPublisher                OutputPublisher
 	podGC                          PodGarbageCollector
@@ -499,17 +499,22 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 	}
 
 	// Append container environment variables
-	outputServicesAddress := net.JoinHostPort(e.dnsName, strconv.Itoa(e.outputServicesPort))
+	taskAgentServicesAddress := net.JoinHostPort(e.dnsName, strconv.Itoa(e.taskAgentServicesPort))
 	c.Env = append(c.Env,
 		// Pass address of OutputReadyNotifier
 		corev1.EnvVar{
 			Name:  constants.EnvOutputReadyNotifierAddress,
-			Value: outputServicesAddress,
+			Value: taskAgentServicesAddress,
 		},
 		// Pass address of OutputFileSystemService
 		corev1.EnvVar{
 			Name:  constants.EnvOutputFileSystemServiceAddress,
-			Value: outputServicesAddress,
+			Value: taskAgentServicesAddress,
+		},
+		// Pass address of Snapshot service
+		corev1.EnvVar{
+			Name:  constants.EnvSnapshotServiceAddress,
+			Value: taskAgentServicesAddress,
 		},
 		// Pass address of FileSystem service
 		corev1.EnvVar{

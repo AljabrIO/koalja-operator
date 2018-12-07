@@ -190,6 +190,9 @@ message TaskSpec {
 
   // Policy determining how inputs are aggregated into snapshots
   optional string snapshotPolicy = 6 [(gogoproto.casttype) = "SnapshotPolicy", (gogoproto.customname) = "SnapshotPolicy", (gogoproto.nullable) = false];
+
+  // Policy determining when the executor will be launched
+  optional string launchPolicy = 7 [(gogoproto.casttype) = "LaunchPolicy", (gogoproto.customname) = "LaunchPolicy", (gogoproto.nullable) = false];
 }
 
 // TypeSpec holds the specification of a single type of data
