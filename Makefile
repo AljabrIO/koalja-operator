@@ -48,6 +48,10 @@ endif
 clean:
 	rm -Rf bin
 
+# Build tools
+build-tools:
+	go install k8s.io/code-generator/cmd/go-to-protobuf
+
 # Run tests
 test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
