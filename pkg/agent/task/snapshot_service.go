@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/dchest/uniuri"
 	"github.com/golang/protobuf/ptypes"
 
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
@@ -67,7 +68,7 @@ func (s *snapshotService) Run(ctx context.Context) error {
 // and waiting until it has acknowledged it.
 func (s *snapshotService) Execute(ctx context.Context, inputSnapshot *InputSnapshot) error {
 	// Build API compatible snapshot
-	snapshot := &ptask.Snapshot{}
+	snapshot := s.createAPISnapshot(inputSnapshot)
 
 	select {
 	case s.next <- snapshot:
@@ -85,6 +86,11 @@ func (s *snapshotService) Execute(ctx context.Context, inputSnapshot *InputSnaps
 				// We're done
 				return nil
 			}
+			// Oops, we got an unexpected ID
+			s.log.Warn().
+				Str("expected-id", snapshot.ID).
+				Str("actual-id", id).
+				Msg("Got unexpected snapshot ID in acknowledgment")
 		case <-ctx.Done():
 			// Context canceled
 			return ctx.Err()
@@ -127,4 +133,19 @@ func (s *snapshotService) Ack(ctx context.Context, req *ptask.AckRequest) (*empt
 		// Context canceled
 		return nil, maskAny(ctx.Err())
 	}
+}
+
+// createAPISnapshot creates a SnapshotService API compatible Snapshot from
+// the given task agent snapshot.
+func (s *snapshotService) createAPISnapshot(inputSnapshot *InputSnapshot) *ptask.Snapshot {
+	result := &ptask.Snapshot{
+		ID: uniuri.New(),
+	}
+	for k, v := range inputSnapshot.members {
+		result.Inputs = append(result.Inputs, &ptask.SnapshotInputPair{
+			InputName:       k,
+			AnnotatedValues: v.GetSequence(),
+		})
+	}
+	return result
 }
