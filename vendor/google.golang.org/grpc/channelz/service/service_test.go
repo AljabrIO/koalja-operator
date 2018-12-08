@@ -19,6 +19,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -28,7 +29,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"golang.org/x/net/context"
 	channelzpb "google.golang.org/grpc/channelz/grpc_channelz_v1"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -51,6 +51,7 @@ var protoToSocketOpt protoToSocketOptFunc
 // with &utcLoc. However zero value of a time.Time type value loc field is nil.
 // This behavior will make reflect.DeepEqual fail upon unset time.Time field,
 // and cause false positive fatal error.
+// TODO: Go1.7 is no longer supported - does this need a change?
 var emptyTime time.Time
 
 type dummyChannel struct {
