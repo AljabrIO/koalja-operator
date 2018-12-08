@@ -22,7 +22,7 @@ FRONTENDBUILDIMG := koalja-operator-frontend-builder
 FRONTENDSOURCES := $(shell find $(FRONTENDDIR)/src -name '*.js' -not -path './test/*')
 
 # Tools
-GOASSETSBUILDER := $(shell go env GOPATH)/bin/go-assets-builder$(shell go env GOEXE)
+GOASSETSBUILDER := go-assets-builder
 
 # Sources
 SOURCES := $(shell find . -name '*.go') $(shell find . -name '*.proto')
@@ -182,7 +182,8 @@ frontend/assets.go: $(FRONTENDSOURCES) $(FRONTENDDIR)/Dockerfile.build
 		-v $(FRONTENDDIR)/public:/usr/code/public:ro \
 		-v $(FRONTENDDIR)/src:/usr/code/src:ro \
 		$(FRONTENDBUILDIMG)
-	$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
+	docker $(DOCKERARGS) \
+		$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
 
 # Build & push all docker images
 docker: docker-build docker-push docker-patch-config
