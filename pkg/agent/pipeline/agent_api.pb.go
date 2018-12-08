@@ -43,7 +43,7 @@ func (m *RegisterLinkRequest) Reset()         { *m = RegisterLinkRequest{} }
 func (m *RegisterLinkRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterLinkRequest) ProtoMessage()    {}
 func (*RegisterLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{0}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{0}
 }
 func (m *RegisterLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -97,7 +97,7 @@ func (m *RegisterTaskRequest) Reset()         { *m = RegisterTaskRequest{} }
 func (m *RegisterTaskRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterTaskRequest) ProtoMessage()    {}
 func (*RegisterTaskRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{1}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{1}
 }
 func (m *RegisterTaskRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -158,7 +158,7 @@ func (m *OutputAnnotatedValuesRequest) Reset()         { *m = OutputAnnotatedVal
 func (m *OutputAnnotatedValuesRequest) String() string { return proto.CompactTextString(m) }
 func (*OutputAnnotatedValuesRequest) ProtoMessage()    {}
 func (*OutputAnnotatedValuesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{2}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{2}
 }
 func (m *OutputAnnotatedValuesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -224,7 +224,7 @@ func (m *OutputAnnotatedValues) Reset()         { *m = OutputAnnotatedValues{} }
 func (m *OutputAnnotatedValues) String() string { return proto.CompactTextString(m) }
 func (*OutputAnnotatedValues) ProtoMessage()    {}
 func (*OutputAnnotatedValues) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{3}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{3}
 }
 func (m *OutputAnnotatedValues) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -270,7 +270,7 @@ func (m *GetLinkStatisticsRequest) Reset()         { *m = GetLinkStatisticsReque
 func (m *GetLinkStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsRequest) ProtoMessage()    {}
 func (*GetLinkStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{4}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{4}
 }
 func (m *GetLinkStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -315,7 +315,7 @@ func (m *GetLinkStatisticsResponse) Reset()         { *m = GetLinkStatisticsResp
 func (m *GetLinkStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetLinkStatisticsResponse) ProtoMessage()    {}
 func (*GetLinkStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{5}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{5}
 }
 func (m *GetLinkStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -361,7 +361,7 @@ func (m *GetTaskStatisticsRequest) Reset()         { *m = GetTaskStatisticsReque
 func (m *GetTaskStatisticsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsRequest) ProtoMessage()    {}
 func (*GetTaskStatisticsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{6}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{6}
 }
 func (m *GetTaskStatisticsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -406,7 +406,7 @@ func (m *GetTaskStatisticsResponse) Reset()         { *m = GetTaskStatisticsResp
 func (m *GetTaskStatisticsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetTaskStatisticsResponse) ProtoMessage()    {}
 func (*GetTaskStatisticsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{7}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{7}
 }
 func (m *GetTaskStatisticsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -453,7 +453,7 @@ func (m *GetDataViewRequest) Reset()         { *m = GetDataViewRequest{} }
 func (m *GetDataViewRequest) String() string { return proto.CompactTextString(m) }
 func (*GetDataViewRequest) ProtoMessage()    {}
 func (*GetDataViewRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{8}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{8}
 }
 func (m *GetDataViewRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -507,7 +507,7 @@ func (m *GetDataViewResponse) Reset()         { *m = GetDataViewResponse{} }
 func (m *GetDataViewResponse) String() string { return proto.CompactTextString(m) }
 func (*GetDataViewResponse) ProtoMessage()    {}
 func (*GetDataViewResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_agent_api_a2da5a75c3faa420, []int{9}
+	return fileDescriptor_agent_api_d2fa761422606532, []int{9}
 }
 func (m *GetDataViewResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2526,9 +2526,9 @@ var (
 	ErrIntOverflowAgentApi   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_a2da5a75c3faa420) }
+func init() { proto.RegisterFile("agent_api.proto", fileDescriptor_agent_api_d2fa761422606532) }
 
-var fileDescriptor_agent_api_a2da5a75c3faa420 = []byte{
+var fileDescriptor_agent_api_d2fa761422606532 = []byte{
 	// 965 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0x4f, 0x6f, 0xdb, 0x36,
 	0x14, 0x8f, 0x92, 0x6c, 0xb1, 0x69, 0x27, 0x69, 0x98, 0x76, 0x73, 0x85, 0xc4, 0x0a, 0x34, 0x64,

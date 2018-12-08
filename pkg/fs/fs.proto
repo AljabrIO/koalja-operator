@@ -22,8 +22,6 @@ import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/fs";
 
-import "github.com/golang/protobuf/ptypes/empty/empty.proto";
-
 // FileSystem is the API used to access long term file storage
 service FileSystem {
     // CreateVolumeForWrite creates a PersistentVolume that can be used to

@@ -38,7 +38,7 @@ func (m *CanPublishRequest) Reset()         { *m = CanPublishRequest{} }
 func (m *CanPublishRequest) String() string { return proto.CompactTextString(m) }
 func (*CanPublishRequest) ProtoMessage()    {}
 func (*CanPublishRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{0}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{0}
 }
 func (m *CanPublishRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -79,7 +79,7 @@ func (m *CanPublishResponse) Reset()         { *m = CanPublishResponse{} }
 func (m *CanPublishResponse) String() string { return proto.CompactTextString(m) }
 func (*CanPublishResponse) ProtoMessage()    {}
 func (*CanPublishResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{1}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{1}
 }
 func (m *CanPublishResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -126,7 +126,7 @@ func (m *PublishRequest) Reset()         { *m = PublishRequest{} }
 func (m *PublishRequest) String() string { return proto.CompactTextString(m) }
 func (*PublishRequest) ProtoMessage()    {}
 func (*PublishRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{2}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{2}
 }
 func (m *PublishRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -172,7 +172,7 @@ func (m *PublishResponse) Reset()         { *m = PublishResponse{} }
 func (m *PublishResponse) String() string { return proto.CompactTextString(m) }
 func (*PublishResponse) ProtoMessage()    {}
 func (*PublishResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{3}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{3}
 }
 func (m *PublishResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -212,7 +212,7 @@ func (m *SubscribeRequest) Reset()         { *m = SubscribeRequest{} }
 func (m *SubscribeRequest) String() string { return proto.CompactTextString(m) }
 func (*SubscribeRequest) ProtoMessage()    {}
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{4}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{4}
 }
 func (m *SubscribeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -259,7 +259,7 @@ func (m *Subscription) Reset()         { *m = Subscription{} }
 func (m *Subscription) String() string { return proto.CompactTextString(m) }
 func (*Subscription) ProtoMessage()    {}
 func (*Subscription) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{5}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{5}
 }
 func (m *Subscription) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -307,7 +307,7 @@ func (m *SubscribeResponse) Reset()         { *m = SubscribeResponse{} }
 func (m *SubscribeResponse) String() string { return proto.CompactTextString(m) }
 func (*SubscribeResponse) ProtoMessage()    {}
 func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{6}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{6}
 }
 func (m *SubscribeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -361,7 +361,7 @@ func (m *PingRequest) Reset()         { *m = PingRequest{} }
 func (m *PingRequest) String() string { return proto.CompactTextString(m) }
 func (*PingRequest) ProtoMessage()    {}
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{7}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{7}
 }
 func (m *PingRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -408,7 +408,7 @@ func (m *CloseRequest) Reset()         { *m = CloseRequest{} }
 func (m *CloseRequest) String() string { return proto.CompactTextString(m) }
 func (*CloseRequest) ProtoMessage()    {}
 func (*CloseRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{8}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{8}
 }
 func (m *CloseRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -456,7 +456,7 @@ func (m *NextRequest) Reset()         { *m = NextRequest{} }
 func (m *NextRequest) String() string { return proto.CompactTextString(m) }
 func (*NextRequest) ProtoMessage()    {}
 func (*NextRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{9}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{9}
 }
 func (m *NextRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -511,7 +511,7 @@ func (m *NextResponse) Reset()         { *m = NextResponse{} }
 func (m *NextResponse) String() string { return proto.CompactTextString(m) }
 func (*NextResponse) ProtoMessage()    {}
 func (*NextResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{10}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{10}
 }
 func (m *NextResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -566,7 +566,7 @@ func (m *AckRequest) Reset()         { *m = AckRequest{} }
 func (m *AckRequest) String() string { return proto.CompactTextString(m) }
 func (*AckRequest) ProtoMessage()    {}
 func (*AckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{11}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{11}
 }
 func (m *AckRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -633,7 +633,7 @@ func (m *AnnotatedValue) Reset()         { *m = AnnotatedValue{} }
 func (m *AnnotatedValue) String() string { return proto.CompactTextString(m) }
 func (*AnnotatedValue) ProtoMessage()    {}
 func (*AnnotatedValue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{12}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{12}
 }
 func (m *AnnotatedValue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -725,7 +725,7 @@ func (m *AnnotatedValueSourceInput) Reset()         { *m = AnnotatedValueSourceI
 func (m *AnnotatedValueSourceInput) String() string { return proto.CompactTextString(m) }
 func (*AnnotatedValueSourceInput) ProtoMessage()    {}
 func (*AnnotatedValueSourceInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{13}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{13}
 }
 func (m *AnnotatedValueSourceInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -779,7 +779,7 @@ func (m *GetByIDRequest) Reset()         { *m = GetByIDRequest{} }
 func (m *GetByIDRequest) String() string { return proto.CompactTextString(m) }
 func (*GetByIDRequest) ProtoMessage()    {}
 func (*GetByIDRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{14}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{14}
 }
 func (m *GetByIDRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -827,7 +827,7 @@ func (m *GetByTaskAndDataRequest) Reset()         { *m = GetByTaskAndDataRequest
 func (m *GetByTaskAndDataRequest) String() string { return proto.CompactTextString(m) }
 func (*GetByTaskAndDataRequest) ProtoMessage()    {}
 func (*GetByTaskAndDataRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{15}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{15}
 }
 func (m *GetByTaskAndDataRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -892,7 +892,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{16}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{16}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -974,7 +974,7 @@ func (m *GetOneResponse) Reset()         { *m = GetOneResponse{} }
 func (m *GetOneResponse) String() string { return proto.CompactTextString(m) }
 func (*GetOneResponse) ProtoMessage()    {}
 func (*GetOneResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{17}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{17}
 }
 func (m *GetOneResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1021,7 +1021,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_annotatedvalue_ad611d50f59d15c3, []int{18}
+	return fileDescriptor_annotatedvalue_a0c1345ed72f6b22, []int{18}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4747,10 +4747,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("annotatedvalue.proto", fileDescriptor_annotatedvalue_ad611d50f59d15c3)
+	proto.RegisterFile("annotatedvalue.proto", fileDescriptor_annotatedvalue_a0c1345ed72f6b22)
 }
 
-var fileDescriptor_annotatedvalue_ad611d50f59d15c3 = []byte{
+var fileDescriptor_annotatedvalue_a0c1345ed72f6b22 = []byte{
 	// 1074 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xcd, 0x6e, 0x23, 0x45,
 	0x10, 0x66, 0x3c, 0xf9, 0x73, 0xd9, 0xeb, 0x75, 0x7a, 0xa3, 0xec, 0x64, 0x36, 0xb2, 0xbd, 0x73,
