@@ -44,7 +44,7 @@ func (m *LinkStatistics) Reset()         { *m = LinkStatistics{} }
 func (m *LinkStatistics) String() string { return proto.CompactTextString(m) }
 func (*LinkStatistics) ProtoMessage()    {}
 func (*LinkStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statistics_93c2c7a3ec1b324d, []int{0}
+	return fileDescriptor_statistics_ed7f1b1fb827ae77, []int{0}
 }
 func (m *LinkStatistics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -131,7 +131,7 @@ func (m *TaskStatistics) Reset()         { *m = TaskStatistics{} }
 func (m *TaskStatistics) String() string { return proto.CompactTextString(m) }
 func (*TaskStatistics) ProtoMessage()    {}
 func (*TaskStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statistics_93c2c7a3ec1b324d, []int{1}
+	return fileDescriptor_statistics_ed7f1b1fb827ae77, []int{1}
 }
 func (m *TaskStatistics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -233,7 +233,7 @@ func (m *TaskInputStatistics) Reset()         { *m = TaskInputStatistics{} }
 func (m *TaskInputStatistics) String() string { return proto.CompactTextString(m) }
 func (*TaskInputStatistics) ProtoMessage()    {}
 func (*TaskInputStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statistics_93c2c7a3ec1b324d, []int{2}
+	return fileDescriptor_statistics_ed7f1b1fb827ae77, []int{2}
 }
 func (m *TaskInputStatistics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -308,7 +308,7 @@ func (m *TaskOutputStatistics) Reset()         { *m = TaskOutputStatistics{} }
 func (m *TaskOutputStatistics) String() string { return proto.CompactTextString(m) }
 func (*TaskOutputStatistics) ProtoMessage()    {}
 func (*TaskOutputStatistics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_statistics_93c2c7a3ec1b324d, []int{3}
+	return fileDescriptor_statistics_ed7f1b1fb827ae77, []int{3}
 }
 func (m *TaskOutputStatistics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1558,9 +1558,9 @@ var (
 	ErrIntOverflowStatistics   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("statistics.proto", fileDescriptor_statistics_93c2c7a3ec1b324d) }
+func init() { proto.RegisterFile("statistics.proto", fileDescriptor_statistics_ed7f1b1fb827ae77) }
 
-var fileDescriptor_statistics_93c2c7a3ec1b324d = []byte{
+var fileDescriptor_statistics_ed7f1b1fb827ae77 = []byte{
 	// 708 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0xc1, 0x4e, 0xdb, 0x4a,
 	0x14, 0x86, 0x31, 0xce, 0x4d, 0xb8, 0x83, 0x04, 0xdc, 0x09, 0x04, 0x13, 0x20, 0x83, 0xb2, 0x62,

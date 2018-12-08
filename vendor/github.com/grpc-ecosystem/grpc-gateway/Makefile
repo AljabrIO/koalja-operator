@@ -51,7 +51,7 @@ RUNTIME_GO=$(RUNTIME_PROTO:.proto=.pb.go)
 OPENAPIV2_PROTO=protoc-gen-swagger/options/openapiv2.proto protoc-gen-swagger/options/annotations.proto
 OPENAPIV2_GO=$(OPENAPIV2_PROTO:.proto=.pb.go)
 
-PKGMAP=Mgoogle/protobuf/descriptor.proto=$(GO_PLUGIN_PKG)/descriptor,Mexamples/proto/sub/message.proto=$(PKG)/examples/proto/sub
+PKGMAP=Mgoogle/protobuf/field_mask.proto=google.golang.org/genproto/protobuf/field_mask,Mgoogle/protobuf/descriptor.proto=$(GO_PLUGIN_PKG)/descriptor,Mexamples/proto/sub/message.proto=$(PKG)/examples/proto/sub
 ADDITIONAL_GW_FLAGS=
 ifneq "$(GATEWAY_PLUGIN_FLAGS)" ""
 	ADDITIONAL_GW_FLAGS=,$(GATEWAY_PLUGIN_FLAGS)
@@ -194,7 +194,7 @@ changelog:
 				--compare-link \
 				--github-site=https://grpc-ecosystem.github.io/grpc-gateway \
 				--unreleased-label "**Next release**" \
-				--future-release=v1.5.1
+				--future-release=v1.6.0
 lint:
 	golint --set_exit_status $(PKG)/runtime
 	golint --set_exit_status $(PKG)/utilities/...
