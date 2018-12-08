@@ -74,7 +74,8 @@ $(CACHEVOL):
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+	docker $(DOCKERARGS) \
+		go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
 build: generate fmt vet manager agents services tasks koalja-flex-s3
