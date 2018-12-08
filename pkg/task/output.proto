@@ -4,8 +4,6 @@ package task;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/task";
 
-import "github.com/golang/protobuf/ptypes/duration/duration.proto";
-
 // OutputReadyNotifier is the API used by task executors to notify
 // a task agent of the availability of an output.
 service OutputReadyNotifier {

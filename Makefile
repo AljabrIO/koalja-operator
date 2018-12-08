@@ -1,6 +1,7 @@
 SCRIPTDIR := $(shell pwd)
 ROOTDIR := $(shell cd $(SCRIPTDIR) && pwd)
-
+BUILDIMAGE := koalja-operator-build
+CACHEVOL := koalja-operator-gocache
 # Various simple defines
 VERSION ?= dev
 GOOS ?= linux
@@ -21,7 +22,7 @@ FRONTENDBUILDIMG := koalja-operator-frontend-builder
 FRONTENDSOURCES := $(shell find $(FRONTENDDIR)/src -name '*.js' -not -path './test/*')
 
 # Tools
-GOASSETSBUILDER := $(shell go env GOPATH)/bin/go-assets-builder$(shell go env GOEXE)
+GOASSETSBUILDER := go-assets-builder
 
 # Sources
 SOURCES := $(shell find . -name '*.go') $(shell find . -name '*.proto')
@@ -33,7 +34,22 @@ LOCALSTORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/local/overlays/$(VERSION)
 S3STORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/s3/overlays/$(VERSION)
 STORAGEOVERLAYDIR := $(ROOTDIR)/config/storage/$(STORAGETYPE)/overlays/$(VERSION)
 
-all: check-vars build test
+DOCKERRUNARGS := run -t --rm \
+	-u $(shell id -u):$(shell id -g) \
+	-v $(ROOTDIR)/vendor:/go/src \
+	-v $(ROOTDIR):/go/src/$(GOMOD) \
+	-v $(CACHEVOL):/usr/gocache \
+	-e GOCACHE=/usr/gocache \
+	-e CGO_ENABLED=0 \
+	-w /go/src/$(GOMOD)
+
+DOCKERARGS := $(DOCKERRUNARGS) $(BUILDIMAGE)
+DOCKEROSARCHARGS := $(DOCKERRUNARGS) \
+	-e GOARCH=$(GOARCH) \
+	-e GOOS=$(GOOS) \
+	$(BUILDIMAGE)
+
+all: check-vars build-image build test
 
 # Check given variables
 .PHONY: check-vars
@@ -47,52 +63,71 @@ endif
 # Remove build results
 clean:
 	rm -Rf bin
+	docker volume rm -f $(CACHEVOL)
+
+# Build docker builder image
+build-image:
+	docker build -t $(BUILDIMAGE) -f Dockerfile.build .
+
+.PHONY: $(CACHEVOL)
+$(CACHEVOL):
+	@docker volume create $(CACHEVOL)
+	docker run -it 	-v $(CACHEVOL):/usr/gocache \
+		$(BUILDIMAGE) \
+		chown -R $(shell id -u):$(shell id -g) /usr/gocache
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+	docker $(DOCKERARGS) \
+		go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
-build: manager agents services tasks koalja-flex-s3
+build: generate fmt vet manager agents services tasks koalja-flex-s3
 
 # Build manager binary
 manager: bin/$(GOOS)/$(GOARCH)/manager
 
-bin/$(GOOS)/$(GOARCH)/manager: generate fmt vet $(SOURCES) 
+bin/$(GOOS)/$(GOARCH)/manager: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
+	docker $(DOCKEROSARCHARGS) \
+		go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
 
 # Build agents binary
 agents: bin/$(GOOS)/$(GOARCH)/agents
  
-bin/$(GOOS)/$(GOARCH)/agents: generate fmt vet $(SOURCES) frontend/assets.go
+bin/$(GOOS)/$(GOARCH)/agents: $(SOURCES) frontend/assets.go
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
+	docker $(DOCKEROSARCHARGS) \
+		go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
 
 # Build services binary
 services: bin/$(GOOS)/$(GOARCH)/services
 
-bin/$(GOOS)/$(GOARCH)/services: generate fmt vet $(SOURCES) 
+bin/$(GOOS)/$(GOARCH)/services: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
+	docker $(DOCKEROSARCHARGS) \
+		go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
 
 # Build tasks binary
 tasks: bin/$(GOOS)/$(GOARCH)/tasks
 
-bin/$(GOOS)/$(GOARCH)/tasks: generate fmt vet $(SOURCES) 
+bin/$(GOOS)/$(GOARCH)/tasks: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
+	docker $(DOCKEROSARCHARGS) \
+		go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
 
 # Build s3 flex volume driver binary
 koalja-flex-s3: bin/$(GOOS)/$(GOARCH)/koalja-flex-s3
 
-bin/$(GOOS)/$(GOARCH)/koalja-flex-s3: generate fmt vet $(SOURCES) 
+bin/$(GOOS)/$(GOARCH)/koalja-flex-s3: $(CACHEVOL) $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(GOOS)/$(GOARCH)/koalja-flex-s3 $(GOMOD)/pkg/fs/service/s3/flexdriver
+	docker $(DOCKEROSARCHARGS) \
+		go build -o bin/$(GOOS)/$(GOARCH)/koalja-flex-s3 $(GOMOD)/pkg/fs/service/s3/flexdriver
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
-	go run ./cmd/manager/main.go
+run: $(CACHEVOL) generate fmt vet
+	docker $(DOCKERARGS) \
+		go run ./cmd/manager/main.go
 
 # Install CRDs into a cluster
 install: manifests
@@ -116,26 +151,32 @@ deploy: install
 	kustomize build $(STORAGEOVERLAYDIR) | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+manifests: $(CACHEVOL)  
+	docker $(DOCKERARGS) \
+		go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
 
 # Run go fmt against code
-fmt:
-	go fmt ./pkg/... ./cmd/...
+fmt: $(CACHEVOL) 
+	docker $(DOCKERARGS) \
+		go fmt ./pkg/... ./cmd/...
 
 # Run go vet against code
-vet:
-	go vet ./pkg/... ./cmd/...
+vet: $(CACHEVOL) 
+	docker $(DOCKERARGS) \
+		go vet ./pkg/... ./cmd/...
 
 # Generate code
-generate:
-	go-to-protobuf \
-		--keep-gogoproto \
-		--proto-import="vendor" \
-		--proto-import="third_party/googleapis" \
-		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1,-k8s.io/apimachinery/pkg/apis/testapigroup/v1,+sigs.k8s.io/controller-runtime/pkg/runtime/scheme,-k8s.io/api/core/v1 \
-		--packages=github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1
-	go generate ./pkg/... ./cmd/...
+generate: $(CACHEVOL) 
+	docker $(DOCKERARGS) \
+ 		go-to-protobuf \
+			--keep-gogoproto \
+			--proto-import="vendor" \
+			--proto-import="third_party/googleapis" \
+			--proto-import="vendor/github.com/gogo/protobuf/protobuf" \
+			--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/apimachinery/pkg/apis/meta/v1beta1,-k8s.io/apimachinery/pkg/apis/testapigroup/v1,+sigs.k8s.io/controller-runtime/pkg/runtime/scheme,-k8s.io/api/core/v1 \
+			--packages=github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1
+	docker $(DOCKERARGS) \
+		go generate ./pkg/... ./cmd/...
 
 frontend/assets.go: $(FRONTENDSOURCES) $(FRONTENDDIR)/Dockerfile.build
 	cd $(FRONTENDDIR) && docker build -t $(FRONTENDBUILDIMG) -f Dockerfile.build $(FRONTENDDIR)
@@ -146,7 +187,8 @@ frontend/assets.go: $(FRONTENDSOURCES) $(FRONTENDDIR)/Dockerfile.build
 		-v $(FRONTENDDIR)/public:/usr/code/public:ro \
 		-v $(FRONTENDDIR)/src:/usr/code/src:ro \
 		$(FRONTENDBUILDIMG)
-	$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
+	docker $(DOCKERARGS) \
+		$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
 
 # Build & push all docker images
 docker: docker-build docker-push docker-patch-config
