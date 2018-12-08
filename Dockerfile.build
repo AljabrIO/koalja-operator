@@ -1,20 +1,22 @@
-FROM golang:1.11-alpine
+FROM golang:1.11.2
 ARG version=1.0.5
 ARG arch=amd64
 
-RUN apk add -U git protobuf curl
+# Install required build packages
+RUN apt-get update && apt-get install -y git protobuf-compiler curl
 
-
-# download the release
+# Install Kubebuilder
+## download the release
 RUN curl -L -O https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${version}/kubebuilder_${version}_linux_${arch}.tar.gz
 
-# extract the archive
+## extract the archive
 RUN tar -zxvf kubebuilder_${version}_linux_${arch}.tar.gz
 RUN mv kubebuilder_${version}_linux_${arch} /usr/local/kubebuilder
 
-# update your PATH to include /usr/local/kubebuilder/bin
+## update your PATH to include /usr/local/kubebuilder/bin
 ENV PATH=$PATH:/usr/local/kubebuilder/bin
 
+# Install go tools
 RUN go get k8s.io/code-generator/cmd/go-to-protobuf && \
     go get github.com/gogo/protobuf/protoc-gen-gogo && \
     go get github.com/gogo/protobuf/protoc-gen-gofast && \
