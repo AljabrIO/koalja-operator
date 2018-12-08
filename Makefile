@@ -72,7 +72,7 @@ build-image:
 .PHONY: $(CACHEVOL)
 $(CACHEVOL):
 	@docker volume create $(CACHEVOL)
-	docker run -it 	-v $(CACHEVOL):/usr/gocache \
+	docker run -it 	--rm -v $(CACHEVOL):/usr/gocache \
 		$(BUILDIMAGE) \
 		chown -R $(shell id -u):$(shell id -g) /usr/gocache
 
