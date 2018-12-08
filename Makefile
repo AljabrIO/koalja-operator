@@ -69,8 +69,12 @@ clean:
 build-image:
 	docker build -t $(BUILDIMAGE) -f Dockerfile.build .
 
+.PHONY: $(CACHEVOL)
 $(CACHEVOL):
 	@docker volume create $(CACHEVOL)
+	docker run -it 	-v $(CACHEVOL):/usr/gocache \
+		$(BUILDIMAGE) \
+		chown -R $(shell id -u):$(shell id -g) /usr/gocache
 
 # Run tests
 test: generate fmt vet manifests
