@@ -4,7 +4,7 @@
 
 ```bash
 export DOCKERNAMESPACE=<your-docker-hub-account-name>
-make docker
+make build-image docker
 ```
 
 ## Kubernetes cluster preparations

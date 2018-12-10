@@ -570,6 +570,8 @@ func isResourceName(prefix string) bool {
 	words := strings.Split(prefix, ".")
 	l := len(words)
 	field := words[l-1]
+	words = strings.Split(field, ":")
+	field = words[0]
 	return field == "parent" || field == "name"
 }
 
@@ -900,6 +902,17 @@ func applyTemplate(p param) (*swaggerObject, error) {
 				}
 				if spb.Info.Contact.Email != "" {
 					s.Info.Contact.Email = spb.Info.Contact.Email
+				}
+			}
+			if spb.Info.License != nil {
+				if s.Info.License == nil {
+					s.Info.License = &swaggerLicenseObject{}
+				}
+				if spb.Info.License.Name != "" {
+					s.Info.License.Name = spb.Info.License.Name
+				}
+				if spb.Info.License.Url != "" {
+					s.Info.License.URL = spb.Info.License.Url
 				}
 			}
 		}

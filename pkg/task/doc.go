@@ -16,5 +16,5 @@
 
 package task
 
-//go:generate protoc -I .:../../../../../:../../vendor --go_out=plugins=grpc,paths=source_relative:. ./input.proto
+//go:generate protoc -I .:../../../../../:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf --go_out=plugins=grpc,paths=source_relative:. ./input.proto
 //go:generate protoc -I .:../../vendor --go_out=plugins=grpc,paths=source_relative:. ./output.proto
