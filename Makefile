@@ -49,6 +49,14 @@ DOCKEROSARCHARGS := $(DOCKERRUNARGS) \
 	-e GOOS=$(GOOS) \
 	$(BUILDIMAGE)
 
+ifdef BUILDLOCAL
+	BUILDENV := 
+	BUILDENVOSARCH := GOARCH=$(GOARCH) GOOS=$(GOOS)
+else
+	BUILDENV := docker $(DOCKERARGS)
+	BUILDENVOSARCH := docker $(DOCKEROSARCHARGS)
+endif
+
 all: check-vars build-image build test
 
 # Check given variables
@@ -78,7 +86,7 @@ $(CACHEVOL):
 
 # Run tests
 test: generate fmt vet manifests
-	docker $(DOCKERARGS) \
+	$(BUILDENV) \
 		go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build programs
@@ -89,7 +97,7 @@ manager: bin/$(GOOS)/$(GOARCH)/manager
 
 bin/$(GOOS)/$(GOARCH)/manager: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	docker $(DOCKEROSARCHARGS) \
+	$(BUILDENVOSARCH) \
 		go build -o bin/$(GOOS)/$(GOARCH)/manager $(GOMOD)/cmd/manager
 
 # Build agents binary
@@ -97,7 +105,7 @@ agents: bin/$(GOOS)/$(GOARCH)/agents
  
 bin/$(GOOS)/$(GOARCH)/agents: $(SOURCES) frontend/assets.go
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	docker $(DOCKEROSARCHARGS) \
+	$(BUILDENVOSARCH) \
 		go build -o bin/$(GOOS)/$(GOARCH)/agents $(GOMOD)/cmd/agents
 
 # Build services binary
@@ -105,7 +113,7 @@ services: bin/$(GOOS)/$(GOARCH)/services
 
 bin/$(GOOS)/$(GOARCH)/services: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	docker $(DOCKEROSARCHARGS) \
+	$(BUILDENVOSARCH) \
 		go build -o bin/$(GOOS)/$(GOARCH)/services $(GOMOD)/cmd/services
 
 # Build tasks binary
@@ -113,7 +121,7 @@ tasks: bin/$(GOOS)/$(GOARCH)/tasks
 
 bin/$(GOOS)/$(GOARCH)/tasks: $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	docker $(DOCKEROSARCHARGS) \
+	$(BUILDENVOSARCH) \
 		go build -o bin/$(GOOS)/$(GOARCH)/tasks $(GOMOD)/cmd/tasks
 
 # Build s3 flex volume driver binary
@@ -121,12 +129,12 @@ koalja-flex-s3: bin/$(GOOS)/$(GOARCH)/koalja-flex-s3
 
 bin/$(GOOS)/$(GOARCH)/koalja-flex-s3: $(CACHEVOL) $(SOURCES) 
 	mkdir -p bin/$(GOOS)/$(GOARCH)/
-	docker $(DOCKEROSARCHARGS) \
+	$(BUILDENVOSARCH) \
 		go build -o bin/$(GOOS)/$(GOARCH)/koalja-flex-s3 $(GOMOD)/pkg/fs/service/s3/flexdriver
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: $(CACHEVOL) generate fmt vet
-	docker $(DOCKERARGS) \
+	$(BUILDENV) \
 		go run ./cmd/manager/main.go
 
 # Install CRDs into a cluster
@@ -157,12 +165,12 @@ manifests: $(CACHEVOL)
 
 # Run go fmt against code
 fmt: $(CACHEVOL) 
-	docker $(DOCKERARGS) \
+	$(BUILDENV) \
 		go fmt ./pkg/... ./cmd/...
 
 # Run go vet against code
 vet: $(CACHEVOL) 
-	docker $(DOCKERARGS) \
+	$(BUILDENV) \
 		go vet ./pkg/... ./cmd/...
 
 # Generate code
@@ -187,7 +195,7 @@ frontend/assets.go: $(FRONTENDSOURCES) $(FRONTENDDIR)/Dockerfile.build
 		-v $(FRONTENDDIR)/public:/usr/code/public:ro \
 		-v $(FRONTENDDIR)/src:/usr/code/src:ro \
 		$(FRONTENDBUILDIMG)
-	docker $(DOCKERARGS) \
+	$(BUILDENV) \
 		$(GOASSETSBUILDER) -s /frontend/build/ -o frontend/assets.go -p frontend frontend/build
 
 # Build & push all docker images
