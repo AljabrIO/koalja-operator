@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	"github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/AljabrIO/koalja-operator/pkg/tracking"
 )
 
@@ -38,6 +39,26 @@ type inputPair struct {
 type avActPair struct {
 	av  *annotatedvalue.AnnotatedValue
 	ack func(context.Context, *annotatedvalue.AnnotatedValue) error
+}
+
+// inputSnapshotForTaskSnapshot converts the given GRPC snapshot into an
+// InputSnapshot.
+func inputSnapshotForTaskSnapshot(source *task.Snapshot) *InputSnapshot {
+	if source == nil {
+		return nil
+	}
+	result := &InputSnapshot{}
+	for _, sip := range source.GetInputs() {
+		ip := &inputPair{}
+		for _, x := range sip.GetAnnotatedValues() {
+			ip.sequence = append(ip.sequence, avActPair{
+				av:  x,
+				ack: nil,
+			})
+		}
+		result.m()[sip.GetInputName()] = ip
+	}
+	return result
 }
 
 // IsReadyForExecution returns true when the length of the sequence
