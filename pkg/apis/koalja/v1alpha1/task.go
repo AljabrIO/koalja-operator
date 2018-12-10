@@ -35,10 +35,37 @@ type TaskSpec struct {
 	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt,name=executor"`
 	// Policy determining how inputs are aggregated into snapshots
 	SnapshotPolicy SnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,6,opt,name=snapshotPolicy"`
+	// Policy determining when the executor will be launched
+	LaunchPolicy LaunchPolicy `json:"launchPolicy,omitempty" protobuf:"bytes,7,opt,name=launchPolicy"`
 }
 
 // TaskType identifies a well know type of task.
 type TaskType string
+
+// LaunchPolicy determines when the task agent will launch an executor.
+type LaunchPolicy string
+
+const (
+	// LaunchPolicyAuto indicates that the executor will be launched
+	// every time a new snapshot is available.
+	// This is the default policy for tasks that have 1 or more inputs.
+	LaunchPolicyAuto LaunchPolicy = "Auto"
+	// LaunchPolicyCustom indicates that the executor will be launched
+	// as soon as the task agent starts and that it will use the SnapshotService
+	// provided by the task agent to query for the next available snapshot.
+	// This is the default policy for tasks that have no inputs.
+	LaunchPolicyCustom LaunchPolicy = "Custom"
+)
+
+// Validate that the given policy is a valid value.
+func (lp LaunchPolicy) Validate() error {
+	switch lp {
+	case LaunchPolicyAuto, LaunchPolicyCustom, "":
+		return nil
+	default:
+		return errors.Wrapf(ErrValidation, "Invalid LaunchPolicy '%s'", string(lp))
+	}
+}
 
 // SnapshotPolicy determines how to sample annotated values into a tuple
 // that is the input for task execution.
@@ -108,6 +135,26 @@ func (ts TaskSpec) OutputByName(name string) (TaskOutputSpec, bool) {
 	return TaskOutputSpec{}, false
 }
 
+// HasLaunchPolicyAuto returns true when the LaunchPolicy of the task
+// has been set to Auto or no LaunchPolicy has been set and the
+// task has one or more inputs.
+func (ts TaskSpec) HasLaunchPolicyAuto() bool {
+	if ts.LaunchPolicy == "" {
+		return len(ts.Inputs) > 0
+	}
+	return ts.LaunchPolicy == LaunchPolicyAuto
+}
+
+// HasLaunchPolicyCustom returns true when the LaunchPolicy of the task
+// has been set to Custom or no LaunchPolicy has been set and the
+// task has no inputs.
+func (ts TaskSpec) HasLaunchPolicyCustom() bool {
+	if ts.LaunchPolicy == "" {
+		return len(ts.Inputs) == 0
+	}
+	return ts.LaunchPolicy == LaunchPolicyCustom
+}
+
 // Validate the task in the context of the given pipeline spec.
 // Return an error when an issue is found, nil when all ok.
 func (ts TaskSpec) Validate(ps PipelineSpec) error {
@@ -121,6 +168,9 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 output", ts.Name)
 	}
 	if err := ts.SnapshotPolicy.Validate(); err != nil {
+		return maskAny(err)
+	}
+	if err := ts.LaunchPolicy.Validate(); err != nil {
 		return maskAny(err)
 	}
 	names := make(map[string]struct{})
