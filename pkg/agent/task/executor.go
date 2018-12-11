@@ -113,7 +113,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		dnsName:                        dnsName,
 		namespace:                      pod.GetNamespace(),
 		taskAgentServicesPort:          taskAgentServicesPort,
-		podChanges:                     make(chan *corev1.Pod),
+		podChanges:                     make(chan *corev1.Pod, changeQueueSize),
 		outputPublisher:                outputPublisher,
 		podGC:                          podGC,
 		statistics:                     statistics,
@@ -362,6 +362,12 @@ waitLoop:
 					}
 				}
 			}
+		case <-ctx.Done():
+			// Context canceled
+			if err := e.Client.Delete(ctx, pod); err != nil {
+				e.log.Error().Str("pod", pod.Name).Err(err).Msg("Failed to delete pod")
+			}
+			return maskAny(ctx.Err())
 		}
 	}
 

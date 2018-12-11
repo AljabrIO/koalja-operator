@@ -110,6 +110,7 @@ func (il *inputLoop) Run(ctx context.Context) error {
 // - executes them in case of tasks with auto launch policy or
 // - allows the executor to pull the snapshot in case of tasks with custom launch policy.
 func (il *inputLoop) processExecQueue(ctx context.Context) error {
+	var lastCancel context.CancelFunc
 	for {
 		select {
 		case snapshot, ok := <-il.execQueue:
@@ -123,7 +124,26 @@ func (il *inputLoop) processExecQueue(ctx context.Context) error {
 				} else if err != nil {
 					il.log.Error().Err(err).Msg("Failed to execute task")
 				}
-			} else {
+			} else if il.spec.HasLaunchPolicyRestart() {
+				// Restart launch policy;
+				// - Cancel existing executor
+				if lastCancel != nil {
+					lastCancel()
+					lastCancel = nil
+				}
+				// - Go launch a new executor
+				var launchCtx context.Context
+				launchCtx, cancel := context.WithCancel(ctx)
+				lastCancel = cancel
+				go func() {
+					defer cancel()
+					if err := il.execOnSnapshot(launchCtx, snapshot); launchCtx.Err() != nil {
+						// Context canceled, ignore
+					} else if err != nil {
+						il.log.Error().Err(err).Msg("Failed to execute task")
+					}
+				}()
+			} else if il.spec.HasLaunchPolicyCustom() {
 				// Custom launch policy; Make snapshot available to snapshot service
 				if err := il.snapshotService.Execute(ctx, snapshot); ctx.Err() != nil {
 					return ctx.Err()
