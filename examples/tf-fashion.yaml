@@ -20,7 +20,7 @@ spec:
       typeRef: modelFile
       ready: Succeeded
     executor:
-      image: tensorflow/tensorflow
+      image: aljabrio/tf-fashion
       command:
       - python
       - "{{.inputs.inputFile.path }}"
