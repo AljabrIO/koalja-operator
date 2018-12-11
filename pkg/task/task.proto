@@ -31,6 +31,9 @@ service SnapshotService {
     rpc Next(NextRequest) returns (NextResponse);
     // Acknowledge the processing of a snapshot
     rpc Ack(AckRequest) returns (google.protobuf.Empty);
+    // ExecuteTemplate is invoked to parse & execute a template 
+    // with given snapshot.
+    rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
 }
 
 message NextRequest {
@@ -50,6 +53,18 @@ message NextResponse {
 
 message AckRequest {
     string SnapshotID = 1;
+}
+
+message ExecuteTemplateRequest {
+    // Current snapshot.
+    Snapshot Snapshot = 1;
+    // The template (source)
+    string Template = 2;
+}
+
+message ExecuteTemplateResponse {
+    // Result of the template execution.
+    bytes Result = 1;
 }
 
 // Snapshot is a set of sequences of annotated values for every

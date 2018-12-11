@@ -114,6 +114,20 @@ message PipelineStatus {
   optional string revision = 2 [(gogoproto.customname) = "Revision", (gogoproto.nullable) = false];
 }
 
+// ServicePortSpec holds the specification of a single port exposed by a service task.
+message ServicePortSpec {
+  // Name of the port
+  optional string name = 1 [(gogoproto.customname) = "Name", (gogoproto.nullable) = false];
+
+  // Port number of the port
+  optional int32 port = 2 [(gogoproto.customname) = "Port", (gogoproto.nullable) = false];
+}
+
+// ServiceSpec holds the specification of a service provided by a task.
+message ServiceSpec {
+  repeated ServicePortSpec ports = 1 [(gogoproto.customname) = "Ports", (gogoproto.nullable) = false];
+}
+
 // TaskInputSpec holds the specification of a single input of a task.
 message TaskInputSpec {
   // Name of the input
@@ -193,6 +207,9 @@ message TaskSpec {
 
   // Policy determining when the executor will be launched
   optional string launchPolicy = 7 [(gogoproto.casttype) = "LaunchPolicy", (gogoproto.customname) = "LaunchPolicy", (gogoproto.nullable) = false];
+
+  // Service is set when the task executor must act as a network service.
+  optional ServiceSpec service = 8 [(gogoproto.customname) = "Service"];
 }
 
 // TypeSpec holds the specification of a single type of data

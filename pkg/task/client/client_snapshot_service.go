@@ -68,6 +68,12 @@ func (c *snapshotServiceClient) Ack(ctx context.Context, in *task.AckRequest, op
 	return c.c.Ack(ctx, in, opts...)
 }
 
+// ExecuteTemplate is invoked to parse & execute a template
+// with given snapshot.
+func (c *snapshotServiceClient) ExecuteTemplate(ctx context.Context, in *task.ExecuteTemplateRequest, opts ...grpc.CallOption) (*task.ExecuteTemplateResponse, error) {
+	return c.c.ExecuteTemplate(ctx, in, opts...)
+}
+
 // Close the connection
 func (c *snapshotServiceClient) Close() error {
 	return c.conn.Close()

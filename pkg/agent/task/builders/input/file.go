@@ -196,6 +196,7 @@ func (b fileInputBuilder) Build(ctx context.Context, cfg task.ExecutorInputBuild
 		"subPath":         resp.GetSubPath(),
 		"nodeName":        resp.GetNodeName(),
 		"path":            filepath.Join(mountPath, resp.GetLocalPath()),
+		"base":            filepath.Base(resp.GetLocalPath()),
 	})
 
 	return nil

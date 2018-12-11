@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
-	"text/template"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -49,14 +48,10 @@ type Config struct {
 // Service loop of the REST task.
 type Service struct {
 	Config
-	log         zerolog.Logger
-	snsClient   taskclient.SnapshotServiceClient
-	ornClient   taskclient.OutputReadyNotifierClient
-	urlTmpl     *template.Template
-	methodTmpl  *template.Template
-	bodyTmpl    *template.Template
-	headersTmpl *template.Template
-	httpClient  *http.Client
+	log        zerolog.Logger
+	snsClient  taskclient.SnapshotServiceClient
+	ornClient  taskclient.OutputReadyNotifierClient
+	httpClient *http.Client
 }
 
 // NewService initializes a new service.
@@ -72,24 +67,6 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config) (*Service, 
 		return nil, fmt.Errorf("MethodTemplate expected")
 	}
 
-	// Parse templates
-	urlTmpl, err := template.New("url").Parse(cfg.URLTemplate)
-	if err != nil {
-		return nil, maskAny(err)
-	}
-	methodTmpl, err := template.New("method").Parse(cfg.MethodTemplate)
-	if err != nil {
-		return nil, maskAny(err)
-	}
-	bodyTmpl, err := template.New("body").Parse(cfg.BodyTemplate)
-	if err != nil {
-		return nil, maskAny(err)
-	}
-	headersTmpl, err := template.New("headers").Parse(cfg.HeadersTemplate)
-	if err != nil {
-		return nil, maskAny(err)
-	}
-
 	// Create service clients
 	snsClient, err := taskclient.CreateSnapshotServiceClient()
 	if err != nil {
@@ -102,15 +79,11 @@ func NewService(cfg Config, log zerolog.Logger, config *rest.Config) (*Service, 
 		return nil, maskAny(err)
 	}
 	return &Service{
-		Config:      cfg,
-		log:         log,
-		snsClient:   snsClient,
-		ornClient:   ornClient,
-		urlTmpl:     urlTmpl,
-		methodTmpl:  methodTmpl,
-		bodyTmpl:    bodyTmpl,
-		headersTmpl: headersTmpl,
-		httpClient:  http.DefaultClient,
+		Config:     cfg,
+		log:        log,
+		snsClient:  snsClient,
+		ornClient:  ornClient,
+		httpClient: http.DefaultClient,
 	}, nil
 }
 
@@ -195,27 +168,26 @@ func (s *Service) processSnapshot(ctx context.Context, snapshot *task.Snapshot) 
 // buildRequest prepares REST call for the given snapshot.
 func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*http.Request, error) {
 	// Prepare request
-	data := map[string]interface{}{} // TODO
-	method, err := executeTemplate(s.methodTmpl, data)
+	method, err := s.executeTemplate(ctx, s.MethodTemplate, snapshot)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	url, err := executeTemplate(s.urlTmpl, data)
+	url, err := s.executeTemplate(ctx, s.URLTemplate, snapshot)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	body, err := executeTemplate(s.bodyTmpl, data)
+	body, err := s.executeTemplate(ctx, s.BodyTemplate, snapshot)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	headers, err := executeTemplate(s.headersTmpl, data)
+	headers, err := s.executeTemplate(ctx, s.HeadersTemplate, snapshot)
 	if err != nil {
 		return nil, maskAny(err)
 	}
 	var hdr textproto.MIMEHeader
-	if headers.Len() > 0 {
+	if len(headers) > 0 {
 		// Parse header
-		rd := textproto.NewReader(bufio.NewReader(headers))
+		rd := textproto.NewReader(bufio.NewReader(bytes.NewReader(headers)))
 		hdr, err = rd.ReadMIMEHeader()
 		if err != nil {
 			return nil, maskAny(err)
@@ -223,7 +195,7 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 	}
 
 	// Build request
-	req, err := http.NewRequest(method.String(), url.String(), body)
+	req, err := http.NewRequest(string(method), string(url), bytes.NewReader(body))
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -239,12 +211,15 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 }
 
 // executeTemplate executes a given template with given data into a byte buffer.
-func executeTemplate(t *template.Template, data interface{}) (*bytes.Buffer, error) {
-	w := &bytes.Buffer{}
-	if err := t.Execute(w, data); err != nil {
+func (s *Service) executeTemplate(ctx context.Context, templateSource string, snapshot *task.Snapshot) ([]byte, error) {
+	resp, err := s.snsClient.ExecuteTemplate(ctx, &task.ExecuteTemplateRequest{
+		Snapshot: snapshot,
+		Template: templateSource,
+	})
+	if err != nil {
 		return nil, maskAny(err)
 	}
-	return w, nil
+	return resp.GetResult(), nil
 }
 
 const (

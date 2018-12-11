@@ -1,0 +1,23 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: TaskExecutor
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: rest-taskexecutor
+spec:
+  type: REST
+  container:
+    image: koalja-tasks:latest
+    command:
+    - /apps/tasks
+    - rest
+    - --output-name
+    - "{{(index .task.Outputs 0).Name}}"
+    - --url-template
+    - "{{(index .task.Outputs 0).Options.url}}"
+    - --method-template
+    - "{{(index .task.Outputs 0).Options.method}}"
+    - --body-template
+    - "{{(index .task.Outputs 0).Options.body}}"
+    - --headers-template
+    - "{{(index .task.Outputs 0).Options.headers}}"

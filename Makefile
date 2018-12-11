@@ -233,6 +233,7 @@ docker-patch-config:
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filedrop_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filedrop_executor_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/filesplit_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/filesplit_executor_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/jsonquery_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/jsonquery_executor_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(TASKSIMG))"'!' $(PATCHESDIR)/rest_executor_image_patch.yaml > $(OPERATOROVERLAYDIR)/rest_executor_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(FLEXS3IMG))"'!' $(PATCHESDIR)/flex_s3_image_patch.yaml > $(S3STORAGEOVERLAYDIR)/flex_s3_image_patch.yaml
 	cd $(OPERATOROVERLAYDIR) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base "../../base" && kustomize edit add patch "*_patch.yaml"
 	cd $(LOCALSTORAGEOVERLAYDIR) && echo "namespace: koalja-system" > kustomization.yaml && kustomize edit add base "../../base" && kustomize edit add patch "*_patch.yaml"

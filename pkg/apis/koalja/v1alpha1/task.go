@@ -30,13 +30,15 @@ type TaskSpec struct {
 	// Inputs of the task
 	Inputs []TaskInputSpec `json:"inputs,omitempty" protobuf:"bytes,3,rep,name=inputs"`
 	// Outputs of the task
-	Outputs []TaskOutputSpec `json:"outputs" protobuf:"bytes,4,rep,name=outputs"`
+	Outputs []TaskOutputSpec `json:"outputs,omitempty" protobuf:"bytes,4,rep,name=outputs"`
 	// Executor holds the spec of the execution part of the task
 	Executor *v1.Container `json:"executor,omitempty" protobuf:"bytes,5,opt,name=executor"`
 	// Policy determining how inputs are aggregated into snapshots
 	SnapshotPolicy SnapshotPolicy `json:"snapshotPolicy,omitempty" protobuf:"bytes,6,opt,name=snapshotPolicy"`
 	// Policy determining when the executor will be launched
 	LaunchPolicy LaunchPolicy `json:"launchPolicy,omitempty" protobuf:"bytes,7,opt,name=launchPolicy"`
+	// Service is set when the task executor must act as a network service.
+	Service *ServiceSpec `json:"service,omitempty" protobuf:"bytes,8,opt,name=service"`
 }
 
 // TaskType identifies a well know type of task.
@@ -55,12 +57,17 @@ const (
 	// provided by the task agent to query for the next available snapshot.
 	// This is the default policy for tasks that have no inputs.
 	LaunchPolicyCustom LaunchPolicy = "Custom"
+	// LaunchPolicyRestart indicates that the executor will be launched
+	// every time a new snapshot is available.
+	// If a previous executor was still running, that will be stopped
+	// first.
+	LaunchPolicyRestart LaunchPolicy = "Restart"
 )
 
 // Validate that the given policy is a valid value.
 func (lp LaunchPolicy) Validate() error {
 	switch lp {
-	case LaunchPolicyAuto, LaunchPolicyCustom, "":
+	case LaunchPolicyAuto, LaunchPolicyCustom, LaunchPolicyRestart, "":
 		return nil
 	default:
 		return errors.Wrapf(ErrValidation, "Invalid LaunchPolicy '%s'", string(lp))
@@ -155,6 +162,12 @@ func (ts TaskSpec) HasLaunchPolicyCustom() bool {
 	return ts.LaunchPolicy == LaunchPolicyCustom
 }
 
+// HasLaunchPolicyRestart returns true when the LaunchPolicy of the task
+// has been set to Restart.
+func (ts TaskSpec) HasLaunchPolicyRestart() bool {
+	return ts.LaunchPolicy == LaunchPolicyRestart
+}
+
 // Validate the task in the context of the given pipeline spec.
 // Return an error when an issue is found, nil when all ok.
 func (ts TaskSpec) Validate(ps PipelineSpec) error {
@@ -164,8 +177,8 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 	if ts.Executor == nil && ts.Type == "" {
 		return errors.Wrapf(ErrValidation, "Executor or Type expected in task '%s'", ts.Name)
 	}
-	if len(ts.Outputs) == 0 {
-		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 output", ts.Name)
+	if len(ts.Inputs) == 0 && len(ts.Outputs) == 0 {
+		return errors.Wrapf(ErrValidation, "Task '%s' must have at least 1 input or 1 output", ts.Name)
 	}
 	if err := ts.SnapshotPolicy.Validate(); err != nil {
 		return maskAny(err)
@@ -196,6 +209,11 @@ func (ts TaskSpec) Validate(ps PipelineSpec) error {
 	if ts.Executor != nil {
 		if ts.Executor.Image == "" {
 			return errors.Wrapf(ErrValidation, "Executor of task '%s' must have an image", ts.Name)
+		}
+	}
+	if ts.Service != nil {
+		if err := ts.Service.Validate(); err != nil {
+			return maskAny(err)
 		}
 	}
 	return nil
