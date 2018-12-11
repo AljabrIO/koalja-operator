@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	cmdMain.AddCommand(cmdFileSplit)
+	cmdMain.AddCommand(cmdRest)
 
 	cmdRest.Flags().StringVar(&restOptions.OutputName, "output-name", "", "Name of output of the task we're serving")
 	cmdRest.Flags().StringVar(&restOptions.URLTemplate, "url-template", "", "Template used to build the URL of the REST query")

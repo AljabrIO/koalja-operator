@@ -1,9 +1,5 @@
 import sys
 
-# Prepare
-filepath = sys.argv[1]
-print('Train model and write to: ', filepath)
-
 # TensorFlow and tf.keras
 import tensorflow as tf
 from tensorflow import keras
@@ -11,6 +7,14 @@ from tensorflow import keras
 # Helper libraries
 import numpy as np
 import matplotlib.pyplot as plt
+from shutil import copyfile
+import tempfile
+
+print('Starting script.py')
+
+# Prepare
+filepath = sys.argv[1]
+print('Train model and write to: ', filepath)
 
 print(tf.__version__)
 
@@ -40,9 +44,15 @@ test_loss, test_acc = model.evaluate(test_images, test_labels)
 print('Test accuracy:', test_acc)
 
 # Save model
+f = tempfile.NamedTemporaryFile(delete=False)
+f.close()
+tmpFilepath = f.name
+
 tf.keras.models.save_model(
     model,
-    filepath,
-    overwrite=True
+    tmpFilepath,
+    overwrite=True,
     include_optimizer=True
 )
+
+copyfile(tmpFilepath, filepath)

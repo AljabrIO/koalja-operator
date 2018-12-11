@@ -20,11 +20,11 @@ spec:
       typeRef: modelFile
       ready: Succeeded
     executor:
-      image: aljabrio/tf-fashion
+      image: aljabrio/tf-fashion:0.0.2
       command:
-      - python
-      - "{{.inputs.inputFile.path }}"
-      - "{{.outputs.outputFile.path}}"
+      - /usr/bin/python
+      - "{{.inputs.script.path }}"
+      - "{{.outputs.model.path}}"
   - name: imageInput
     outputs:
     - name: droppedFile
@@ -36,8 +36,6 @@ spec:
     inputs:
     - name: model
       typeRef: modelFile
-    - name: image
-      typeRef: imageFile
     service:
       ports:
       - name: http

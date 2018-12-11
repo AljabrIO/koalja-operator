@@ -364,6 +364,7 @@ waitLoop:
 			}
 		case <-ctx.Done():
 			// Context canceled
+			e.log.Debug().Msg("Context canceled, deleting pod")
 			if err := e.Client.Delete(ctx, pod); err != nil {
 				e.log.Error().Str("pod", pod.Name).Err(err).Msg("Failed to delete pod")
 			}
@@ -460,7 +461,9 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		} else {
 			// Only 1 annotated value at a time allowed.
 			// Template uses this value
-			inputs[tis.Name] = target.TemplateData[0]
+			if templateData := target.TemplateData; len(templateData) > 0 {
+				inputs[tis.Name] = templateData[0]
+			}
 		}
 		nodeName = target.NodeName
 		resources = append(resources, target.Resources...)
