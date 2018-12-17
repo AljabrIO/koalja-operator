@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -185,11 +186,12 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 		return nil, maskAny(err)
 	}
 	var hdr textproto.MIMEHeader
-	if len(headers) > 0 {
+	if len(strings.TrimSpace(string(headers))) > 0 {
 		// Parse header
 		rd := textproto.NewReader(bufio.NewReader(bytes.NewReader(headers)))
 		hdr, err = rd.ReadMIMEHeader()
 		if err != nil {
+			s.log.Debug().Str("header", string(headers)).Err(err).Msg("ReadMIMEHeader failed")
 			return nil, maskAny(err)
 		}
 	}
@@ -197,6 +199,7 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 	// Build request
 	req, err := http.NewRequest(string(method), string(url), bytes.NewReader(body))
 	if err != nil {
+		s.log.Debug().Err(err).Msg("NewRequest failed")
 		return nil, maskAny(err)
 	}
 
@@ -212,6 +215,9 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 
 // executeTemplate executes a given template with given data into a byte buffer.
 func (s *Service) executeTemplate(ctx context.Context, templateSource string, snapshot *task.Snapshot) ([]byte, error) {
+	if len(strings.TrimSpace(templateSource)) == 0 {
+		return nil, nil
+	}
 	resp, err := s.snsClient.ExecuteTemplate(ctx, &task.ExecuteTemplateRequest{
 		Snapshot: snapshot,
 		Template: templateSource,
