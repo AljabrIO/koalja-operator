@@ -48,15 +48,17 @@ type SnapshotService interface {
 // to task executors for tasks with a custom launch policy.
 type snapshotService struct {
 	log      zerolog.Logger
+	tf       *templateFunctions
 	taskSpec *koalja.TaskSpec
 	next     chan *ptask.Snapshot
 	ack      chan string
 }
 
 // NewSnapshotService creates a new SnapshotService.
-func NewSnapshotService(log zerolog.Logger, taskSpec *koalja.TaskSpec) (SnapshotService, error) {
+func NewSnapshotService(log zerolog.Logger, tf *templateFunctions, taskSpec *koalja.TaskSpec) (SnapshotService, error) {
 	return &snapshotService{
 		log:      log,
+		tf:       tf,
 		taskSpec: taskSpec,
 		next:     make(chan *ptask.Snapshot),
 		ack:      make(chan string),
@@ -150,9 +152,10 @@ func (s *snapshotService) ExecuteTemplate(ctx context.Context, req *ptask.Execut
 
 	// Build data
 	data := s.buildDataMap(req.GetSnapshot())
+	log.Debug().Interface("data", data).Msg("Executing template with data")
 
 	// Parse template
-	t, err := template.New("x").Parse(req.GetTemplate())
+	t, err := template.New("x").Funcs(s.tf.FuncMap()).Parse(req.GetTemplate())
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to parse template")
 		return nil, maskAny(err)
@@ -175,7 +178,7 @@ func (s *snapshotService) buildDataMap(snapshot *ptask.Snapshot) map[string]inte
 	avBuilder := func(inp *annotatedvalue.AnnotatedValue) map[string]interface{} {
 		d := map[string]interface{}{
 			"id":  inp.GetID(),
-			"uri": inp.GetID(),
+			"uri": inp.GetData(),
 		}
 		return d
 	}

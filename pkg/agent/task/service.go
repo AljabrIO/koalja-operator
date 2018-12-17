@@ -164,7 +164,8 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	snapshotService, err := NewSnapshotService(log.With().Str("component", "snapshotService").Logger(), &taskSpec)
+	tf := newTemplateFunctions(log.With().Str("component", "templateFunctions").Logger(), fileSystem)
+	snapshotService, err := NewSnapshotService(log.With().Str("component", "snapshotService").Logger(), tf, &taskSpec)
 	if err != nil {
 		return nil, maskAny(err)
 	}
