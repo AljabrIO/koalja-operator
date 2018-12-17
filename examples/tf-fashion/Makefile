@@ -1,4 +1,4 @@
-IMAGE := aljabrio/tf-fashion:0.0.2
+IMAGE := aljabrio/tf-fashion:0.0.3
 
 all:
 	docker build -t $(IMAGE) .

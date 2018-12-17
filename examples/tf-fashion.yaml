@@ -20,9 +20,9 @@ spec:
       typeRef: modelFile
       ready: Succeeded
     executor:
-      image: aljabrio/tf-fashion:0.0.2
+      image: aljabrio/tf-fashion:0.0.3
       command:
-      - /usr/bin/python
+      - /usr/bin/python3
       - "{{.inputs.script.path }}"
       - "{{.outputs.model.path}}"
   - name: imageInput
@@ -46,7 +46,6 @@ spec:
       - tensorflow_model_server
       - --port=8500
       - --rest_api_port=8501
-      - --model_name=mymodel
       - --model_base_path={{.inputs.model.path }} 
   - name: predict
     launchPolicy: Custom

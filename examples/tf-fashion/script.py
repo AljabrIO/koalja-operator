@@ -7,8 +7,9 @@ from tensorflow import keras
 # Helper libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from shutil import copyfile
+from shutil import copytree
 import tempfile
+from pathlib import Path
 
 print('Starting script.py')
 
@@ -44,15 +45,23 @@ test_loss, test_acc = model.evaluate(test_images, test_labels)
 print('Test accuracy:', test_acc)
 
 # Save model
-f = tempfile.NamedTemporaryFile(delete=False)
-f.close()
-tmpFilepath = f.name
+with tempfile.TemporaryDirectory() as tmpdirname:
+    # Fetch the Keras session and save the model
+    # The signature definition is defined by the input and output tensors
+    # And stored with the default serving key
+    export_path = str(Path(tmpdirname) / "model")
+    with tf.keras.backend.get_session() as sess:
+        tf.saved_model.simple_save(
+            sess,
+            export_path,
+            inputs={'input_image': model.input},
+            outputs={t.name:t for t in model.outputs})
+    copytree(export_path, str(Path(filepath) / "1"))
 
-tf.keras.models.save_model(
-    model,
-    tmpFilepath,
-    overwrite=True,
-    include_optimizer=True
-)
+#tf.keras.models.save_model(
+#    model,
+#    tmpFilepath,
+#    overwrite=True,
+#    include_optimizer=True
+#)
 
-copyfile(tmpFilepath, filepath)

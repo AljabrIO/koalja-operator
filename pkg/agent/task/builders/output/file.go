@@ -196,6 +196,8 @@ func (b fileOutputBuilder) Build(ctx context.Context, cfg task.ExecutorOutputBui
 		"mountPath":       mountPath,
 		"nodeName":        resp.GetNodeName(),
 		"path":            filepath.Join(mountPath, localPath),
+		"base":            filepath.Base(filepath.Join(mountPath, localPath)),
+		"dir":             filepath.Dir(filepath.Join(mountPath, localPath)),
 	}
 
 	// Prepare output processor
