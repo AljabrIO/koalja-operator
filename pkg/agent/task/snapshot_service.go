@@ -27,6 +27,7 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
+	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
@@ -50,16 +51,18 @@ type snapshotService struct {
 	log      zerolog.Logger
 	tf       *templateFunctions
 	taskSpec *koalja.TaskSpec
+	pipeline *koalja.Pipeline
 	next     chan *ptask.Snapshot
 	ack      chan string
 }
 
 // NewSnapshotService creates a new SnapshotService.
-func NewSnapshotService(log zerolog.Logger, tf *templateFunctions, taskSpec *koalja.TaskSpec) (SnapshotService, error) {
+func NewSnapshotService(log zerolog.Logger, tf *templateFunctions, taskSpec *koalja.TaskSpec, pipeline *koalja.Pipeline) (SnapshotService, error) {
 	return &snapshotService{
 		log:      log,
 		tf:       tf,
 		taskSpec: taskSpec,
+		pipeline: pipeline,
 		next:     make(chan *ptask.Snapshot),
 		ack:      make(chan string),
 	}, nil
@@ -201,9 +204,32 @@ func (s *snapshotService) buildDataMap(snapshot *ptask.Snapshot) map[string]inte
 		}
 	}
 
+	data := s.BuildPipelineDataMap()
+	data["snapshot"] = dataSnapshot
+	return data
+}
+
+// BuildPipelineDataMap builds a (template) data structure for the pipeline
+// elements.
+func (s *snapshotService) BuildPipelineDataMap() map[string]interface{} {
+	taskBuilder := func(taskSpec *koalja.TaskSpec) map[string]interface{} {
+		d := map[string]interface{}{}
+		if taskSpec.Service != nil {
+			d["service"] = map[string]interface{}{
+				"name": pipeline.CreateTaskExecutorDNSName(s.pipeline.GetName(), taskSpec.Name, s.pipeline.GetNamespace()),
+			}
+		}
+		return d
+	}
+
+	tasksData := make(map[string]interface{})
+	for _, task := range s.pipeline.Spec.Tasks {
+		tasksData[task.Name] = taskBuilder(&task)
+	}
+
 	data := map[string]interface{}{
-		"snapshot": dataSnapshot,
-		// TODO add other task info
+		"tasks": tasksData,
+		// TODO add type & link data
 	}
 	return data
 }
