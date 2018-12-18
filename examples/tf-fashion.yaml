@@ -75,7 +75,7 @@ spec:
       options:
         url: "http://{{.tasks.serve.service.name}}:8501/v1/models/default:predict"
         method: "POST"
-        body: "{{readURI .snapshot.json.uri }}"
+        body: "{{readURIAsText .snapshot.json.uri }}"
     type: REST
   links:
   - name: scriptInput-learn

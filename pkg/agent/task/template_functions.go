@@ -62,7 +62,8 @@ func (tf *templateFunctions) ApplyTemplate(log zerolog.Logger, source string, da
 // funcMap builds a function map for use in templates.
 func (tf *templateFunctions) funcMap() template.FuncMap {
 	return template.FuncMap{
-		"readURI": tf.ReadURI,
+		"readURI":       tf.ReadURI,
+		"readURIAsText": tf.ReadURIAsText,
 	}
 }
 
@@ -92,4 +93,13 @@ func (tf *templateFunctions) ReadURI(uri string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("Unknown scheme '%s'", scheme)
 	}
+}
+
+// ReadURIAsText reads the content of the given URI and returns it as a string.
+func (tf *templateFunctions) ReadURIAsText(uri string) (string, error) {
+	resp, err := tf.ReadURI(uri)
+	if err != nil {
+		return "", err
+	}
+	return string(resp), nil
 }

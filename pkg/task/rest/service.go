@@ -152,16 +152,20 @@ func (s *Service) processSnapshot(ctx context.Context, snapshot *task.Snapshot) 
 		return maskAny(err)
 	}
 
-	// Check status
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return maskAny(fmt.Errorf("Invalid response status %d", resp.StatusCode))
-	}
-
 	// Process results
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return maskAny(err)
+	}
+
+	// Check status
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.log.Debug().
+			Int("statusCode", resp.StatusCode).
+			Str("body", bodyAsString(body, 512)).
+			Msg("Request returned invalid response status")
+		return maskAny(fmt.Errorf("Invalid response status %d", resp.StatusCode))
 	}
 
 	// Put result into data URI
@@ -175,6 +179,14 @@ func (s *Service) processSnapshot(ctx context.Context, snapshot *task.Snapshot) 
 	}
 
 	return nil
+}
+
+// bodyAsString converts the given body into a string with a given max-length.
+func bodyAsString(body []byte, maxLen int) string {
+	if len(body) > maxLen {
+		body = body[:maxLen]
+	}
+	return string(body)
 }
 
 // buildRequest prepares REST call for the given snapshot.
@@ -220,6 +232,9 @@ func (s *Service) buildRequest(ctx context.Context, snapshot *task.Snapshot) (*h
 			req.Header[k] = v
 		}
 	}
+
+	// Debug
+	s.log.Debug().Str("body", bodyAsString(body, 512)).Msg("Prepared HTTP request")
 
 	return req, nil
 }
