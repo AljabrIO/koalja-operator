@@ -1,0 +1,108 @@
+apiVersion: koalja.aljabr.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: tf-fashion
+  namespace: default
+spec:
+  tasks:
+  - name: scriptInput
+    outputs:
+    - name: droppedFile
+      typeRef: scriptFile
+      ready: Auto
+    type: FileDrop
+  - name: learn
+    inputs:
+    - name: script
+      typeRef: scriptFile
+    outputs:
+    - name: model
+      typeRef: modelFile
+      ready: Succeeded
+    executor:
+      image: aljabrio/tf-fashion:0.0.4
+      command:
+      - /usr/bin/python3
+      - "{{.inputs.script.path }}"
+      - "{{.outputs.model.path}}"
+  - name: imageInput
+    outputs:
+    - name: droppedFile
+      typeRef: imageFile
+      ready: Auto
+    type: FileDrop
+  - name: serve
+    launchPolicy: Restart
+    inputs:
+    - name: model
+      typeRef: modelFile
+    service:
+      ports:
+      - name: http
+        port: 8501
+        localPort: 9501
+    executor:
+      image: tensorflow/serving
+      command:
+      - tensorflow_model_server
+      - --port=8500
+      - --rest_api_port=9501
+      - --model_base_path={{.inputs.model.path }} 
+  - name: imageConvert
+    inputs:
+    - name: image
+      typeRef: imageFile
+    outputs:
+    - name: json
+      typeRef: jsonFile
+      ready: Succeeded
+    executor:
+      image: aljabrio/tf-fashion:0.0.5
+      command:
+      - /usr/bin/python3
+      - /scripts/image_to_json.py
+      - "{{.inputs.image.path }}"
+      - "{{.outputs.json.path }}"
+  - name: predict
+    launchPolicy: Custom
+    inputs:
+    - name: json
+      typeRef: jsonFile
+    outputs:
+    - name: prediction
+      typeRef: predictionFile
+      ready: Auto
+      options:
+        url: "http://{{.tasks.serve.service.name}}:8501/v1/models/default:predict"
+        method: "POST"
+        body: "{{readURI .snapshot.json.uri }}"
+    type: REST
+  links:
+  - name: scriptInput-learn
+    sourceRef: scriptInput/droppedFile
+    destinationRef: learn/script
+  - name: imageInput-convert
+    sourceRef: imageInput/droppedFile
+    destinationRef: imageConvert/image
+  - name: imageConvert-predict
+    sourceRef: imageConvert/json
+    destinationRef: predict/json
+  - name: learn-serve
+    sourceRef: learn/model
+    destinationRef: serve/model
+  types:
+  - name: scriptFile
+    protocol: File
+    format: Text
+  - name: imageFile
+    protocol: File
+    format: Image
+  - name: modelFile
+    protocol: File
+    format: TFModel
+  - name: jsonFile
+    protocol: File
+    format: JSON
+  - name: predictionFile
+    protocol: File
+    format: TFPrediction

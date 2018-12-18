@@ -88,13 +88,31 @@ spec:
                       - ready
                       type: object
                     type: array
+                  service:
+                    properties:
+                      ports:
+                        items:
+                          properties:
+                            localPort:
+                              format: int32
+                              type: integer
+                            name:
+                              type: string
+                            port:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - port
+                          type: object
+                        type: array
+                    type: object
                   snapshotPolicy:
                     type: string
                   type:
                     type: string
                 required:
                 - name
-                - outputs
                 type: object
               type: array
             types:

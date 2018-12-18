@@ -20,6 +20,67 @@ package task;
 
 option go_package = "github.com/AljabrIO/koalja-operator/pkg/task";
 
+import "github.com/golang/protobuf/ptypes/duration/duration.proto";
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
+import "github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/annotatedvalue.proto";
+
+// SnapshotService is the API used by task executors to query the
+// task agent for the availability of a new snapshot.
+service SnapshotService {
+    // Next pulls the task agent for the next available snapshot.
+    rpc Next(NextRequest) returns (NextResponse);
+    // Acknowledge the processing of a snapshot
+    rpc Ack(AckRequest) returns (google.protobuf.Empty);
+    // ExecuteTemplate is invoked to parse & execute a template 
+    // with given snapshot.
+    rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
+}
+
+message NextRequest {
+    // WaitTimeout is the maximum amount of time that the called
+    // is prepared to wait for an answer.
+    google.protobuf.Duration WaitTimeout = 1;
+}
+
+message NextResponse {
+    // If set, Snapshot holds the next snapshot.
+    Snapshot Snapshot = 1;
+    // If Snapshot is not set, NoSnapshotYet is set to true to indicate
+    // that was is no snapshot available within the timeout specified
+    // in the request.
+    bool NoSnapshotYet = 2;
+}
+
+message AckRequest {
+    string SnapshotID = 1;
+}
+
+message ExecuteTemplateRequest {
+    // Current snapshot.
+    Snapshot Snapshot = 1;
+    // The template (source)
+    string Template = 2;
+}
+
+message ExecuteTemplateResponse {
+    // Result of the template execution.
+    bytes Result = 1;
+}
+
+// Snapshot is a set of sequences of annotated values for every
+// input of a task.
+message Snapshot {
+    string ID = 1;
+    repeated SnapshotInputPair Inputs = 2;
+}
+
+// SnapshotInputPair is a sequences of annotated value for a specific
+// task input with given name.
+message SnapshotInputPair {
+    string InputName = 1;
+    repeated annotatedvalue.AnnotatedValue AnnotatedValues = 2;
+}
+
 // OutputReadyNotifier is the API used by task executors to notify
 // a task agent of the availability of an output.
 service OutputReadyNotifier {
@@ -33,6 +94,8 @@ message OutputReadyRequest {
     string AnnotatedValueData = 1;
     // Name of the task output that is data belongs to.
     string OutputName = 2;
+    // Optional snapshot to be passed for custom task executors.
+    Snapshot Snapshot = 3; 
 }
 
 message OutputReadyResponse {

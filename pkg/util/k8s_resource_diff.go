@@ -159,6 +159,33 @@ func ServiceAccountEqual(spec, actual corev1.ServiceAccount) []Diff {
 	return ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta)
 }
 
+// ConfigMapEqual returns zero-length result when the given objects have the same specs.
+func ConfigMapEqual(spec, actual corev1.ConfigMap) []Diff {
+	if d := ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta); len(d) > 0 {
+		return d
+	}
+	var d []Diff
+	for k, v := range spec.Data {
+		av := actual.Data[k]
+		if v != av {
+			d = append(d, Diff(fmt.Sprintf("data[%s]: expected '%s' got '%s'", k, v, av)))
+		}
+	}
+	if len(actual.Data) > len(spec.Data) {
+		d = append(d, Diff("data: extra keys"))
+	}
+	for k, v := range spec.BinaryData {
+		av := actual.BinaryData[k]
+		if !reflect.DeepEqual(v, av) {
+			d = append(d, Diff(fmt.Sprintf("binaryData[%s]: expected '%s' got '%s'", k, v, av)))
+		}
+	}
+	if len(actual.BinaryData) > len(spec.BinaryData) {
+		d = append(d, Diff("binaryData: extra keys"))
+	}
+	return d
+}
+
 // RoleEqual returns zero-length result when the given objects have the same specs.
 func RoleEqual(spec, actual rbacv1.Role) []Diff {
 	return append(ObjectMetaEqual("metadata", spec.ObjectMeta, actual.ObjectMeta),

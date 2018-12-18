@@ -23,6 +23,8 @@ import (
 	"github.com/dchest/uniuri"
 	"github.com/golang/protobuf/ptypes"
 
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
+	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
@@ -43,17 +45,23 @@ type SnapshotService interface {
 // snapshotService implements the SnapshotService provided
 // to task executors for tasks with a custom launch policy.
 type snapshotService struct {
-	log  zerolog.Logger
-	next chan *ptask.Snapshot
-	ack  chan string
+	log      zerolog.Logger
+	tf       *templateFunctions
+	taskSpec *koalja.TaskSpec
+	pipeline *koalja.Pipeline
+	next     chan *ptask.Snapshot
+	ack      chan string
 }
 
 // NewSnapshotService creates a new SnapshotService.
-func NewSnapshotService(log zerolog.Logger) (SnapshotService, error) {
+func NewSnapshotService(log zerolog.Logger, tf *templateFunctions, taskSpec *koalja.TaskSpec, pipeline *koalja.Pipeline) (SnapshotService, error) {
 	return &snapshotService{
-		log:  log,
-		next: make(chan *ptask.Snapshot),
-		ack:  make(chan string),
+		log:      log,
+		tf:       tf,
+		taskSpec: taskSpec,
+		pipeline: pipeline,
+		next:     make(chan *ptask.Snapshot),
+		ack:      make(chan string),
 	}, nil
 }
 
@@ -133,6 +141,64 @@ func (s *snapshotService) Ack(ctx context.Context, req *ptask.AckRequest) (*empt
 		// Context canceled
 		return nil, maskAny(ctx.Err())
 	}
+}
+
+// ExecuteTemplate is invoked to parse & execute a template
+// with given snapshot.
+func (s *snapshotService) ExecuteTemplate(ctx context.Context, req *ptask.ExecuteTemplateRequest) (*ptask.ExecuteTemplateResponse, error) {
+	log := s.log.With().
+		Str("template", req.GetTemplate()).
+		Logger()
+
+	// Build data
+	data := s.buildDataMap(req.GetSnapshot())
+	log.Debug().Interface("data", data).Msg("Executing template with data")
+
+	// Apply template
+	result, err := s.tf.ApplyTemplate(log, req.GetTemplate(), data)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to apply template")
+		return nil, maskAny(err)
+	}
+	return &ptask.ExecuteTemplateResponse{
+		Result: result,
+	}, nil
+}
+
+// buildDataMap builds a (template) data structure for the given snapshot.
+func (s *snapshotService) buildDataMap(snapshot *ptask.Snapshot) map[string]interface{} {
+	dataSnapshot := make(map[string]interface{})
+	dataSnapshot["id"] = snapshot.GetID()
+
+	avBuilder := func(inp *annotatedvalue.AnnotatedValue) map[string]interface{} {
+		d := map[string]interface{}{
+			"id":  inp.GetID(),
+			"uri": inp.GetData(),
+		}
+		return d
+	}
+
+	for _, entry := range snapshot.GetInputs() {
+		if taskInput, found := s.taskSpec.InputByName(entry.GetInputName()); found {
+			if taskInput.GetMaxSequenceLength() > 1 {
+				// Put annotated values in list
+				var list []map[string]interface{}
+				for _, av := range entry.GetAnnotatedValues() {
+					list = append(list, avBuilder(av))
+				}
+				dataSnapshot[entry.GetInputName()] = list
+			} else {
+				// Put annotated value as single entry
+				if len(entry.GetAnnotatedValues()) > 0 {
+					dataSnapshot[entry.GetInputName()] = avBuilder(entry.GetAnnotatedValues()[0])
+				}
+			}
+		}
+	}
+
+	data := BuildPipelineDataMap(s.pipeline)
+	data["snapshot"] = dataSnapshot
+	return data
 }
 
 // createAPISnapshot creates a SnapshotService API compatible Snapshot from

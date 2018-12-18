@@ -29,3 +29,4 @@ resources:
 - ../../tasks/filedrop_executor.yaml
 - ../../tasks/filesplit_executor.yaml
 - ../../tasks/jsonquery_executor.yaml
+- ../../tasks/rest_executor.yaml

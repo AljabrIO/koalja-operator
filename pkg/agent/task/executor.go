@@ -17,16 +17,15 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
@@ -58,7 +57,7 @@ type Executor interface {
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
 	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, taskAgentServicesPort int,
-	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
+	podGC PodGarbageCollector, tf *templateFunctions, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -113,7 +112,8 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		dnsName:                        dnsName,
 		namespace:                      pod.GetNamespace(),
 		taskAgentServicesPort:          taskAgentServicesPort,
-		podChanges:                     make(chan *corev1.Pod),
+		podChanges:                     make(chan *corev1.Pod, changeQueueSize),
+		tf:                             tf,
 		outputPublisher:                outputPublisher,
 		podGC:                          podGC,
 		statistics:                     statistics,
@@ -138,6 +138,7 @@ type executor struct {
 	namespace                      string
 	taskAgentServicesPort          int
 	podChanges                     chan *corev1.Pod
+	tf                             *templateFunctions
 	outputPublisher                OutputPublisher
 	podGC                          PodGarbageCollector
 	statistics                     *tracking.TaskStatistics
@@ -263,6 +264,22 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 		return maskAny(err)
 	}
 
+	// Prepare service proxy
+	proxyConfigMapName, err := e.ensureProxyConfigMap(ctx, ownerRef)
+	if err != nil {
+		e.log.Error().Err(err).Msg("Failed to create proxy config")
+		return maskAny(err)
+	}
+	proxyContainer, proxyVols, err := e.createProxyContainer(ctx, proxyConfigMapName)
+	if err != nil {
+		e.log.Error().Err(err).Msg("Failed to create proxy container")
+		return maskAny(err)
+	}
+	if proxyContainer != nil {
+		pod.Spec.Containers = append(pod.Spec.Containers, *proxyContainer)
+		pod.Spec.Volumes = append(pod.Spec.Volumes, proxyVols...)
+	}
+
 	// Launch the pod
 	if err := e.Client.Create(ctx, pod); err != nil {
 		e.log.Error().Err(err).Msg("Failed to create execution pod")
@@ -362,6 +379,13 @@ waitLoop:
 					}
 				}
 			}
+		case <-ctx.Done():
+			// Context canceled
+			e.log.Debug().Msg("Context canceled, deleting pod")
+			if err := e.Client.Delete(ctx, pod); err != nil {
+				e.log.Error().Str("pod", pod.Name).Err(err).Msg("Failed to delete pod")
+			}
+			return maskAny(ctx.Err())
 		}
 	}
 
@@ -454,7 +478,9 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 		} else {
 			// Only 1 annotated value at a time allowed.
 			// Template uses this value
-			inputs[tis.Name] = target.TemplateData[0]
+			if templateData := target.TemplateData; len(templateData) > 0 {
+				inputs[tis.Name] = templateData[0]
+			}
 		}
 		nodeName = target.NodeName
 		resources = append(resources, target.Resources...)
@@ -476,11 +502,11 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			outputProcessors = append(outputProcessors, target.OutputProcessor)
 		}
 	}
-	data := map[string]interface{}{
-		"task":    e.taskSpec,
-		"inputs":  inputs,
-		"outputs": outputs,
-	}
+	data := BuildPipelineDataMap(e.pipeline)
+	data["task"] = e.taskSpec
+	data["inputs"] = inputs
+	data["outputs"] = outputs
+
 	// Apply template on command
 	for i, source := range c.Command {
 		var err error
@@ -549,6 +575,108 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 	return resources, outputProcessors, nil
 }
 
+const (
+	gobetweenConfFileName = "gobetween.toml"
+)
+
+// ensureProxyConfigMap ensures that a ConfigMap containing configuration for the
+// proxy exists and it up to date.
+// Returns: ConfigMap-name, error
+func (e *executor) ensureProxyConfigMap(ctx context.Context, ownerRef metav1.OwnerReference) (string, error) {
+	svc := e.taskSpec.Service
+	if svc == nil {
+		return "", nil
+	}
+
+	// Prepare config
+	var config []string
+	for _, sps := range svc.Ports {
+		if sps.NeedsProxy() {
+			config = append(config,
+				fmt.Sprintf("[servers.%s]", sps.Name),
+				fmt.Sprintf("bind = \":%d\"", sps.Port),
+				"protocol = \"tcp\"",
+				fmt.Sprintf("[servers.%s.discovery]", sps.Name),
+				"kind = \"static\"",
+				fmt.Sprintf("static_list = [\"127.0.0.1:%d weight=1\"]", sps.LocalPort),
+			)
+		}
+	}
+	if len(config) == 0 {
+		// No ports need proxy
+		return "", nil
+	}
+
+	// Build ConfigMap
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            e.myPod.Name,
+			Namespace:       e.myPod.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
+		},
+		Data: map[string]string{
+			gobetweenConfFileName: strings.Join(config, "\n"),
+		},
+	}
+
+	// Ensure configmap exists & is up to date
+	if err := util.EnsureConfigMap(ctx, e.log, e.Client, cm, "proxy config"); err != nil {
+		e.log.Debug().Err(err).Msg("Failed to ensure proxy configmap")
+		return "", maskAny(err)
+	}
+
+	return cm.Name, nil
+}
+
+// createProxyContainer creates a container that contains the service proxy.
+func (e *executor) createProxyContainer(ctx context.Context, configMapName string) (*corev1.Container, []corev1.Volume, error) {
+	svc := e.taskSpec.Service
+	if svc == nil || configMapName == "" {
+		return nil, nil, nil
+	}
+	configFileDir := "/proxy/config"
+	configVolumeName := "proxy-config"
+	configFilePath := path.Join(configFileDir, gobetweenConfFileName)
+	c := &corev1.Container{
+		Name:            "proxy",
+		Image:           "yyyar/gobetween",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command: []string{
+			"gobetween",
+			"from-file",
+			configFilePath,
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      configVolumeName,
+				MountPath: configFileDir,
+			},
+		},
+	}
+	for _, sps := range svc.Ports {
+		if sps.NeedsProxy() {
+			c.Ports = append(c.Ports, corev1.ContainerPort{
+				Name:          sps.Name,
+				ContainerPort: sps.Port,
+				Protocol:      corev1.ProtocolTCP,
+			})
+		}
+	}
+
+	vol := corev1.Volume{
+		Name: configVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+
+	return c, []corev1.Volume{vol}, nil
+}
+
 // buildTaskInput creates a template data element for the given input.
 func (e *executor) buildTaskInput(ctx context.Context, tis koalja.TaskInputSpec, avSeq []*annotatedvalue.AnnotatedValue, ownerRef metav1.OwnerReference, target *ExecutorInputBuilderTarget) error {
 	log := e.log.With().
@@ -613,17 +741,11 @@ func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpe
 
 // applyTemplate parses the given template source and executes it on the given data.
 func (e *executor) applyTemplate(source string, data interface{}) (string, error) {
-	t, err := template.New("x").Parse(source)
+	raw, err := e.tf.ApplyTemplate(e.log, source, data)
 	if err != nil {
-		e.log.Debug().Err(err).Str("source", source).Msg("Failed to parse template")
 		return "", maskAny(err)
 	}
-	w := &bytes.Buffer{}
-	if err := t.Execute(w, data); err != nil {
-		e.log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
-		return "", maskAny(err)
-	}
-	result := w.String()
+	result := string(raw)
 	e.log.Debug().Str("source", source).Str("result", result).Msg("applied template")
 	return result, nil
 }

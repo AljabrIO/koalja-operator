@@ -28,6 +28,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// EnsureConfigMap creates of updates a ConfigMap.
+func EnsureConfigMap(ctx context.Context, log zerolog.Logger, client client.Client, cm *corev1.ConfigMap, description string) error {
+	// Check if ConfigMap already exists
+	found := &corev1.ConfigMap{}
+	if err := client.Get(ctx, types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, found); err != nil && errors.IsNotFound(err) {
+		log.Info().Msgf("Creating %s", description)
+		if err := client.Create(ctx, cm); err != nil {
+			log.Error().Err(err).Msgf("Failed to create %s", description)
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		// Update the found object and write the result back if there are any changes
+		if diff := ConfigMapEqual(*cm, *found); len(diff) > 0 {
+			found.Data = cm.Data
+			found.BinaryData = cm.BinaryData
+			log.Info().Interface("diff", diff).Msgf("Updating %s", description)
+			if err := client.Update(ctx, found); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // EnsureRole creates of updates a Role.
 func EnsureRole(ctx context.Context, log zerolog.Logger, client client.Client, role *rbacv1.Role, description string) error {
 	// Check if Role already exists

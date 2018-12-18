@@ -124,7 +124,8 @@ func (op *outputPublisher) OutputReady(ctx context.Context, req *ptask.OutputRea
 	av := annotatedvalue.AnnotatedValue{
 		Data: req.GetAnnotatedValueData(),
 	}
-	accepted, publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, nil)
+	snapshot := inputSnapshotForTaskSnapshot(req.GetSnapshot())
+	accepted, publishedAv, err := op.Publish(ctx, req.GetOutputName(), av, snapshot)
 	if err != nil {
 		return nil, maskAny(err)
 	}

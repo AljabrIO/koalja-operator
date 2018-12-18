@@ -987,11 +987,12 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	// Create annotation containing task executor container (if any)
 	if annTaskExecutorContainer != "" {
 		annotations[constants.AnnTaskExecutorContainer] = annTaskExecutorContainer
-
-		// Marshal labels
-		encodedLabels, _ := json.Marshal(createExecutorLabels())
-		annotations[constants.AnnTaskExecutorLabels] = string(encodedLabels)
 	}
+
+	// Marshal labels
+	encodedLabels, _ := json.Marshal(createExecutorLabels())
+	annotations[constants.AnnTaskExecutorLabels] = string(encodedLabels)
+
 	// Create deployment
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1060,7 +1061,7 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 	}
 
 	// Create Task Executor Service (if needed)
-	if len(taskExecutorRoutes) > 0 {
+	if len(taskExecutorRoutes) > 0 || task.Service != nil {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      CreateTaskExecutorServiceName(instance.Name, task.Name),
@@ -1078,6 +1079,16 @@ func (r *ReconcilePipeline) ensureTaskAgent(ctx context.Context, instance *koalj
 				TargetPort: intstr.FromInt(r.Port),
 				Protocol:   corev1.ProtocolTCP,
 			})
+		}
+		if task.Service != nil {
+			for _, sPort := range task.Service.Ports {
+				service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
+					Name:       sPort.Name,
+					Port:       sPort.Port,
+					TargetPort: intstr.FromInt(int(sPort.Port)),
+					Protocol:   corev1.ProtocolTCP,
+				})
+			}
 		}
 		if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
 			return reconcile.Result{}, taskExecutorsResult, err
