@@ -40,12 +40,13 @@ spec:
       ports:
       - name: http
         port: 8501
+        localPort: 9501
     executor:
       image: tensorflow/serving
       command:
       - tensorflow_model_server
       - --port=8500
-      - --rest_api_port=8501
+      - --rest_api_port=9501
       - --model_base_path={{.inputs.model.path }} 
   - name: imageConvert
     inputs:

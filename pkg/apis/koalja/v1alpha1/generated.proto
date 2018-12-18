@@ -121,6 +121,10 @@ message ServicePortSpec {
 
   // Port number of the port
   optional int32 port = 2 [(gogoproto.customname) = "Port", (gogoproto.nullable) = false];
+
+  // Port number of the port inside the container.
+  // If set & different from Port, a proxy is inserted.
+  optional int32 localPort = 3 [(gogoproto.customname) = "LocalPort", (gogoproto.nullable) = false];
 }
 
 // ServiceSpec holds the specification of a service provided by a task.

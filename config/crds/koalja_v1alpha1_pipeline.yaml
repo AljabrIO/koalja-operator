@@ -93,6 +93,9 @@ spec:
                       ports:
                         items:
                           properties:
+                            localPort:
+                              format: int32
+                              type: integer
                             name:
                               type: string
                             port:

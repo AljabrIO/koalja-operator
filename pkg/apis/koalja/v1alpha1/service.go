@@ -29,6 +29,9 @@ type ServicePortSpec struct {
 	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Port number of the port
 	Port int32 `json:"port" protobuf:"int32,2,req,name=port"`
+	// Port number of the port inside the container.
+	// If set & different from Port, a proxy is inserted.
+	LocalPort int32 `json:"localPort,omitempty" protobuf:"int32,3,req,name=localPort"`
 }
 
 // Validate the port spec.
@@ -39,7 +42,15 @@ func (sps ServicePortSpec) Validate() error {
 	if sps.Port < 1 || sps.Port > 32*1024 {
 		return errors.Wrapf(ErrValidation, "Port out of range: %d", sps.Port)
 	}
+	if sps.LocalPort < 0 || sps.LocalPort > 32*1024 {
+		return errors.Wrapf(ErrValidation, "LocalPort out of range: %d", sps.LocalPort)
+	}
 	return nil
+}
+
+// NeedsProxy returns true when LocalPort is set and is different from Port.
+func (sps ServicePortSpec) NeedsProxy() bool {
+	return sps.LocalPort > 0 && sps.LocalPort != sps.Port
 }
 
 // Validate the service spec.

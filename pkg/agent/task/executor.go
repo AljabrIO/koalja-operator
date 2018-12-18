@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -261,6 +262,22 @@ func (e *executor) Execute(ctx context.Context, args *InputSnapshot) error {
 	}()
 	if err != nil {
 		return maskAny(err)
+	}
+
+	// Prepare service proxy
+	proxyConfigMapName, err := e.ensureProxyConfigMap(ctx, ownerRef)
+	if err != nil {
+		e.log.Error().Err(err).Msg("Failed to create proxy config")
+		return maskAny(err)
+	}
+	proxyContainer, proxyVols, err := e.createProxyContainer(ctx, proxyConfigMapName)
+	if err != nil {
+		e.log.Error().Err(err).Msg("Failed to create proxy container")
+		return maskAny(err)
+	}
+	if proxyContainer != nil {
+		pod.Spec.Containers = append(pod.Spec.Containers, *proxyContainer)
+		pod.Spec.Volumes = append(pod.Spec.Volumes, proxyVols...)
 	}
 
 	// Launch the pod
@@ -556,6 +573,108 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 	)
 
 	return resources, outputProcessors, nil
+}
+
+const (
+	gobetweenConfFileName = "gobetween.toml"
+)
+
+// ensureProxyConfigMap ensures that a ConfigMap containing configuration for the
+// proxy exists and it up to date.
+// Returns: ConfigMap-name, error
+func (e *executor) ensureProxyConfigMap(ctx context.Context, ownerRef metav1.OwnerReference) (string, error) {
+	svc := e.taskSpec.Service
+	if svc == nil {
+		return "", nil
+	}
+
+	// Prepare config
+	var config []string
+	for _, sps := range svc.Ports {
+		if sps.NeedsProxy() {
+			config = append(config,
+				fmt.Sprintf("[server.%s]", sps.Name),
+				fmt.Sprintf("bind = \":%d\"", sps.Port),
+				"protocol = \"tcp\"",
+				fmt.Sprintf("[server.%s.discovery]", sps.Name),
+				"kind = \"static\"",
+				fmt.Sprintf("static_list = [\"127.0.0.1:%d weight 1\"]", sps.LocalPort),
+			)
+		}
+	}
+	if len(config) == 0 {
+		// No ports need proxy
+		return "", nil
+	}
+
+	// Build ConfigMap
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            e.myPod.Name,
+			Namespace:       e.myPod.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
+		},
+		Data: map[string]string{
+			gobetweenConfFileName: strings.Join(config, "\n"),
+		},
+	}
+
+	// Ensure configmap exists & is up to date
+	if err := util.EnsureConfigMap(ctx, e.log, e.Client, cm, "proxy config"); err != nil {
+		e.log.Debug().Err(err).Msg("Failed to ensure proxy configmap")
+		return "", maskAny(err)
+	}
+
+	return cm.Name, nil
+}
+
+// createProxyContainer creates a container that contains the service proxy.
+func (e *executor) createProxyContainer(ctx context.Context, configMapName string) (*corev1.Container, []corev1.Volume, error) {
+	svc := e.taskSpec.Service
+	if svc == nil || configMapName == "" {
+		return nil, nil, nil
+	}
+	configFileDir := "/proxy/config"
+	configVolumeName := "proxy-config"
+	configFilePath := path.Join(configFileDir, gobetweenConfFileName)
+	c := &corev1.Container{
+		Name:            "proxy",
+		Image:           "yyyar/gobetween",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command: []string{
+			"gobetween",
+			"from-file",
+			configFilePath,
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      configVolumeName,
+				MountPath: configFileDir,
+			},
+		},
+	}
+	for _, sps := range svc.Ports {
+		if sps.NeedsProxy() {
+			c.Ports = append(c.Ports, corev1.ContainerPort{
+				Name:          sps.Name,
+				ContainerPort: sps.Port,
+				Protocol:      corev1.ProtocolTCP,
+			})
+		}
+	}
+
+	vol := corev1.Volume{
+		Name: configVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+
+	return c, []corev1.Volume{vol}, nil
 }
 
 // buildTaskInput creates a template data element for the given input.
