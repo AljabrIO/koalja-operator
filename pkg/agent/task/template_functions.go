@@ -17,6 +17,7 @@
 package task
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"text/template"
@@ -42,8 +43,24 @@ func newTemplateFunctions(log zerolog.Logger, fsc fsclient.FileSystemClient) *te
 	}
 }
 
-// FuncMap builds a function map for use in templates.
-func (tf *templateFunctions) FuncMap() template.FuncMap {
+// ApplyTemplate parses the given template source and executes it on the given data.
+func (tf *templateFunctions) ApplyTemplate(log zerolog.Logger, source string, data interface{}) ([]byte, error) {
+	t, err := template.New("x").Option("missingkey=zero").Funcs(tf.funcMap()).Parse(source)
+	if err != nil {
+		log.Debug().Err(err).Str("source", source).Msg("Failed to parse template")
+		return nil, maskAny(err)
+	}
+	w := &bytes.Buffer{}
+	if err := t.Execute(w, data); err != nil {
+		log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
+		return nil, maskAny(err)
+	}
+	result := w.Bytes()
+	return result, nil
+}
+
+// funcMap builds a function map for use in templates.
+func (tf *templateFunctions) funcMap() template.FuncMap {
 	return template.FuncMap{
 		"readURI": tf.ReadURI,
 	}

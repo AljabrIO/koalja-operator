@@ -17,7 +17,6 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/dchest/uniuri"
 	"github.com/rs/zerolog"
@@ -58,7 +56,7 @@ type Executor interface {
 // NewExecutor initializes a new Executor.
 func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fileSystem fs.FileSystemClient,
 	pipeline *koalja.Pipeline, taskSpec *koalja.TaskSpec, pod *corev1.Pod, taskAgentServicesPort int,
-	podGC PodGarbageCollector, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
+	podGC PodGarbageCollector, tf *templateFunctions, outputPublisher OutputPublisher, statistics *tracking.TaskStatistics) (Executor, error) {
 	// Get output addresses
 	outputAddressesMap := make(map[string][]string)
 	for _, tos := range taskSpec.Outputs {
@@ -114,6 +112,7 @@ func NewExecutor(log zerolog.Logger, client client.Client, cache cache.Cache, fi
 		namespace:                      pod.GetNamespace(),
 		taskAgentServicesPort:          taskAgentServicesPort,
 		podChanges:                     make(chan *corev1.Pod, changeQueueSize),
+		tf:                             tf,
 		outputPublisher:                outputPublisher,
 		podGC:                          podGC,
 		statistics:                     statistics,
@@ -138,6 +137,7 @@ type executor struct {
 	namespace                      string
 	taskAgentServicesPort          int
 	podChanges                     chan *corev1.Pod
+	tf                             *templateFunctions
 	outputPublisher                OutputPublisher
 	podGC                          PodGarbageCollector
 	statistics                     *tracking.TaskStatistics
@@ -485,11 +485,11 @@ func (e *executor) configureExecContainer(ctx context.Context, args *InputSnapsh
 			outputProcessors = append(outputProcessors, target.OutputProcessor)
 		}
 	}
-	data := map[string]interface{}{
-		"task":    e.taskSpec,
-		"inputs":  inputs,
-		"outputs": outputs,
-	}
+	data := BuildPipelineDataMap(e.pipeline)
+	data["task"] = e.taskSpec
+	data["inputs"] = inputs
+	data["outputs"] = outputs
+
 	// Apply template on command
 	for i, source := range c.Command {
 		var err error
@@ -622,17 +622,11 @@ func (e *executor) buildTaskOutput(ctx context.Context, tos koalja.TaskOutputSpe
 
 // applyTemplate parses the given template source and executes it on the given data.
 func (e *executor) applyTemplate(source string, data interface{}) (string, error) {
-	t, err := template.New("x").Parse(source)
+	raw, err := e.tf.ApplyTemplate(e.log, source, data)
 	if err != nil {
-		e.log.Debug().Err(err).Str("source", source).Msg("Failed to parse template")
 		return "", maskAny(err)
 	}
-	w := &bytes.Buffer{}
-	if err := t.Execute(w, data); err != nil {
-		e.log.Debug().Err(err).Str("source", source).Msg("Failed to execute template")
-		return "", maskAny(err)
-	}
-	result := w.String()
+	result := string(raw)
 	e.log.Debug().Str("source", source).Str("result", result).Msg("applied template")
 	return result, nil
 }

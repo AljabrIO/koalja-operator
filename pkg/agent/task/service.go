@@ -160,11 +160,11 @@ func NewService(log zerolog.Logger, config *rest.Config, scheme *runtime.Scheme)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pl, &taskSpec, &pod, port, podGC, op, statistics)
+	tf := newTemplateFunctions(log.With().Str("component", "templateFunctions").Logger(), fileSystem)
+	executor, err := NewExecutor(log.With().Str("component", "executor").Logger(), c, cache, fileSystem, &pl, &taskSpec, &pod, port, podGC, tf, op, statistics)
 	if err != nil {
 		return nil, maskAny(err)
 	}
-	tf := newTemplateFunctions(log.With().Str("component", "templateFunctions").Logger(), fileSystem)
 	snapshotService, err := NewSnapshotService(log.With().Str("component", "snapshotService").Logger(), tf, &taskSpec, &pl)
 	if err != nil {
 		return nil, maskAny(err)

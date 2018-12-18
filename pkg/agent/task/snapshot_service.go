@@ -17,9 +17,7 @@
 package task
 
 import (
-	"bytes"
 	"context"
-	"text/template"
 	"time"
 
 	"github.com/dchest/uniuri"
@@ -27,7 +25,6 @@ import (
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 	koalja "github.com/AljabrIO/koalja-operator/pkg/apis/koalja/v1alpha1"
-	"github.com/AljabrIO/koalja-operator/pkg/controller/pipeline"
 	ptask "github.com/AljabrIO/koalja-operator/pkg/task"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rs/zerolog"
@@ -157,19 +154,14 @@ func (s *snapshotService) ExecuteTemplate(ctx context.Context, req *ptask.Execut
 	data := s.buildDataMap(req.GetSnapshot())
 	log.Debug().Interface("data", data).Msg("Executing template with data")
 
-	// Parse template
-	t, err := template.New("x").Funcs(s.tf.FuncMap()).Parse(req.GetTemplate())
+	// Apply template
+	result, err := s.tf.ApplyTemplate(log, req.GetTemplate(), data)
 	if err != nil {
-		log.Debug().Err(err).Msg("Failed to parse template")
-		return nil, maskAny(err)
-	}
-	w := &bytes.Buffer{}
-	if err := t.Execute(w, data); err != nil {
-		log.Debug().Err(err).Msg("Failed to execute template")
+		log.Debug().Err(err).Msg("Failed to apply template")
 		return nil, maskAny(err)
 	}
 	return &ptask.ExecuteTemplateResponse{
-		Result: w.Bytes(),
+		Result: result,
 	}, nil
 }
 
@@ -204,33 +196,8 @@ func (s *snapshotService) buildDataMap(snapshot *ptask.Snapshot) map[string]inte
 		}
 	}
 
-	data := s.BuildPipelineDataMap()
+	data := BuildPipelineDataMap(s.pipeline)
 	data["snapshot"] = dataSnapshot
-	return data
-}
-
-// BuildPipelineDataMap builds a (template) data structure for the pipeline
-// elements.
-func (s *snapshotService) BuildPipelineDataMap() map[string]interface{} {
-	taskBuilder := func(taskSpec *koalja.TaskSpec) map[string]interface{} {
-		d := map[string]interface{}{}
-		if taskSpec.Service != nil {
-			d["service"] = map[string]interface{}{
-				"name": pipeline.CreateTaskExecutorDNSName(s.pipeline.GetName(), taskSpec.Name, s.pipeline.GetNamespace()),
-			}
-		}
-		return d
-	}
-
-	tasksData := make(map[string]interface{})
-	for _, task := range s.pipeline.Spec.Tasks {
-		tasksData[task.Name] = taskBuilder(&task)
-	}
-
-	data := map[string]interface{}{
-		"tasks": tasksData,
-		// TODO add type & link data
-	}
 	return data
 }
 
