@@ -95,6 +95,11 @@ func (s *Service) Run(ctx context.Context) error {
 	minDelay := time.Nanosecond
 	delay := minDelay
 	for {
+		// Check context
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		// Fetch next snapshot
 		resp, err := s.snsClient.Next(ctx, &task.NextRequest{
 			WaitTimeout: ptypes.DurationProto(time.Second * 30),
@@ -110,6 +115,12 @@ func (s *Service) Run(ctx context.Context) error {
 			// Execute REST call on snapshot
 			if err := s.processSnapshot(ctx, snapshot); err != nil {
 				log.Warn().Err(err).Msg("Failed to process snapshot")
+			}
+			// Success or permanent failure, ack the snapshot
+			if _, err := s.snsClient.Ack(ctx, &task.AckRequest{
+				SnapshotID: snapshot.GetID(),
+			}); err != nil {
+				log.Warn().Err(err).Msg("Ack request to SnapshotService failed")
 			}
 		}
 

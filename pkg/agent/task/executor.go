@@ -593,12 +593,12 @@ func (e *executor) ensureProxyConfigMap(ctx context.Context, ownerRef metav1.Own
 	for _, sps := range svc.Ports {
 		if sps.NeedsProxy() {
 			config = append(config,
-				fmt.Sprintf("[server.%s]", sps.Name),
+				fmt.Sprintf("[servers.%s]", sps.Name),
 				fmt.Sprintf("bind = \":%d\"", sps.Port),
 				"protocol = \"tcp\"",
-				fmt.Sprintf("[server.%s.discovery]", sps.Name),
+				fmt.Sprintf("[servers.%s.discovery]", sps.Name),
 				"kind = \"static\"",
-				fmt.Sprintf("static_list = [\"127.0.0.1:%d weight 1\"]", sps.LocalPort),
+				fmt.Sprintf("static_list = [\"127.0.0.1:%d weight=1\"]", sps.LocalPort),
 			)
 		}
 	}
