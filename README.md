@@ -113,3 +113,16 @@ object storage is required.
 - On GKE:
   - Ensure that the nodes support `fusermount` (e.g. use ubuntu images)
   - `kubectl apply -f config/platforms/gke`
+
+## Directories
+
+- [`cmd`](./cmd/) Package containing entry points for the binaries of this project.
+- [`config`](./config/) Directory containing (customizable) deployment configuration.
+- [`docker`](./docker/) Directory containing docker image build files.
+- [`examples`](./examples/) Example pipelines.
+- [`frontend`](./frontend/) Pipeline frontend (react application).
+- [`hack`](./hack/) Kubebuilder related template files.
+- [`pkg`](./pkg/) Package root for all koalja libraries & services.
+- [`specification`](./specification/) Directory containing specification documents & experiments.
+- [`third_party`](./third_party) Directory containing 3rd party code mainly related to GRPC & protocol buffers.
+- [`vendor`](./vendor/) External go libraries.
