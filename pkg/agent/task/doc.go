@@ -14,7 +14,5 @@
 // limitations under the License.
 //
 
-// Package task contains the API specifications used by task executors and is the root for all custom task executors.
+// Package task contains the implementation of the task agent.
 package task
-
-//go:generate protoc -I .:../../../../../:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf --go_out=plugins=grpc,paths=source_relative:. ./task.proto

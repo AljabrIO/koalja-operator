@@ -14,7 +14,5 @@
 // limitations under the License.
 //
 
-// Package task contains the API specifications used by task executors and is the root for all custom task executors.
-package task
-
-//go:generate protoc -I .:../../../../../:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf --go_out=plugins=grpc,paths=source_relative:. ./task.proto
+// Package filedrop implements a custom task executor that provides a network service that receives uploaded files and sends them into a pipeline.
+package filedrop

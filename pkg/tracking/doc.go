@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+// Package tracking contains the API specification for tracking pipeline statistics.
 package tracking
 
 //go:generate protoc -I .:../../:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf:../../third_party/googleapis/:../../../../../ --gogofaster_out=Mgoogle/protobuf/field_mask.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/duration/duration.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/timestamp/timestamp.proto=github.com/gogo/protobuf/types,plugins=grpc,paths=source_relative:. statistics.proto

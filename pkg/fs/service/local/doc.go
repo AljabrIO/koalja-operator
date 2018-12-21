@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+// Package local contains a koalja FS service implementation that stores files on a local directory of the nodes of the kubernetes cluster.
 package local
 
 //go:generate protoc -I .:../../../../:../../../../vendor:../../../../third_party/googleapis:../../../../../../../ --gofast_out=Mgithub.com/golang/protobuf/ptypes/duration/duration.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/timestamp/timestamp.proto=github.com/gogo/protobuf/types,plugins=grpc,paths=source_relative:. ./local.proto
