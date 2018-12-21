@@ -19,7 +19,7 @@ metadata:
   namespace: default
 spec:
   rules:
-  - host: db.crawler.default.koalja.epracom.com
+  - host: db.crawler.default.koalja.example.com
     http:
       paths:
       - backend:
