@@ -19,7 +19,7 @@ metadata:
   namespace: default
 spec:
   rules:
-  - host: db.qarango.default.koalja.epracom.com
+  - host: db.qarango.default.koalja.example.com
     http:
       paths:
       - backend:

@@ -14,7 +14,5 @@
 // limitations under the License.
 //
 
-// Package task contains the API specifications used by task executors and is the root for all custom task executors.
-package task
-
-//go:generate protoc -I .:../../../../../:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf --go_out=plugins=grpc,paths=source_relative:. ./task.proto
+// Package rest implements a custom task executor that invokes a template based REST query for incoming values and sends the result further into a pipeline.
+package rest

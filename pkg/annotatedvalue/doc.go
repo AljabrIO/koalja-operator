@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+// Package annotatedvalue contains the type definition of an AnnotatedValue which is the unit of data passed between tasks.
 package annotatedvalue
 
 //go:generate protoc -I .:../../vendor:../../vendor/github.com/gogo/protobuf/protobuf --gofast_out=Mgithub.com/golang/protobuf/ptypes/duration/duration.proto=github.com/gogo/protobuf/types,Mgithub.com/golang/protobuf/ptypes/timestamp/timestamp.proto=github.com/gogo/protobuf/types,plugins=grpc,paths=source_relative:. ./annotatedvalue.proto
