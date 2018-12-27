@@ -10,6 +10,26 @@ all duplicate lines.
 
 Finally the distinct lines are counted with `wc -l` resulting in a single number.
 
+## Usage
+
+- Deploy the pipeline into a Kubernetes cluster prepared for Koalja:
+
+```bash
+kubectl apply -f linecount.yaml
+```
+
+- View pipeline UI:
+
+```bash
+# Open in browser: http://linecount.default.<domain>
+```
+
+- Send a file into the `FileDrop` input task:
+
+```bash
+curl -X POST http://linecount.default.<domain>/fileDropInput '@<nameOfFileToSend>'
+```
+
 ## Status
 
 This pipeline is fully functional.

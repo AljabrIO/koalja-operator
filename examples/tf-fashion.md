@@ -23,6 +23,35 @@ task that preprocesses the image and extracts a matrix from it.
 This matrix will be passed to a `predict` task that queries the prediction
 API served by the `serve` task and returns the result.
 
+## Usage
+
+- Deploy the pipeline into a Kubernetes cluster prepared for Koalja:
+
+```bash
+kubectl apply -f tf-fashion.yaml
+```
+
+- View pipeline UI:
+
+```bash
+# Open in browser: http://tf-fashion.default.<domain>
+```
+
+- Send the training script into `FileDrop` input task:
+
+```bash
+curl -X POST http://tf-fashion.default.<domain>/scriptInput '@tf-fashion/learn_script.py'
+```
+
+- Wait for the learning to complete. It has completed when the `serve`
+  task is activated (turns yellow in UI).
+
+- Send the prediction image into `FileDrop` input task:
+
+```bash
+curl -X POST http://tf-fashion.default.<domain>/imageInput '@tf-fashion/test/test1.png'
+```
+
 ## Status
 
 This pipeline is function from a Koalja point of view, but needs some work

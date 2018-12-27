@@ -11,6 +11,28 @@ all its input into the first task input.
 This results in a single stream of document (with distinct lines per document)
 coming from two separate input streams.
 
+## Usage
+
+- Deploy the pipeline into a Kubernetes cluster prepared for Koalja:
+
+```bash
+kubectl apply -f linecount-mergeinto.yaml
+```
+
+- View pipeline UI:
+
+```bash
+# Open in browser: http://linecount-mergeinto.default.<domain>
+```
+
+- Send a file into the `FileDrop` input task:
+
+```bash
+curl -X POST http://linecount-mergeinto.default.<domain>/fileDropInput1 '@<nameOfFileToSend>'
+# or
+curl -X POST http://linecount-mergeinto.default.<domain>/fileDropInput2 '@<nameOfFileToSend>'
+```
+
 ## Status
 
 This pipeline is fully functional.
