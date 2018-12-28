@@ -116,7 +116,7 @@ object storage is required.
 
 ## Directories
 
-- [`cmd`](./cmd/) Package containing entry points for the binaries of this project.
+- [`cmd`](./cmd/) Package containing entry points (`main` functions) for the binaries of this project.
 - [`config`](./config/) Directory containing (customizable) deployment configuration.
 - [`docker`](./docker/) Directory containing docker image build files.
 - [`examples`](./examples/) Example pipelines.
