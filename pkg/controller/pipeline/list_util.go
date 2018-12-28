@@ -87,23 +87,28 @@ func selectTaskAgent(ctx context.Context, log zerolog.Logger, c client.Client, n
 }
 
 // selectAnnotatedValueRegistry selects the annotated value registry to use for the given namespace.
-func selectAnnotatedValueRegistry(ctx context.Context, log zerolog.Logger, c client.Client, ns string) (*agentsapi.AnnotatedValueRegistry, error) {
-	var list agentsapi.AnnotatedValueRegistryList
-	if err := c.List(ctx, &client.ListOptions{Namespace: ns}, &list); err != nil {
+func selectAnnotatedValueRegistry(ctx context.Context, log zerolog.Logger, c client.Client, defaultServiceName, ns string) (*agentsapi.AnnotatedValueRegistry, error) {
+	var list1, list2 agentsapi.AnnotatedValueRegistryList
+	if err := c.List(ctx, &client.ListOptions{Namespace: ns}, &list1); err != nil {
 		return nil, err
 	}
-	if len(list.Items) == 0 {
-		// No agents found in specific namespace, fallback to system namespace
-		if err := c.List(ctx, &client.ListOptions{Namespace: constants.NamespaceKoaljaSystem}, &list); err != nil {
-			return nil, err
+	if err := c.List(ctx, &client.ListOptions{Namespace: constants.NamespaceKoaljaSystem}, &list2); err != nil {
+		return nil, err
+	}
+	all := append(list1.Items, list2.Items...)
+	if defaultServiceName != "" {
+		for _, x := range all {
+			if x.Name == defaultServiceName {
+				return &x, nil
+			}
 		}
+	} else if len(all) > 0 {
+		return &all[0], nil
 	}
-	if len(list.Items) == 0 {
-		// No agents found
-		log.Warn().Msg("No Annotated Value Registries found")
-		return nil, nil
-	}
-	return &list.Items[0], nil
+
+	// No (matching) agents found
+	log.Warn().Msg("No Annotated Value Registries found")
+	return nil, nil
 }
 
 // selectTaskExecutor selects the task executor to use for the given type and namespace.

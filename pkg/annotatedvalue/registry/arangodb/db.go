@@ -74,6 +74,16 @@ func (s *dbBuilder) NewRegistry(deps registry.APIDependencies) (annotatedvalue.A
 		Str("database", s.Database).
 		Str("collection", colName).
 		Logger()
+
+	// Check config
+	if len(s.Endpoints) == 0 {
+		return nil, maskAny(fmt.Errorf("Missing Endpoints"))
+	}
+	if len(s.Database) == 0 {
+		return nil, maskAny(fmt.Errorf("Missing Database"))
+	}
+
+	// Create db connection
 	conn, err := http.NewConnection(http.ConnectionConfig{
 		Endpoints: s.Endpoints,
 		TLSConfig: &tls.Config{
@@ -84,6 +94,7 @@ func (s *dbBuilder) NewRegistry(deps registry.APIDependencies) (annotatedvalue.A
 		log.Error().Err(err).Msg("Failed to connect to database")
 		return nil, maskAny(err)
 	}
+	// Create db client
 	clientCfg := driver.ClientConfig{
 		Connection: conn,
 	}

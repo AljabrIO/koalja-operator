@@ -177,6 +177,12 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 		// Valid event will be recorded later (if needed)
 	}
 
+	// Fetch services config
+	services, err := config.NewServices(ctx, r.Client, instance.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Set domain (if needed)
 	updatePipelineNeeded := false
 	if instance.Status.Domain == "" {
@@ -282,7 +288,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	}
 
 	// Ensure pipeline agent is created
-	if lresult, frontend, err := r.ensurePipelineAgent(ctx, instance, filesystemServiceAddress); err != nil {
+	if lresult, frontend, err := r.ensurePipelineAgent(ctx, instance, filesystemServiceAddress, services); err != nil {
 		log.Error().Err(err).Msg("ensurePipelineAgent failed")
 		return lresult, err
 	} else {
@@ -638,7 +644,8 @@ func (r *ReconcilePipeline) ensureExecutorsRoleAndBinding(ctx context.Context, i
 // ensurePipelineAgent ensures that a pipeline agent is launched for the given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=pipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=annotatedvalueregistries,verbs=get;list;watch
-func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, filesystemServiceAddress string) (reconcile.Result, Frontend, error) {
+func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline,
+	filesystemServiceAddress string, services *config.Services) (reconcile.Result, Frontend, error) {
 	deplName := CreatePipelineAgentName(instance.Name)
 	frontend := Frontend{
 		ServiceName: deplName,
@@ -675,7 +682,7 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 	})
 
 	// Search for annotated value registry resource
-	annotatedValueRegistry, err := selectAnnotatedValueRegistry(ctx, r.log, r.Client, instance.Namespace)
+	annotatedValueRegistry, err := selectAnnotatedValueRegistry(ctx, r.log, r.Client, services.AnnotatedValueRegistryName, instance.Namespace)
 	if err != nil {
 		return reconcile.Result{}, frontend, err
 	} else if annotatedValueRegistry == nil {
