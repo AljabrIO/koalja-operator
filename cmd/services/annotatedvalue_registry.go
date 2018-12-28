@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry"
+	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry/arangodb"
 	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue/registry/stub"
 	"github.com/spf13/cobra"
 )
@@ -44,14 +45,21 @@ var (
 		Short: "Run annotated value registry",
 		Long:  "Run annotated value registry",
 	}
-	avRegistryType string
+	registryOptions struct {
+		avRegistryType string
+		arangodb       arangodb.Config
+	}
 )
 
 func init() {
 	cmdMain.AddCommand(cmdAnnotated)
 	cmdAnnotated.AddCommand(cmdAnnotatedValue)
 	cmdAnnotatedValue.AddCommand(cmdAnnotatedValueRegistry)
-	cmdAnnotatedValueRegistry.Flags().StringVar(&avRegistryType, "registry", "", "Set registry type: stub")
+	cmdAnnotatedValueRegistry.Flags().StringVar(&registryOptions.avRegistryType, "registry", "", "Set registry type: stub|arangodb")
+	cmdAnnotatedValueRegistry.Flags().StringVar(&registryOptions.arangodb.Username, "arangodb-username", "", "ArangoDB username")
+	cmdAnnotatedValueRegistry.Flags().StringVar(&registryOptions.arangodb.Password, "arangodb-password", "", "ArangoDB password")
+	cmdAnnotatedValueRegistry.Flags().StringVar(&registryOptions.arangodb.Database, "arangodb-database", "av_registry", "ArangoDB database")
+	cmdAnnotatedValueRegistry.Flags().StringSliceVar(&registryOptions.arangodb.Endpoints, "arangodb-endpoint", nil, "ArangoDB endpoints")
 }
 
 func cmdAnnotatedValueRegistryRun(cmd *cobra.Command, args []string) {
@@ -63,11 +71,13 @@ func cmdAnnotatedValueRegistryRun(cmd *cobra.Command, args []string) {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	var apiBuilder registry.APIBuilder
-	switch avRegistryType {
+	switch registryOptions.avRegistryType {
 	case "stub":
 		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
+	case "arangodb":
+		apiBuilder = arangodb.NewArangoDB(cliLog.With().Str("component", "arangodb").Logger(), registryOptions.arangodb)
 	default:
-		cliLog.Fatal().Str("registry", avRegistryType).Msg("Unknown registry type")
+		cliLog.Fatal().Str("registry", registryOptions.avRegistryType).Msg("Unknown registry type")
 	}
 	svc, err := registry.NewService(cfg, apiBuilder)
 	if err != nil {
