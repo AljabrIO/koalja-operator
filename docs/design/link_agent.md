@@ -45,7 +45,7 @@
 
 ### AnnotatedValueSource
 
-- See `pkg/annotatedvalue.annotatedvalue.proto`
+- See `pkg/annotatedvalue/annotatedvalue.proto`
 - This API is used by the input loop of the task agent to query for annotated values
   from a link.
 - This API uses a two-step approach. The user will first request a `Subscription`
