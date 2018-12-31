@@ -1,13 +1,30 @@
 # Task Agent
 
-## Program entry
+## High level story
+
+- The task agent loads the `Pipeline` resource (specification) and the name of
+  the task it is responsible for from the environment (and kubernetes).
+- The task agent queries incoming links for annotated values (See input loop).
+- The annotated values are processed into snapshots (See input loop).
+- Snapshots are passed to an executor service. That will prepare a Pod
+  for executing on a snapshot. Preparation involves making data, from annotated values
+  in the snapshot, available to the pod, preparing space for resulting data to be
+  written to and creating the Pod specification (e.g. commandline, environment vars).
+  Once prepared, the Pod is launched and the task agent waits until it is finished.
+- Once the task executor Pod is finished, it leaves resuling data in prepared locations.
+  URI's are created for all of the resulting data items and from those URI's annotated values
+  are created and published to the outgoing links (See output publisher service).
+
+## Program structure
+
+### Program entry
 
 - The task agent starts its `main` in `cmd/agents/main.go`
 - From `main` it executes a `task` command (`cmdTaskAgentRun`) in `cmd/agents/task_agent.go`
 - The `task` command collects arguments and prepares the environment.
   It then creates a service found in `pkg/agent/task` and runs it.
 
-## Service operations
+### Service operations
 
 - See `pkg/agent/task/service.go`
 - When the task agent service runs, it first launches a registration go-routine.
@@ -23,7 +40,7 @@
   - The GRPC server; this runs a network service, serving several GRPC API's
 - The service then waits forever.
 
-## Input loop
+### Input loop
 
 - See `pkg/agent/task/input_loop.go`
 - The input loop launches go-routines to watch all inputs of the task.
@@ -41,7 +58,7 @@
   - cancel an ongoing execution and then execute the snapshot (Restart launch policy) or
   - pass the snapshot to the snapshot service for retrieval by the custom executor (Custom launch policy)
 
-## Snapshot service
+### Snapshot service
 
 - See `pkg/agent/task/snapshot_service.go`
 - This service implements a GRPC service used by custom task executors (see `pkg/task/task.proto#SnapshotService`)
@@ -50,7 +67,7 @@
   This function is used by the custom executor to fill a template (that the custom executor provides)
   with data from a snapshot.
 
-## Executor service
+### Executor service
 
 - See `pkg/agent/task/executor.go`
 - This service primary function is `Execute`, that (given a snapshot) prepares and launches
@@ -67,7 +84,7 @@
 - When the Pod has finished succesfully, the output processors are called to collect the data and
   send it as newly created annotated values to the output publisher.
 
-## Output publisher service
+### Output publisher service
 
 - See `pkg/agent/task/output_publisher.go`
 - This service it used to send annotated values (resulting from task execution) to outgoing
@@ -80,7 +97,7 @@
   link. Go-routines are waiting on these internal channels to actually send
   annotated values to individual links.
 
-## Pod garbage collector
+### Pod garbage collector
 
 - See `pkg/agent/task/pod_gc.go`
 - This service will remove all executor Pods that have finished.
