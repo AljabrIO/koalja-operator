@@ -5,7 +5,8 @@
 - The task agent loads the `Pipeline` resource (specification) and the name of
   the task it is responsible for from the environment (and kubernetes).
 - The task agent queries incoming links for annotated values (See input loop).
-- The annotated values are processed into snapshots (See input loop).
+- The annotated values are processed into snapshots (See input loop)
+  according to a SnapshotPolicy specified in the pipeline.
 - Snapshots are passed to an executor service. That will prepare a Pod
   for executing on a snapshot. Preparation involves making data, from annotated values
   in the snapshot, available to the pod, preparing space for resulting data to be
@@ -17,6 +18,10 @@
 
 ## Program structure
 
+### Pipeline specification
+
+- The task agents uses the pipeline specification (see `pkg/apis/koalja/v1alpha1/pipeline_types.go`).
+
 ### Program entry
 
 - The task agent starts its `main` in `cmd/agents/main.go`
@@ -27,6 +32,8 @@
 ### Service operations
 
 - See `pkg/agent/task/service.go`
+- When the service is created, it loads the `Pipeline` (see `pkg/apis/koalja/v1alpha1`)
+  from the environment and kubernetes.
 - When the task agent service runs, it first launches a registration go-routine.
   This go-routine registers the task agent with the pipeline agent at regular intervals.
 - Once the first registration has succeeded, it starts go-routines for various
@@ -48,10 +55,11 @@
   and sends it on for processing (`processAnnotatedValue`).
 - In `processAnnotatedValue` the annotated value is inserted into the "current"
   snapshot. If the annotated value cannot be inserted into the "current"
-  snapshot yet, the called is blocked until there is room for it.
+  snapshot yet, the called is blocked until there is room for it (according to the limits specified
+  in `TaskInputSpecification`).
   Then the "current" snapshot is being checked and when it is ready to be executed
   it is cloned and the clone is put into an execution channel. The "current" snapshot
-  is prepared (according to a policy) for receiving new annotated values.
+  is prepared (according to a `SnapshotPolicy`) for receiving new annotated values.
 - A separate go-routine (`processExecQueue`) is watching the execution channel
   for incoming snapshots. Depending on the launch policy of the task it will
   - execute the snapshot (Auto launch policy) or
