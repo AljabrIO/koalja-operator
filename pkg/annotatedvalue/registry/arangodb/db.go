@@ -222,6 +222,9 @@ func (s *dbReg) GetByTaskAndData(ctx context.Context, req *annotatedvalue.GetByT
 // Get returns the annotated values that match the given criteria.
 func (s *dbReg) Get(ctx context.Context, req *annotatedvalue.GetRequest) (*annotatedvalue.GetResponse, error) {
 	s.log.Debug().
+		Strs("ids", req.GetIDs()).
+		Strs("source-tasks", req.GetSourceTasks()).
+		Strs("data", req.GetData()).
 		Msg("Get request")
 
 	var filters []string
@@ -261,7 +264,10 @@ func (s *dbReg) Get(ctx context.Context, req *annotatedvalue.GetRequest) (*annot
 			return nil, arangoErrorToGRPC(err)
 		}
 		if doc.IsMatch(req) {
+			s.log.Debug().Msg("Found matching document")
 			resp.AnnotatedValues = append(resp.AnnotatedValues, doc)
+		} else {
+			s.log.Debug().Msg("Found non-matching document")
 		}
 	}
 
