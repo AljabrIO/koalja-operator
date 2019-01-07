@@ -143,10 +143,10 @@ object storage is required.
 - [`cmd`](./cmd/) Package containing entry points (`main` functions) for the binaries of this project.
 - [`config`](./config/) Directory containing (customizable) deployment configuration.
 - [`docker`](./docker/) Directory containing docker image build files.
+- [`docs`](./docs/) Directory containing design & specification documents and experiments.
 - [`examples`](./examples/) Example pipelines.
 - [`frontend`](./frontend/) Pipeline frontend (react application).
 - [`hack`](./hack/) Kubebuilder related template files.
 - [`pkg`](./pkg/) Package root for all koalja libraries & services.
-- [`specification`](./specification/) Directory containing specification documents & experiments.
 - [`third_party`](./third_party) Directory containing 3rd party code mainly related to GRPC & protocol buffers.
 - [`vendor`](./vendor/) External go libraries.
