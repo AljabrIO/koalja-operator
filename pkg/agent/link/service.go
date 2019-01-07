@@ -47,6 +47,7 @@ type Service struct {
 	log            zerolog.Logger
 	port           int
 	linkName       string
+	pipelineName   string
 	uri            string
 	statistics     *tracking.LinkStatistics
 	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
@@ -60,8 +61,10 @@ type Service struct {
 type APIDependencies struct {
 	// Kubernetes client
 	client.Client
+	// Name of the pipeline
+	PipelineName string
 	// Name of the link
-	Name string
+	LinkName string
 	// Namespace in which this link is running
 	Namespace string
 	// URI of this link
@@ -96,6 +99,10 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 		return nil, maskAny(err)
 	}
 	podName, err := constants.GetPodName()
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	pipelineName, err := constants.GetPipelineName()
 	if err != nil {
 		return nil, maskAny(err)
 	}
@@ -144,7 +151,8 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 	}
 	deps := APIDependencies{
 		Client:                 c,
-		Name:                   linkName,
+		PipelineName:           pipelineName,
+		LinkName:               linkName,
 		Namespace:              ns,
 		URI:                    uri,
 		AnnotatedValueRegistry: avReg,
