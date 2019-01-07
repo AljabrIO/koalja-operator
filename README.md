@@ -59,6 +59,30 @@ data:
   example.com: ""
 ```
 
+## Service management
+
+The Koalja Pipeline resource controller will launch multiple agents and services
+for every pipeline resource. The containers for those agents and services are
+configured using custom resources (see [config/agents](./config/agents/))
+and a `ConfigMap` to select which resource will be used.
+
+This way, Koalja can support multiple implementations of services & agents
+and you can choose which one to use. For example you can choose between
+(default) in memory implementations of ArangoDB database based implementations.
+
+To select non-default implementations, create a `ConfigMap` like below and
+add it to the namespace in which you're deploying your pipeline resources.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: koalja-services-config
+data:
+  config: |
+    annotated-value-registry-name: arangodb-annotatedvalue-registry
+```
+
 ## Storage Management
 
 The Koalja Operator deploys pipeline components that rely on a FileSystem Storage

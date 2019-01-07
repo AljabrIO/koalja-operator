@@ -1,0 +1,8 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: AnnotatedValueRegistry
+metadata:
+  name: arangodb-annotatedvalue-registry
+  namespace: default
+spec:
+  container:
+    image: koalja-services:latest

@@ -24,7 +24,8 @@ resources:
 - ../../agents/link_agent.yaml
 - ../../agents/task_agent.yaml
 - ../../manager/manager.yaml
-- ../../services/annotatedvalue_registry.yaml
+- ../../services/annotatedvalue_registry_arangodb.yaml
+- ../../services/annotatedvalue_registry_stub.yaml
 - ../../tasks/dbquery_executor.yaml
 - ../../tasks/filedrop_executor.yaml
 - ../../tasks/filesplit_executor.yaml

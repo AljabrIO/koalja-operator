@@ -1,0 +1,43 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: AnnotatedValueRegistry
+metadata:
+  name: arangodb-annotatedvalue-registry
+  namespace: default
+spec:
+  container:
+    image: koalja-services:latest
+    command:
+    - /apps/services
+    - annotated
+    - value
+    - registry
+    - --registry=arangodb
+    - --arangodb-endpoint=$(ADB_ENDPOINTS)
+    - --arangodb-database=$(ADB_DATABASE)
+    - --arangodb-username=$(ADB_USERNAME)
+    - --arangodb-password=$(ADB_PASSWORD)
+    env:
+    - name: ADB_ENDPOINTS
+      valueFrom: 
+        configMapKeyRef:
+          name: arangodb-annotatedvalue-registry-config
+          key: endpoints
+          optional: true
+    - name: ADB_DATABASE
+      valueFrom: 
+        configMapKeyRef:
+          name: arangodb-annotatedvalue-registry-config
+          key: database
+          optional: true
+    - name: ADB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: arangodb-annotatedvalue-registry-auth
+          key: username
+          optional: true
+    - name: ADB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: arangodb-annotatedvalue-registry-auth
+          key: password
+          optional: true

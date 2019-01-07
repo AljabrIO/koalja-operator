@@ -161,6 +161,14 @@ const (
 	// name configuration.
 	ConfigMapDomain = "koalja-domain-config"
 
+	// ConfigMapServices is the name of the configmap that holds the preferred
+	// services configuration.
+	ConfigMapServices = "koalja-services-config"
+
+	// ConfigMapKeyServicesConfig is the name of the key of a ConfigMapServices configmap
+	// that holds services configuration data.
+	ConfigMapKeyServicesConfig = "config"
+
 	// ConfigMapS3Storage is the name of the configmap that holds the storage
 	// configuration for the S3 filesystem service.
 	ConfigMapS3Storage = "koalja-s3-storage-config"
