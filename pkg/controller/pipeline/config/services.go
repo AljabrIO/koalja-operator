@@ -64,7 +64,7 @@ func NewServices(ctx context.Context, c client.Reader, ns string) (*Services, er
 // Services preferences configuration
 type Services struct {
 	// AnnotatedValueRegistryName is the name of the AnnotatedValueRegistry resources used for pipelines.
-	AnnotatedValueRegistryName string `json:"annotated-value-registry-name,omitempty"`
+	AnnotatedValueRegistryName string `json:"annotated-value-registry-name,omitempty" yaml:"annotated-value-registry-name,omitempty"`
 }
 
 // setDefaults fills empty values with default values

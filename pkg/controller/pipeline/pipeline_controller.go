@@ -182,6 +182,9 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	log.Debug().
+		Str("av-registry", services.AnnotatedValueRegistryName).
+		Msg("Service config")
 
 	// Set domain (if needed)
 	updatePipelineNeeded := false
