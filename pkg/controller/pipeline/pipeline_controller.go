@@ -301,7 +301,7 @@ func (r *ReconcilePipeline) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	// Ensure link agents are created
 	for _, l := range instance.Spec.Links {
-		if lresult, err := r.ensureLinkAgent(ctx, instance, l); err != nil {
+		if lresult, err := r.ensureLinkAgent(ctx, instance, l, services); err != nil {
 			log.Error().Err(err).Msg("ensureLinkAgent failed")
 			return lresult, err
 		} else {
@@ -790,9 +790,9 @@ func (r *ReconcilePipeline) ensurePipelineAgent(ctx context.Context, instance *k
 
 // ensureLinkAgent ensures that a link agent is launched for the given link in given pipeline instance.
 // +kubebuilder:rbac:groups=agents.aljabr.io,resources=links,verbs=get;list;watch
-func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, link koaljav1alpha1.LinkSpec) (reconcile.Result, error) {
+func (r *ReconcilePipeline) ensureLinkAgent(ctx context.Context, instance *koaljav1alpha1.Pipeline, link koaljav1alpha1.LinkSpec, services *config.Services) (reconcile.Result, error) {
 	// Search for link agent resource
-	linkAgent, err := selectLinkAgent(ctx, r.log, r.Client, instance.Namespace)
+	linkAgent, err := selectLinkAgent(ctx, r.log, r.Client, services.LinkAgentName, instance.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	} else if linkAgent == nil {

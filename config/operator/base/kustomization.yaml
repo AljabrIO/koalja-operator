@@ -21,7 +21,8 @@ resources:
 - ../../rbac/rbac_role.yaml
 - ../../rbac/rbac_role_binding.yaml
 - ../../agents/pipeline_agent.yaml
-- ../../agents/link_agent.yaml
+- ../../agents/link_agent_arangodb.yaml
+- ../../agents/link_agent_stub.yaml
 - ../../agents/task_agent.yaml
 - ../../manager/manager.yaml
 - ../../services/annotatedvalue_registry_arangodb.yaml

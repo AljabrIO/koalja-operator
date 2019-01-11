@@ -1,9 +1,9 @@
 apiVersion: agents.aljabr.io/v1alpha1
 kind: Link
 metadata:
-  name: stub-link-agent
+  name: arangodb-link-agent
   namespace: default
 spec:
   container:
-    image: koalja-stub-link-agent:latest
+    image: koalja-link-agent:latest
 
