@@ -18,7 +18,6 @@ package arangodb
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -39,13 +38,18 @@ type dbSource struct {
 	db         driver.Database
 	queueCol   driver.Collection
 	subscrCol  driver.Collection
+	linkName   string
 	uri        string
 	statistics *tracking.LinkStatistics
 }
 
+const (
+	nextRetryPeriod = time.Millisecond * 100
+)
+
 // Subscribe to annotated values
 func (s *dbSource) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeRequest) (*annotatedvalue.SubscribeResponse, error) {
-	s.log.Debug().Str("clientID", req.ClientID).Msg("Subscribe request")
+	s.log.Debug().Str("clientID", req.GetClientID()).Msg("Subscribe request")
 
 	// Find existing subscription
 	subscr, err := findSubscriptionByClientID(ctx, req.GetClientID(), s.subscrCol)
@@ -65,13 +69,17 @@ func (s *dbSource) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeR
 
 	// Subscription now found,
 	// add new subscription
-	s.lastSubscriptionID++
-	id := s.lastSubscriptionID
-	s.subscriptions[id] = &subscription{
-		id:        id,
-		clientID:  req.ClientID,
-		expiresAt: time.Now().Add(subscriptionTTL),
+	subscr = &subscription{
+		ClientID:  req.GetClientID(),
+		LinkName:  s.linkName,
+		ExpiresAt: time.Now().Add(subscriptionTTL),
 	}
+	meta, err := s.subscrCol.CreateDocument(ctx, subscr)
+	if err != nil {
+		return nil, arangoErrorToGRPC(err)
+	}
+	subscr.ID = meta.Key
+	id := subscr.GetID()
 
 	s.log.Debug().
 		Str("clientID", req.ClientID).
@@ -129,6 +137,69 @@ func (s *dbSource) Close(ctx context.Context, req *annotatedvalue.CloseRequest) 
 // Ask for the next annotated value on a subscription
 func (s *dbSource) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*annotatedvalue.NextResponse, error) {
 	id := req.GetSubscription().GetID()
+	waitTimeout, err := ptypes.DurationFromProto(req.GetWaitTimeout())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid wait timeout %v: %s", req.GetWaitTimeout(), err)
+	}
+
+	endTime := time.Now().Add(waitTimeout)
+	for {
+		// Load existing subscription
+		subscr, err := getSubscriptionByID(ctx, id, s.subscrCol)
+		if driver.IsNotFound(err) {
+			return nil, status.Errorf(codes.NotFound, "Subscription %d not found", id)
+		} else if err != nil {
+			return nil, arangoErrorToGRPC(err)
+		}
+		// Renew expiration
+		if err := subscr.RenewExpiresAt(ctx, s.subscrCol); err != nil {
+			return nil, arangoErrorToGRPC(err)
+		}
+
+		// Assign first non-assigned document to this subscription
+		avdoc, err := subscr.AssignFirstValue(ctx, s.queueCol)
+		if err != nil {
+			return nil, arangoErrorToGRPC(err)
+		}
+		if avdoc != nil {
+			// Found first document
+			atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, 1)
+			atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, -1)
+			return &annotatedvalue.NextResponse{
+				AnnotatedValue:      avdoc.Value,
+				NoAnnotatedValueYet: false,
+			}, nil
+		}
+
+		// Wait a bit
+		delay := time.Until(endTime)
+		if delay <= 0 {
+			// No annotated value in time
+			return &annotatedvalue.NextResponse{
+				NoAnnotatedValueYet: true,
+			}, nil
+		}
+		if delay > nextRetryPeriod {
+			delay = nextRetryPeriod
+		}
+		select {
+		case <-time.After(delay):
+			// Retry
+		case <-ctx.Done():
+			// Context canceled
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// Acknowledge the processing of an annotated value
+func (s *dbSource) Ack(ctx context.Context, req *annotatedvalue.AckRequest) (*google_protobuf1.Empty, error) {
+	avid := req.GetAnnotatedValueID()
+	id := req.GetSubscription().GetID()
+	s.log.Debug().
+		Str("annotatedvalue", req.GetAnnotatedValueID()).
+		Int64("subscription", id).
+		Msg("Ack request")
 
 	// Load existing subscription
 	subscr, err := getSubscriptionByID(ctx, id, s.subscrCol)
@@ -142,90 +213,22 @@ func (s *dbSource) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*
 		return nil, arangoErrorToGRPC(err)
 	}
 
-	err := func() error {
-		s.subscriptionsMutex.Lock()
-		defer s.subscriptionsMutex.Unlock()
-
-		// Lookup subscription
-		sub, found := s.subscriptions[id]
-		if !found {
-			// Subscription not found
-			return fmt.Errorf("Subscription %d not found", id)
-		}
-
-		// Renew subscription
-		sub.RenewExpiresAt()
-		return nil
-	}()
+	// Lookup annotated value
+	avdoc, err := subscr.FindAnnotatedValueByID(ctx, avid, s.queueCol)
 	if err != nil {
-		// Subscription not found
-		return nil, maskAny(err)
+		return nil, arangoErrorToGRPC(err)
+	}
+	if avdoc == nil {
+		return nil, status.Errorf(codes.NotFound, "Subscription %d does not have inflight annotated value with ID '%s'", id, avid)
 	}
 
-	// No annotated value inflight, get one out of the queue(s)
-	waitTimeout, err := ptypes.DurationFromProto(req.GetWaitTimeout())
-	if err != nil {
-		return nil, maskAny(err)
+	// Found inflight annotated value; Remove it.
+	if err := avdoc.Remove(ctx, s.queueCol); err != nil {
+		return nil, arangoErrorToGRPC(err)
 	}
-	setInflight := func(av *annotatedvalue.AnnotatedValue) (*annotatedvalue.NextResponse, error) {
-		s.subscriptionsMutex.Lock()
-		defer s.subscriptionsMutex.Unlock()
 
-		// Lookup subscription
-		if sub, found := s.subscriptions[id]; !found {
-			// Subscription not found
-			return nil, fmt.Errorf("Subscription %d no longer found", id)
-		} else {
-			sub.RenewExpiresAt()
-			sub.inflight = append(sub.inflight, av)
-			atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, 1)
-			atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, -1)
-			return &annotatedvalue.NextResponse{
-				AnnotatedValue:      av,
-				NoAnnotatedValueYet: false,
-			}, nil
-		}
-	}
-	select {
-	case e := <-s.retryQueue:
-		// Found annotated value in retry queue
-		return setInflight(e)
-	case e := <-s.queue:
-		// Found annotated value in normal queue
-		return setInflight(e)
-	case <-time.After(waitTimeout):
-		// No annotated value in time
-		return &annotatedvalue.NextResponse{
-			NoAnnotatedValueYet: true,
-		}, nil
-	case <-ctx.Done():
-		return nil, maskAny(ctx.Err())
-	}
-}
-
-// Acknowledge the processing of an annotated value
-func (s *dbSource) Ack(ctx context.Context, req *annotatedvalue.AckRequest) (*google_protobuf1.Empty, error) {
-	s.log.Debug().Str("annotatedvalue", req.GetAnnotatedValueID()).Msg("Ack request")
-	s.subscriptionsMutex.Lock()
-	defer s.subscriptionsMutex.Unlock()
-
-	// Lookup subscription
-	id := req.GetSubscription().GetID()
-	if sub, found := s.subscriptions[id]; !found {
-		// Subscription not found
-		return nil, fmt.Errorf("Subscription %d not found", id)
-	} else {
-		sub.RenewExpiresAt()
-		for i, av := range sub.inflight {
-			if av.GetID() == req.GetAnnotatedValueID() {
-				// Found inflight annotated value; Remove it.
-				sub.inflight = append(sub.inflight[:i], sub.inflight[i+1:]...)
-				// Update statistics
-				atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, -1)
-				atomic.AddInt64(&s.statistics.AnnotatedValuesAcknowledged, 1)
-				return &google_protobuf1.Empty{}, nil
-			}
-		}
-		return nil, fmt.Errorf("Subscription %d does not have inflight annotated value with ID '%s'", id, req.GetAnnotatedValueID())
-	}
+	// Update statistics
+	atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, -1)
+	atomic.AddInt64(&s.statistics.AnnotatedValuesAcknowledged, 1)
+	return &google_protobuf1.Empty{}, nil
 }

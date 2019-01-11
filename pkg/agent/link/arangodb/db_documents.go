@@ -75,20 +75,20 @@ func findSubscriptionByClientID(ctx context.Context, clientID string, subscrCol 
 	cursor, err := subscrCol.Database().Query(ctx, q, map[string]interface{}{
 		"client_id": clientID,
 	})
+	if err != nil {
+		return nil, maskAny(err)
+	}
 	for {
 		subscr := &subscription{}
-		meta, err := cursor.ReadDocument(ctx, subscr)
-		if driver.IsNoMoreDocuments(err) {
+		if _, err := cursor.ReadDocument(ctx, subscr); driver.IsNoMoreDocuments(err) {
 			// No such subscription
 			return nil, nil
 		} else if err != nil {
-			return nil, arangoErrorToGRPC(err)
+			return nil, maskAny(err)
 		}
 		// return the document
 		return subscr, nil
 	}
-	// No such subscription
-	return nil, nil
 }
 
 // GetID returns the ID of the subscription as an int64.
@@ -138,9 +138,10 @@ func (s *subscription) Remove(ctx context.Context, subscrCol driver.Collection) 
 // AssignFirstValue assigns the first unassigned annotated value to this subscription and returns it.
 // Returns nil if no such annotated value exists.
 func (s *subscription) AssignFirstValue(ctx context.Context, queueCol driver.Collection) (*avDocument, error) {
-	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == 0 UPDATE { subscription_id: @subscription_id } IN %s RETURN NEW", queueCol.Name(), queueCol.Name())
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == 0 AND doc.link_name == @link_name UPDATE { subscription_id: @subscription_id } IN %s RETURN NEW", queueCol.Name(), queueCol.Name())
 	cursor, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
 		"subscription_id": s.ID,
+		"link_name":       s.LinkName,
 	})
 	if err != nil {
 		return nil, maskAny(err)
@@ -155,5 +156,30 @@ func (s *subscription) AssignFirstValue(ctx context.Context, queueCol driver.Col
 		}
 		// Document found
 		return &doc, nil
+	}
+}
+
+// FindAnnotatedValueByID loads an annotated value document with given annotated-value ID
+// for this subscription from the DB.
+// Returns nil if not found.
+func (s *subscription) FindAnnotatedValueByID(ctx context.Context, annotatedValueID string, queueCol driver.Collection) (*avDocument, error) {
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == @subscription_id AND doc.value.id == @av_id RETURN doc", queueCol.Name())
+	cursor, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
+		"subscription_id": s.GetID(),
+		"av_id":           annotatedValueID,
+	})
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	for {
+		avdoc := &avDocument{}
+		if _, err := cursor.ReadDocument(ctx, avdoc); driver.IsNoMoreDocuments(err) {
+			// No such document
+			return nil, nil
+		} else if err != nil {
+			return nil, maskAny(err)
+		}
+		// return the document
+		return avdoc, nil
 	}
 }

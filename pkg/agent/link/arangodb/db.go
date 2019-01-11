@@ -55,9 +55,9 @@ const (
 )
 
 const (
-	// collection name template for link queue
+	// collection name template for link queue (args: namespace, pipeline)
 	queueColNameTemplate = "lqueue_%s_%s"
-	// collection name template for link subscriptions
+	// collection name template for link subscriptions (args: namespace, pipeline)
 	subscrColNameTemplate = "lsubscr_%s_%s"
 )
 
@@ -110,6 +110,7 @@ func (s *dbBuilder) NewAnnotatedValueSource(deps link.APIDependencies) (annotate
 		db:         db,
 		queueCol:   queueCol,
 		subscrCol:  subscrCol,
+		linkName:   deps.LinkName,
 		uri:        deps.URI,
 		statistics: deps.Statistics,
 	}, nil
