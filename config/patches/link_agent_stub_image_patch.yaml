@@ -1,0 +1,9 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: Link
+metadata:
+  name: stub-link-agent
+  namespace: default
+spec:
+  container:
+    image: koalja-link-agent:latest
+

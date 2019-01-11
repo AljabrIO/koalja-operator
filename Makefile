@@ -223,7 +223,8 @@ docker-patch-config:
 	@mkdir -p $(LOCALSTORAGEOVERLAYDIR)
 	@mkdir -p $(S3STORAGEOVERLAYDIR)
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/pipeline_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/pipeline_agent_image_patch.yaml
-	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/stub_link_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/stub_link_agent_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/link_agent_stub_image_patch.yaml > $(OPERATOROVERLAYDIR)/link_agent_stub_image_patch.yaml
+	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/link_agent_arangodb_image_patch.yaml > $(OPERATOROVERLAYDIR)/link_agent_arangodb_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(AGENTSIMG))"'!' $(PATCHESDIR)/task_agent_image_patch.yaml > $(OPERATOROVERLAYDIR)/task_agent_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(OPERATORIMG))"'!' $(PATCHESDIR)/manager_image_patch.yaml > $(OPERATOROVERLAYDIR)/manager_image_patch.yaml
 	@sed -e 's!image: .*!image: '"$(shell docker inspect --format="{{index .RepoDigests 0}}" $(SERVICESIMG))"'!' $(PATCHESDIR)/annotatedvalue_registry_arangodb_image_patch.yaml > $(OPERATOROVERLAYDIR)/annotatedvalue_registry_arangodb_image_patch.yaml

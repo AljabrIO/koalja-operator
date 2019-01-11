@@ -47,23 +47,29 @@ func selectPipelineAgent(ctx context.Context, log zerolog.Logger, c client.Clien
 }
 
 // selectLinkAgent selects the link agent to use for the given namespace.
-func selectLinkAgent(ctx context.Context, log zerolog.Logger, c client.Client, ns string) (*agentsapi.Link, error) {
-	var list agentsapi.LinkList
-	if err := c.List(ctx, &client.ListOptions{Namespace: ns}, &list); err != nil {
+func selectLinkAgent(ctx context.Context, log zerolog.Logger, c client.Client, defaultServiceName, ns string) (*agentsapi.Link, error) {
+	var list1, list2 agentsapi.LinkList
+
+	if err := c.List(ctx, &client.ListOptions{Namespace: ns}, &list1); err != nil {
 		return nil, err
 	}
-	if len(list.Items) == 0 {
-		// No agents found in specific namespace, fallback to system namespace
-		if err := c.List(ctx, &client.ListOptions{Namespace: constants.NamespaceKoaljaSystem}, &list); err != nil {
-			return nil, err
+	if err := c.List(ctx, &client.ListOptions{Namespace: constants.NamespaceKoaljaSystem}, &list2); err != nil {
+		return nil, err
+	}
+	all := append(list1.Items, list2.Items...)
+	if defaultServiceName != "" {
+		for _, x := range all {
+			if x.Name == defaultServiceName {
+				return &x, nil
+			}
 		}
+	} else if len(all) > 0 {
+		return &all[0], nil
 	}
-	if len(list.Items) == 0 {
-		// No agents found
-		log.Warn().Msg("No Link Agents found")
-		return nil, nil
-	}
-	return &list.Items[0], nil
+
+	// No agents found
+	log.Warn().Msg("No Link Agents found")
+	return nil, nil
 }
 
 // selectTaskAgent selects the task agent to use for the given namespace.

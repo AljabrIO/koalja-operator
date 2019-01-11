@@ -1,0 +1,41 @@
+apiVersion: agents.aljabr.io/v1alpha1
+kind: Link
+metadata:
+  name: arangodb-link-agent
+  namespace: default
+spec:
+  container:
+    image: koalja-agents:latest
+    command:
+    - /apps/agents
+    - link
+    - --queue=arangodb
+    - --arangodb-endpoint=$(ADB_ENDPOINTS)
+    - --arangodb-database=$(ADB_DATABASE)
+    - --arangodb-username=$(ADB_USERNAME)
+    - --arangodb-password=$(ADB_PASSWORD)
+    env:
+    - name: ADB_ENDPOINTS
+      valueFrom: 
+        configMapKeyRef:
+          name: arangodb-link-agent-config
+          key: endpoints
+          optional: true
+    - name: ADB_DATABASE
+      valueFrom: 
+        configMapKeyRef:
+          name: arangodb-link-agent-config
+          key: database
+          optional: true
+    - name: ADB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: arangodb-link-agent-auth
+          key: username
+          optional: true
+    - name: ADB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: arangodb-link-agent-auth
+          key: password
+          optional: true

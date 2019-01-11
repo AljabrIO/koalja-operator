@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
+	"github.com/AljabrIO/koalja-operator/pkg/agent/link/arangodb"
 	"github.com/AljabrIO/koalja-operator/pkg/agent/link/stub"
 )
 
@@ -34,12 +35,19 @@ var (
 		Short: "Run link agent",
 		Long:  "Run link agent",
 	}
-	linkAgentQueueType string
+	linkAgentOptions struct {
+		queueType string
+		arangodb  arangodb.Config
+	}
 )
 
 func init() {
 	cmdMain.AddCommand(cmdLinkAgent)
-	cmdLinkAgent.Flags().StringVar(&linkAgentQueueType, "queue", "", "Set queue type: stub")
+	cmdLinkAgent.Flags().StringVar(&linkAgentOptions.queueType, "queue", "", "Set queue type: stub|arangodb")
+	cmdLinkAgent.Flags().StringVar(&linkAgentOptions.arangodb.Username, "arangodb-username", "", "ArangoDB username")
+	cmdLinkAgent.Flags().StringVar(&linkAgentOptions.arangodb.Password, "arangodb-password", "", "ArangoDB password")
+	cmdLinkAgent.Flags().StringVar(&linkAgentOptions.arangodb.Database, "arangodb-database", "links", "ArangoDB database")
+	cmdLinkAgent.Flags().StringSliceVar(&linkAgentOptions.arangodb.Endpoints, "arangodb-endpoint", nil, "ArangoDB endpoints")
 }
 
 func cmdLinkAgentRun(cmd *cobra.Command, args []string) {
@@ -51,11 +59,13 @@ func cmdLinkAgentRun(cmd *cobra.Command, args []string) {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	var apiBuilder link.APIBuilder
-	switch linkAgentQueueType {
+	switch linkAgentOptions.queueType {
 	case "stub":
 		apiBuilder = stub.NewStub(cliLog.With().Str("component", "stub").Logger())
+	case "arangodb":
+		apiBuilder = arangodb.NewArangoDB(cliLog.With().Str("component", "arangodb").Logger(), linkAgentOptions.arangodb)
 	default:
-		cliLog.Fatal().Str("queue", linkAgentQueueType).Msg("Unsupport queue type")
+		cliLog.Fatal().Str("queue", linkAgentOptions.queueType).Msg("Unsupport queue type")
 	}
 	svc, err := link.NewService(cliLog, cfg, apiBuilder)
 	if err != nil {

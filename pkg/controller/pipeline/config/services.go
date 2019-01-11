@@ -65,12 +65,17 @@ func NewServices(ctx context.Context, c client.Reader, ns string) (*Services, er
 type Services struct {
 	// AnnotatedValueRegistryName is the name of the AnnotatedValueRegistry resources used for pipelines.
 	AnnotatedValueRegistryName string `json:"annotated-value-registry-name,omitempty" yaml:"annotated-value-registry-name,omitempty"`
+	// LinkAgentName is the name of the LinkAgent resources used for pipelines.
+	LinkAgentName string `json:"link-agent-name,omitempty" yaml:"link-agent-name,omitempty"`
 }
 
 // setDefaults fills empty values with default values
 func (s *Services) setDefaults() {
 	if s.AnnotatedValueRegistryName == "" {
 		s.AnnotatedValueRegistryName = "stub-annotatedvalue-registry"
+	}
+	if s.LinkAgentName == "" {
+		s.LinkAgentName = "stub-link-agent"
 	}
 }
 
