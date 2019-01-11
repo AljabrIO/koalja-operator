@@ -84,6 +84,7 @@ func (s *dbBuilder) NewAnnotatedValuePublisher(deps link.APIDependencies) (annot
 		log:        s.log,
 		db:         db,
 		queueCol:   col,
+		linkName:   deps.LinkName,
 		uri:        deps.URI,
 		registry:   deps.AnnotatedValueRegistry,
 		statistics: deps.Statistics,

@@ -49,7 +49,9 @@ const (
 
 // Subscribe to annotated values
 func (s *dbSource) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeRequest) (*annotatedvalue.SubscribeResponse, error) {
-	s.log.Debug().Str("clientID", req.GetClientID()).Msg("Subscribe request")
+	s.log.Debug().
+		Str("clientID", req.GetClientID()).
+		Msg("Subscribe request")
 
 	// Find existing subscription
 	subscr, err := findSubscriptionByClientID(ctx, req.GetClientID(), s.subscrCol)
@@ -114,7 +116,7 @@ func (s *dbSource) Ping(ctx context.Context, req *annotatedvalue.PingRequest) (*
 // Close a subscription
 func (s *dbSource) Close(ctx context.Context, req *annotatedvalue.CloseRequest) (*google_protobuf1.Empty, error) {
 	id := req.GetSubscription().GetID()
-	s.log.Debug().Int64("id", id).Msg("Ping request")
+	s.log.Debug().Int64("id", id).Msg("Close request")
 
 	// Load existing subscription
 	subscr, err := getSubscriptionByID(ctx, id, s.subscrCol)
@@ -141,6 +143,10 @@ func (s *dbSource) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid wait timeout %v: %s", req.GetWaitTimeout(), err)
 	}
+	s.log.Debug().
+		Dur("timeout", waitTimeout).
+		Int64("subscription", id).
+		Msg("Next request")
 
 	endTime := time.Now().Add(waitTimeout)
 	for {

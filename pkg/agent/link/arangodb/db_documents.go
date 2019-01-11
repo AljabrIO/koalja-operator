@@ -29,9 +29,9 @@ import (
 
 type avDocument struct {
 	// ID of this document. Auto-incrementing so we can sort on them.
-	ID string `json:"_key"`
+	ID string `json:"_key,omitempty"`
 	// Name of the link the AV is queued in
-	LinkName string `json:"link_name"`
+	LinkName string `json:"link_name,omitempty"`
 	// ID of the subscription to which this AV was assigned (0==not assigned)
 	SubscriptionID int64 `json:"subscription_id"`
 	// The annotated value itself
@@ -53,7 +53,7 @@ type subscription struct {
 	// Identier of the client (aka Task agent)
 	ClientID string `json:"client_id,omitempty"`
 	// Name of the link this subscription is part of
-	LinkName string `json:"link_name"`
+	LinkName string `json:"link_name,omitempty"`
 	// Expiration time of this subscription
 	ExpiresAt time.Time `json:"expired_at"`
 }
@@ -118,7 +118,7 @@ func (s *subscription) RenewExpiresAt(ctx context.Context, subscrCol driver.Coll
 
 // UnassignQueueValues un-assigned all annotated values that we're assigned to this subscription.
 func (s *subscription) UnassignQueueValues(ctx context.Context, queueCol driver.Collection) error {
-	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == @subscription_id UPDATE { subscription_id: 0 } IN %s", queueCol.Name(), queueCol.Name())
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == @subscription_id UPDATE { _key: doc._key, subscription_id: 0 } IN %s", queueCol.Name(), queueCol.Name())
 	if _, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
 		"subscription_id": s.ID,
 	}); err != nil {
@@ -138,9 +138,9 @@ func (s *subscription) Remove(ctx context.Context, subscrCol driver.Collection) 
 // AssignFirstValue assigns the first unassigned annotated value to this subscription and returns it.
 // Returns nil if no such annotated value exists.
 func (s *subscription) AssignFirstValue(ctx context.Context, queueCol driver.Collection) (*avDocument, error) {
-	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == 0 AND doc.link_name == @link_name UPDATE { subscription_id: @subscription_id } IN %s RETURN NEW", queueCol.Name(), queueCol.Name())
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == 0 AND doc.link_name == @link_name UPDATE { _key: doc._key, subscription_id: @subscription_id } IN %s RETURN NEW", queueCol.Name(), queueCol.Name())
 	cursor, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
-		"subscription_id": s.ID,
+		"subscription_id": s.GetID(),
 		"link_name":       s.LinkName,
 	})
 	if err != nil {

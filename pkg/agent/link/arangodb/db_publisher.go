@@ -33,6 +33,7 @@ type dbPub struct {
 	db         driver.Database
 	queueCol   driver.Collection
 	registry   avclient.AnnotatedValueRegistryClient
+	linkName   string
 	uri        string
 	statistics *tracking.LinkStatistics
 }
@@ -56,8 +57,8 @@ func (s *dbPub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest)
 
 	// Add to DB
 	doc := avDocument{
-		ID:             av.GetID(),
 		Value:          &av,
+		LinkName:       s.linkName,
 		SubscriptionID: 0,
 	}
 	if _, err := s.queueCol.CreateDocument(ctx, doc); err != nil {
