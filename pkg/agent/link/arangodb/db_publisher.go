@@ -72,7 +72,9 @@ func (s *dbPub) Publish(ctx context.Context, req *annotatedvalue.PublishRequest)
 	}
 
 	// Update statistic
-	atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, 1)
+	if unassigned, err := collectUnassignedQueueStats(ctx, s.linkName, s.queueCol); err == nil {
+		atomic.StoreInt64(&s.statistics.AnnotatedValuesWaiting, unassigned)
+	}
 
 	// We're done
 	return &annotatedvalue.PublishResponse{}, nil

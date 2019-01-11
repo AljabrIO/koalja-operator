@@ -213,7 +213,9 @@ func (s *dbSource) Next(ctx context.Context, req *annotatedvalue.NextRequest) (*
 		if avdoc != nil {
 			// Found first document
 			atomic.AddInt64(&s.statistics.AnnotatedValuesInProgress, 1)
-			atomic.AddInt64(&s.statistics.AnnotatedValuesWaiting, -1)
+			if unassigned, err := collectUnassignedQueueStats(ctx, s.linkName, s.queueCol); err == nil {
+				atomic.StoreInt64(&s.statistics.AnnotatedValuesWaiting, unassigned)
+			}
 			return &annotatedvalue.NextResponse{
 				AnnotatedValue:      avdoc.Value,
 				NoAnnotatedValueYet: false,

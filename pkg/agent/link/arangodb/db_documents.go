@@ -212,3 +212,27 @@ func (s *subscription) FindAnnotatedValueByID(ctx context.Context, annotatedValu
 		return avdoc, nil
 	}
 }
+
+// collectUnassignedQueueStats fetches statistics from the queue DB.
+func collectUnassignedQueueStats(ctx context.Context, linkName string, queueCol driver.Collection) (int64, error) {
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.link_name == @link_name AND doc.subscription_id == 0 COLLECT WITH COUNT INTO unassigned  RETURN { unassigned: unassigned }", queueCol.Name())
+	cursor, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
+		"link_name": linkName,
+	})
+	if err != nil {
+		return 0, maskAny(err)
+	}
+	var stats struct {
+		Unassigned int64 `json:"unassigned"`
+	}
+	for {
+		if _, err := cursor.ReadDocument(ctx, &stats); driver.IsNoMoreDocuments(err) {
+			// Not found. Wierd....
+			return 0, nil
+		} else if err != nil {
+			return 0, maskAny(err)
+		}
+		// Stats found
+		return stats.Unassigned, nil
+	}
+}
