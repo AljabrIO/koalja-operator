@@ -149,7 +149,7 @@ func (s *subscription) RenewExpiresAt(ctx context.Context, subscrCol driver.Coll
 func (s *subscription) UnassignQueueValues(ctx context.Context, queueCol driver.Collection) error {
 	q := fmt.Sprintf("FOR doc IN %s FILTER doc.subscription_id == @subscription_id UPDATE { _key: doc._key, subscription_id: 0 } IN %s", queueCol.Name(), queueCol.Name())
 	if _, err := queueCol.Database().Query(ctx, q, map[string]interface{}{
-		"subscription_id": s.ID,
+		"subscription_id": s.GetID(),
 	}); err != nil {
 		return maskAny(err)
 	}
