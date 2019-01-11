@@ -38,6 +38,12 @@ type dbPub struct {
 	statistics *tracking.LinkStatistics
 }
 
+// Run this server until the given context is canceled.
+func (s *dbPub) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return nil
+}
+
 // CanPublish returns true if publishing annotated values is allowed.
 func (s *dbPub) CanPublish(ctx context.Context, req *annotatedvalue.CanPublishRequest) (*annotatedvalue.CanPublishResponse, error) {
 	return &annotatedvalue.CanPublishResponse{

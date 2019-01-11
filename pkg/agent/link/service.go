@@ -24,6 +24,8 @@ import (
 	"net"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	corev1 "k8s.io/api/core/v1"
@@ -50,8 +52,8 @@ type Service struct {
 	pipelineName   string
 	uri            string
 	statistics     *tracking.LinkStatistics
-	avPublisher    annotatedvalue.AnnotatedValuePublisherServer
-	avSource       annotatedvalue.AnnotatedValueSourceServer
+	avPublisher    AnnotatedValuePublisherServer
+	avSource       AnnotatedValueSourceServer
 	avRegistry     avclient.AnnotatedValueRegistryClient
 	agentRegistry  pipeline.AgentRegistryClient
 	statisticsSink tracking.StatisticsSinkClient
@@ -77,10 +79,26 @@ type APIDependencies struct {
 	Statistics *tracking.LinkStatistics
 }
 
+// AnnotatedValuePublisherServer extends the annotated-value AnnotatedValuePublisherServer
+// with internal Run method.
+type AnnotatedValuePublisherServer interface {
+	annotatedvalue.AnnotatedValuePublisherServer
+	// Run this server until the given context is canceled.
+	Run(ctx context.Context) error
+}
+
+// AnnotatedValueSourceServer extends the annotated-value AnnotatedValueSourceServer
+// with internal Run method.
+type AnnotatedValueSourceServer interface {
+	annotatedvalue.AnnotatedValueSourceServer
+	// Run this server until the given context is canceled.
+	Run(ctx context.Context) error
+}
+
 // APIBuilder is an interface provided by an Link implementation
 type APIBuilder interface {
-	NewAnnotatedValuePublisher(deps APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error)
-	NewAnnotatedValueSource(deps APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error)
+	NewAnnotatedValuePublisher(deps APIDependencies) (AnnotatedValuePublisherServer, error)
+	NewAnnotatedValueSource(deps APIDependencies) (AnnotatedValueSourceServer, error)
 }
 
 // NewService creates a new Service instance.
@@ -181,7 +199,7 @@ func NewService(log zerolog.Logger, config *rest.Config, builder APIBuilder) (*S
 	}, nil
 }
 
-// Run the pipeline agent until the given context is canceled.
+// Run the link agent until the given context is canceled.
 func (s *Service) Run(ctx context.Context) error {
 	defer s.avRegistry.Close()
 
@@ -211,15 +229,31 @@ func (s *Service) Run(ctx context.Context) error {
 	annotatedvalue.RegisterAnnotatedValueSourceServer(svr, s.avSource)
 	// Register reflection service on gRPC server.
 	reflection.Register(svr)
-	go func() {
+	g, lctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
 		if err := svr.Serve(lis); err != nil {
 			s.log.Fatal().Err(err).Msg("Failed to service")
 		}
-	}()
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.avPublisher.Run(lctx); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := s.avSource.Run(lctx); err != nil {
+			return maskAny(err)
+		}
+		return nil
+	})
 	s.log.Info().Msgf("Started link %s, listening on %s", s.linkName, addr)
 
 	// Wait until context closed
-	<-ctx.Done()
+	if err := g.Wait(); err != nil {
+		return maskAny(err)
+	}
 	return nil
 }
 

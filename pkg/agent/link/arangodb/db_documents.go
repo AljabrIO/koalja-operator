@@ -58,6 +58,11 @@ type subscription struct {
 	ExpiresAt time.Time `json:"expired_at"`
 }
 
+// IsExpired returns true when this subscription is expired.
+func (s *subscription) IsExpired() bool {
+	return s.ExpiresAt.Before(time.Now())
+}
+
 // getSubscriptionByID loads a subscription with given ID from the DB.
 // Returns NotFound error if not found.
 func getSubscriptionByID(ctx context.Context, id int64, subscrCol driver.Collection) (*subscription, error) {
@@ -88,6 +93,30 @@ func findSubscriptionByClientID(ctx context.Context, clientID string, subscrCol 
 		}
 		// return the document
 		return subscr, nil
+	}
+}
+
+// getExpiredSubscriptions fetches all expired subscriptions from the DB.
+func getExpiredSubscriptions(ctx context.Context, linkName string, subscrCol driver.Collection) ([]*subscription, error) {
+	q := fmt.Sprintf("FOR doc IN %s FILTER doc.link_name == @link_name RETURN doc", subscrCol.Name())
+	cursor, err := subscrCol.Database().Query(ctx, q, map[string]interface{}{
+		"link_name": linkName,
+	})
+	if err != nil {
+		return nil, maskAny(err)
+	}
+	var result []*subscription
+	for {
+		subscr := &subscription{}
+		if _, err := cursor.ReadDocument(ctx, subscr); driver.IsNoMoreDocuments(err) {
+			// No such subscription, we,re done
+			return result, nil
+		} else if err != nil {
+			return nil, maskAny(err)
+		}
+		if subscr.IsExpired() {
+			result = append(result, subscr)
+		}
 	}
 }
 

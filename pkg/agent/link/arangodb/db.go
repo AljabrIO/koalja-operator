@@ -27,7 +27,6 @@ import (
 	"github.com/rs/zerolog"
 
 	link "github.com/AljabrIO/koalja-operator/pkg/agent/link"
-	"github.com/AljabrIO/koalja-operator/pkg/annotatedvalue"
 )
 
 // Config holds database configuration settings, used to connect
@@ -70,7 +69,7 @@ func NewArangoDB(log zerolog.Logger, cfg Config) link.APIBuilder {
 }
 
 // NewAnnotatedValuePublisher "builds" a new publisher
-func (s *dbBuilder) NewAnnotatedValuePublisher(deps link.APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error) {
+func (s *dbBuilder) NewAnnotatedValuePublisher(deps link.APIDependencies) (link.AnnotatedValuePublisherServer, error) {
 	ctx := context.Background()
 	db, err := s.openDatabase(ctx)
 	if err != nil {
@@ -92,7 +91,7 @@ func (s *dbBuilder) NewAnnotatedValuePublisher(deps link.APIDependencies) (annot
 }
 
 // NewAnnotatedValueSource "builds" a new source
-func (s *dbBuilder) NewAnnotatedValueSource(deps link.APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error) {
+func (s *dbBuilder) NewAnnotatedValueSource(deps link.APIDependencies) (link.AnnotatedValueSourceServer, error) {
 	ctx := context.Background()
 	db, err := s.openDatabase(ctx)
 	if err != nil {

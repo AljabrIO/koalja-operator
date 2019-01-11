@@ -47,6 +47,49 @@ const (
 	nextRetryPeriod = time.Millisecond * 100
 )
 
+// Run this server until the given context is canceled.
+func (s *dbSource) Run(ctx context.Context) error {
+	if err := s.runSubscriptionGC(ctx); err != nil {
+		return maskAny(err)
+	}
+	return nil
+}
+
+// runSubscriptionGC garbage collects expired subscriptions.
+func (s *dbSource) runSubscriptionGC(ctx context.Context) error {
+	for {
+		// Collect expired subscriptions
+		list, err := getExpiredSubscriptions(ctx, s.linkName, s.subscrCol)
+		if err != nil {
+			s.log.Warn().Err(err).Msg("Failed to get expired subscriptions")
+		} else {
+			for _, subscr := range list {
+				log := s.log.With().Int64("subscription", subscr.GetID()).Logger()
+				// Un-assign queue values
+				if err := subscr.UnassignQueueValues(ctx, s.queueCol); err != nil {
+					log.Warn().Err(err).Msg("Failed to unassign annotated values from expired subscription")
+					continue
+				}
+				// Remove subscription
+				if err := subscr.Remove(ctx, s.subscrCol); err != nil && !driver.IsNotFound(err) {
+					log.Warn().Err(err).Msg("Failed to remove expired subscription")
+					continue
+				}
+				log.Debug().Msg("Expired subscription")
+			}
+		}
+
+		// Wait a bit
+		select {
+		case <-time.After(time.Second * 10):
+			// Continue
+		case <-ctx.Done():
+			// Context canceled
+			return ctx.Err()
+		}
+	}
+}
+
 // Subscribe to annotated values
 func (s *dbSource) Subscribe(ctx context.Context, req *annotatedvalue.SubscribeRequest) (*annotatedvalue.SubscribeResponse, error) {
 	s.log.Debug().

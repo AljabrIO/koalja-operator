@@ -86,7 +86,7 @@ func NewStub(log zerolog.Logger) link.APIBuilder {
 }
 
 // NewAnnotatedValuePublisher "builds" a new publisher
-func (s *stub) NewAnnotatedValuePublisher(deps link.APIDependencies) (annotatedvalue.AnnotatedValuePublisherServer, error) {
+func (s *stub) NewAnnotatedValuePublisher(deps link.APIDependencies) (link.AnnotatedValuePublisherServer, error) {
 	s.uri = deps.URI
 	s.registry = deps.AnnotatedValueRegistry
 	s.agentRegistry = deps.AgentRegistry
@@ -95,8 +95,14 @@ func (s *stub) NewAnnotatedValuePublisher(deps link.APIDependencies) (annotatedv
 }
 
 // NewAnnotatedValueSource "builds" a new source
-func (s *stub) NewAnnotatedValueSource(deps link.APIDependencies) (annotatedvalue.AnnotatedValueSourceServer, error) {
+func (s *stub) NewAnnotatedValueSource(deps link.APIDependencies) (link.AnnotatedValueSourceServer, error) {
 	return s, nil
+}
+
+// Run this server until the given context is canceled.
+func (s *stub) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return nil
 }
 
 // CanPublish returns true if publishing annotated values is allowed.
