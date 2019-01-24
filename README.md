@@ -1,5 +1,12 @@
 # Koalja Pipeline Operator
 
+The Koalja platform is a pipeline construction platform designed to make data processing pipelines simple and easy. 
+Ultimately, users will not have
+to know about Kubernetes or containers -- they will simply drop/POST code and data into endpoints and necessary outcomes 
+will follow. Scaling of processes can be automated. The provenance of data artifacts is tracked and turned into metadata, 
+using smart tasks and smart links, managed by simple policy. The goal is to make the experience as simple as possible so as
+to focus on what matters to data scientist or business analyst.
+
 ## Building
 
 ```bash
