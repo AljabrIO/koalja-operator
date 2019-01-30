@@ -7,14 +7,16 @@ The source and destination for AVs may be as files, or in any kind of database o
 Smart links marshall the data as files for the task code.
 A task specification has the form:
 
-``` (input1 input2 ....) taskname (output1, output2 ...)
+```bash
+ (input1 input2 ....) taskname (output1, output2 ...)
 ```
 
 The inputs and outputs represent tuples of files that are collected as a `snapshot' set.
 A named input may have a buffer size, representing the minimum number of AVs required to
 execute the container. 
 
-``` (input1[5] input2 ....) taskname (output1, output2 ...)
+```bash
+ (input1[5] input2 ....) taskname (output1, output2 ...)
 ```
 
 This increases the number of files in the task's argv[]. 
@@ -31,7 +33,8 @@ Even on a single input, there are two ways of aggregating data:
 
 When several inputs are combined, they form a tuple of inputs, each of which might be a buffer:
 
-``` (input1[5] input2[2] ....) taskname (output1, output2 ...)
+```bash
+ (input1[5] input2[2] ....) taskname (output1, output2 ...)
 ```
 
 Then, a snapshot, leading to a set of argv values and executed outputs, needs a policy
