@@ -1,0 +1,87 @@
+
+###################################################################
+# Koalja reads this file to initiate a pipeline model
+###################################################################
+
+ # ingress have to be called in*
+ # egress have to be called out*
+ # connecting wires have any unique name (no error checking yet)
+
+## EXAMPLES #######################################################
+#
+# Acts as a breadboard to wire together component tasks
+#
+# (inputlinks type,...)  TASK   (outputlinks type, ...) 
+#
+#
+# Tasks are declared separately in container_description
+# TO DO: 
+#    - naming of pipelines (metadata, and precise container specs)
+#    - attributes of wires and connectors (snapshot policy)
+#
+###################################################################
+
+# 1. Linecount example
+
+#[linecount]
+
+# (in[2-4])  remove_duplicates (stripped)
+# (stripped) count_lines       (out)
+
+# 2. Linecount example
+
+[running_average]
+
+ # wire[buffer/slide]
+
+ (in1[10/1], in2[3/3]) compute_average (out)
+
+
+# 3. Tensor flow example
+#
+#[tfmodel]
+#
+#                   (in) learn-tf (model)
+#                (model) server   (lookup implicit)
+#                   (in) convert (json)
+#(json, lookup implicit) predict (out_prediction)
+
+
+# 4. Other examples, the order of the args matches the container
+#
+#                  (in1, in2) task1 (b1, b2)
+#              (b1 + b3, in5) task2 (b3)
+#                        (b1) task3 (out1)
+#                    (b2, b3) task4 (out2)
+
+###################################################################
+# Breadboard (inputs) component (outputs) - v2
+###################################################################
+
+# task1: -(a1,a2) +b1 +b2
+
+
+
+
+
+
+###################################################################
+# library of query strings - meltano connection?
+###################################################################
+# query details - add to a library
+
+# select1: SELECT (one,two,three) from ... 
+# rest1: curl ...
+# insert1: INSERT into BLAH ...
+
+###################################################################
+# container details are a single alias defined by the BUILD SERVICE
+###################################################################
+
+# task1:: 
+#
+# command: /bin/sh
+# arg: -c 
+# arg: cat {{stripped}} | wc -l > {{out}}, alpine build
+#
+# outputs: 2
