@@ -358,11 +358,11 @@ func (m RM) NotRole(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) Using(name string) RM {
+func (m RM) UsingN(name string) RM {
 	return UsingSlave(N(name))
 }
 
-func (m RM) Using(name string, role string) RM {
+func (m RM) UsingNR(name string, role string) RM {
 	return UsingSlave(NR(name,role))
 }
 
