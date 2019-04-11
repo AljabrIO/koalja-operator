@@ -29,6 +29,8 @@ func main() {
 
 	// 2. test koalja, reads pipeline/container_description
 
+   // go routine ...several parallel with same name
+
 }
 
 //**************************************************************
@@ -56,10 +58,10 @@ func MainLoop(ctx context.Context){
 	// ...
 	H.RefMarker(&ctx,"code signpost X"). // what you intended
 	Intent("open file X").
-		Used(H.NR("/etc/passed","file")).
-		Used(H.NR("123.456.789.123","dns lookup")).
-		FailedToUse(H.N("cc")).
-		FailedIntent("xxx").
+		UsingNR("/etc/passed","file").
+		UsingNR("123.456.789.123","dns lookup").
+		UsingN("hfdjfh").
+		FailedBecause("xxx","xxx").
 		PartOf(H.NR("main","function")).
 		Contains(H.NR("Test1","test function"))
 

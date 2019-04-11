@@ -54,14 +54,9 @@ type Container struct {
 	args []string
 }
 
-type NameandRole struct {
+type NameAndRole struct {
 	name string
 	role string
-	hub string
-}
-
-type Name struct {
-	name string
 	hub string
 }
 
@@ -358,20 +353,22 @@ func (m RM) NotRole(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) UsingN(name string) RM {
-	return UsingSlave(N(name))
-}
-
-func (m RM) UsingNR(name string, role string) RM {
-	return UsingSlave(NR(name,role))
-}
-
 func (m RM) UsingSlave(nr NameAndRole) RM {
 
 	var logmsg string = "-used " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
 	Relation(m.ctx,true,m.description.hub,uses,nr.hub)
 	return m
+}
+
+func (m RM) UsingN(name string) RM {
+	m.UsingSlave(N(name))
+	return m 
+}
+
+func (m RM) UsingNR(name string, role string) RM {
+	m.UsingSlave(NR(name,role))
+	return m 
 }
 
 // ****************************************************************************
@@ -397,21 +394,22 @@ func (m RM) Contains(nr NameAndRole) RM {
 
 // ****************************************************************************
 
-func (m RM) FailedBecause(name string) RM {
-	return FailedBy(N(name))
-}
 
-func (m RM) FailedBecause(name string, role string) RM {
-	return FailedBy(NR(name,role))
-}
-
-func (m RM) FailedBy(nr NameAndRole) RM {
+func (m RM) FailedSlave(nr NameAndRole) RM {
 
 	var logmsg string = "-failure as " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
 
 	Relation(m.ctx,false,m.description.hub,uses,nr.hub)
 	return m
+}
+
+func (m RM) FailedBecause(name string) RM {
+	return m.FailedSlave(N(name))
+}
+
+func (m RM) FailedBy(name string, role string) RM {
+	return m.FailedSlave(NR(name,role))
 }
 
 // ****************************************************************************
@@ -423,12 +421,6 @@ func (m RM) Intent(s string) RM {
 	Relation(m.ctx,true,m.description.hub,promises,s)
 	WriteChainBlock(m.ctx,m.xt.t,nm.hub,m.xt.proper,m.previous)
 	return m
-}
-
-// ****************************************************************************
-
-func (m RM) FailedBecause(s string) RM {
-	return m.NotRole(s)
 }
 
 // ****************************************************************************
