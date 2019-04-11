@@ -1,7 +1,11 @@
 
-package history
+package main
 
 import (
+	"strings"
+	"fmt"
+	"context"
+	"io/ioutil"
 	H "github.com/AljabrIO/koalja-operator/pkg/history"
 )
 
@@ -33,48 +37,48 @@ func main() {
 
 func MainLoop(ctx context.Context){
 
-	RefMarker(&ctx,"MainLoop start").
-		PartOf(NR("main","function"))
+	H.RefMarker(&ctx,"MainLoop start").
+		PartOf(H.NR("main","function"))
 
 	// Adaptive loop to update context by sensor/input activity
 	// Context changes as a result of new environment detected
 
 	// Start loop
-	ctx = UpdateSensorContext(ctx)
+	ctx = H.UpdateSensorContext(ctx)
 
         // ...other stuff happens
-	mk := RefMarker(&ctx,"Beginning of test code").
+	mk := H.RefMarker(&ctx,"Beginning of test code").
 		Role("Start process").
-		Attributes(NR("cellibrium","go package"),N("example code"))
+		Attributes(H.NR("cellibrium","go package"),H.N("example code"))
 	// ...
 	mk.Note(&ctx,"look up a name")
 
 	// ...
-	RefMarker(&ctx,"code signpost X"). // what you intended
+	H.RefMarker(&ctx,"code signpost X"). // what you intended
 	Intent("open file X").
-		Used(NR("/etc/passed","file")).
-		Used(NR("123.456.789.123","dns lookup")).
-		FailedToUse(N("cc")).
+		Used(H.NR("/etc/passed","file")).
+		Used(H.NR("123.456.789.123","dns lookup")).
+		FailedToUse(H.N("cc")).
 		FailedIntent("xxx").
-		PartOf(NR("main","function")).
-		Contains(NR("Test1","test function"))
+		PartOf(H.NR("main","function")).
+		Contains(H.NR("Test1","test function"))
 
 	// Pass ctx down for logging in lower levels
 	Test1(ctx)
 
 	// End loop
-	RefMarker(&ctx,"The end!")
+	H.RefMarker(&ctx,"The end!")
 }
 
 //**************************************************************
 
 func Test1(ctx context.Context){
 
-	m := RefMarker(&ctx,"TEST1---------").
-		PartOf(N("Testing suite"))
+	m := H.RefMarker(&ctx,"TEST1---------").
+		PartOf(H.N("Testing suite"))
 
 	m.Intent("read whole file of data").
-		Used(NR("file://URI","file"))
+		Used(H.NR("file://URI","file"))
 
 	_, err := ioutil.ReadFile("file://URI")
 
