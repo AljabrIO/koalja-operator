@@ -366,8 +366,6 @@ func (m RM) Using(name string, role string) RM {
 	return UsingSlave(NR(name,role))
 }
 
-// ****************************************************************************
-
 func (m RM) UsingSlave(nr NameAndRole) RM {
 
 	var logmsg string = "-used " + nr.role + ": " + nr.name
@@ -398,6 +396,14 @@ func (m RM) Contains(nr NameAndRole) RM {
 }
 
 // ****************************************************************************
+
+func (m RM) FailedBecause(name string) RM {
+	return FailedBy(N(name))
+}
+
+func (m RM) FailedBecause(name string, role string) RM {
+	return FailedBy(NR(name,role))
+}
 
 func (m RM) FailedBy(nr NameAndRole) RM {
 
