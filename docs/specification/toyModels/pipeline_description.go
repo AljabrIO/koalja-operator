@@ -531,12 +531,15 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 	// If the file doesn't exist, create it, or append to the file
 	var err error
 
+
+	// Transaction log
 	lctx.tf, err = os.OpenFile("/tmp/cellibrium_ts.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("ERROR ",err)
 	}
 
+	// Graph DB
 	lctx.gf, err = os.OpenFile("/tmp/cellibrium_gr.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
