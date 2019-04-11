@@ -1,26 +1,18 @@
 
-//
-// This file contains a mashup of parts to avoid technicality as a POC
-//
-// 1. cellibrium in golang - to be a package
-// 2. koalja pipeline language - POC parser, compiler
+// 1. cellibrium in golang
+// 2. path history
 //
 
 // ***************************************************************************
 //*
 //* Cellibrium v2 in golang ... 
-//* experimenting ... MB
 //*
 // ***************************************************************************
 
 package history
 
 import (
-//	"strings"
-//	"unicode"
 	"sync/atomic"
-//	"io/ioutil"
-//	"bufio"
 	"context"
 	"time"
 	"runtime"
@@ -33,7 +25,7 @@ import (
 // Interior timeline
 // ***************************************************************************
 
-// This is used to coordinate a forensic monotonic timelines,
+// This is used to coordinate a forensic monotonic timeline,
 // in spite of recursive context, because Context can't track time
 // This will end up being irrelevant to graphDB, has only local significance,
 // except for relative order
@@ -62,9 +54,14 @@ type Container struct {
 	args []string
 }
 
-type NameAndRole struct {
+type NameandRole struct {
 	name string
 	role string
+	hub string
+}
+
+type Name struct {
+	name string
 	hub string
 }
 
@@ -361,7 +358,17 @@ func (m RM) NotRole(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) Used(nr NameAndRole) RM {
+func (m RM) Using(name string) RM {
+	return UsingSlave(N(name))
+}
+
+func (m RM) Using(name string, role string) RM {
+	return UsingSlave(NR(name,role))
+}
+
+// ****************************************************************************
+
+func (m RM) UsingSlave(nr NameAndRole) RM {
 
 	var logmsg string = "-used " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -392,7 +399,7 @@ func (m RM) Contains(nr NameAndRole) RM {
 
 // ****************************************************************************
 
-func (m RM) FailedToUse(nr NameAndRole) RM {
+func (m RM) FailedBy(nr NameAndRole) RM {
 
 	var logmsg string = "-failure as " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -414,7 +421,7 @@ func (m RM) Intent(s string) RM {
 
 // ****************************************************************************
 
-func (m RM) FailedIntent(s string) RM {
+func (m RM) FailedBecause(s string) RM {
 	return m.NotRole(s)
 }
 
