@@ -544,12 +544,12 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 	// Make a unique filename for the application instance, using pid and executable
 
 	binary, err = os.Executable()
-	path = ReplaceAll(binary,"/","_")
-	pid = GetPid()
+	path = strings.ReplaceAll(binary,"/","_")
+	pid = os.GetPid()
 
 	// Put the dir in /tmp for now, assuming effectively private in cloud
 
-	err = MkdirAll("/tmp/"+binary, 0755)
+	err = os.MkdirAll("/tmp/"+binary, 0755)
 
 	fmt.Println("MKDIR /tmp/"+binary)
 
