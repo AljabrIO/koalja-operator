@@ -539,13 +539,13 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// If the file doesn't exist, create it, or append to the file
 	var err error
-	var binary, path string
+	var binary string
 	var pid int
 
 	// Make a unique filename for the application instance, using pid and executable
 
 	binary, err = os.Executable()
-	path = strings.ReplaceAll(binary,"/","_")
+	path := strings.ReplaceAll(binary,"/","_")
 	pid = os.Getpid()
 
 	// Put the dir in /tmp for now, assuming effectively private in cloud
