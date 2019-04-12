@@ -77,7 +77,6 @@ type RM struct {            // Reference marker
 type Association struct {
  	key  int      // index
 	STtype int    // oriented type, - reverses oriention
-	neg bool      // negate or NOT the relation meaning
 	fwd  string   // forward oriented meaning
 	bwd  string   // backward " 
 }
@@ -87,7 +86,6 @@ type Association struct {
 type LogContext struct {
 	tf *os.File
 	gf *os.File
-	val string           // signposts
 	t time.Time          // Start time
 	proper int
 	prefix string        // unique channel identifer
@@ -110,7 +108,6 @@ const (
 	promises int = 16
 	follows int = 5
 	contains int = 1
-	partof int = 2
 	uses int = 13
 	alias int = 26
 
@@ -121,36 +118,87 @@ const (
 
 var (
 	ASSOCIATIONS = [29]Association{
+		{0,0, "unknown promise", "unknown promise"},
 
-		{0,0, false, "unknown promise", "unknown promise"},
-		{1,GR_CONTAINS, false,"contains","belongs to or is part of"},
-		{2,-GR_CONTAINS, false,"is part of","contains"},
-		{3,-GR_CONTAINS,true,"violates","is violated by"},
-		{4,GR_CONTAINS, false, "generalizes","is a special case of"},
-		{5,GR_FOLLOWS,false,"followed after","was preceded by"},
-		{6,GR_FOLLOWS,false,"originates from","is the source or origin of"},
-		{7,GR_FOLLOWS,false,"provided by","provides"},
-		{8,GR_FOLLOWS,false,"maintained by","maintains"},
-		{9,GR_FOLLOWS,false,"depends on","may determine"},
-		{10,GR_FOLLOWS,false,"was started by","started"},
-		{11,GR_FOLLOWS,false,"connected to","reponded to"},
-		{12,GR_FOLLOWS,false,"caused by","may cause"},
-		{13,GR_FOLLOWS,false,"intends to use","used by"},
-		{14,GR_EXPRESSES,false,"is called","is a name for"},
-		{15,GR_EXPRESSES,false,"expresses an attribute","is an attribute of"},
-		{16,GR_EXPRESSES,false,"promises/intends","is intended/promised by"},
-		{17,GR_EXPRESSES,false,"has an instance or particular case","is a particular case of"},
-		{18,GR_EXPRESSES,false,"has value or state","is the state or value of"},
-		{19,GR_EXPRESSES,false,"has argument or parameter","is a parameter or argument of"},
-		{20,GR_EXPRESSES,false,"has the role of","is a role fulfilled by"},
-		{21,GR_EXPRESSES,false,"has the outcome","is the outcome of"},
-		{22,GR_EXPRESSES,false,"has function","is the function of"},
-		{23,GR_EXPRESSES,false,"has constraint","constrains"},
-		{24,GR_EXPRESSES,false,"has interpretation","is interpreted from"},
-		{25,GR_NEAR,false,"seen concurrently with","seen concurrently with"},
-		{26,GR_NEAR,false,"also known as","also known as"},
-		{27,GR_NEAR,false,"is approximately","is approximately"},
-		{28,GR_NEAR,false,"may be related to","may be related to"},
+		{1,GR_CONTAINS,"contains","belongs to or is part of"},
+		{-1,GR_CONTAINS,"does not contain","is not part of"},
+
+		// blue satisfies colour, colour is satisfied by blue
+		{3,-GR_CONTAINS,"satisfies","is satisfied by"},
+		{-3,-GR_CONTAINS,"does not satisfy","is not satisfied by"},
+
+		// colour generalizes blue
+		{4,GR_CONTAINS,"generalizes","is a special case of"},
+		{-4,GR_CONTAINS,"is not a generalization of","is not a special case of"},
+
+		{5,GR_FOLLOWS,"followed after","is preceded by"},
+		{-5,GR_FOLLOWS,"does not follow","is not preceded by"},
+
+		{6,GR_FOLLOWS,"originates from","is the source/origin of"},
+		{-6,GR_FOLLOWS,"does not originate from","is not the source/origin of"},
+
+		{7,GR_FOLLOWS,"provided by","provides"},
+		{-7,GR_FOLLOWS,"is not provided by","does not provide"},
+
+		{8,GR_FOLLOWS,"maintained by","maintains"},
+		{-8,GR_FOLLOWS,"is not maintained by","doesn't maintain"},
+
+		{9,GR_FOLLOWS,"may depend on","may determine"},
+		{-9,GR_FOLLOWS,"doesn't depend on","doesn't determine"},
+
+		{10,GR_FOLLOWS,"was created by","created"},
+		{-10,GR_FOLLOWS,"was not created by","did not creat"},
+
+		{11,GR_FOLLOWS,"reached to","reponded to"},
+		{-11,GR_FOLLOWS,"did not reach to","did not repond to"},
+
+		{12,GR_FOLLOWS,"caused by","may cause"},
+		{-12,GR_FOLLOWS,"was not caused by","probably didn't cause"},
+
+		{13,GR_FOLLOWS,"seeks to use","is used by"},
+		{-13,GR_FOLLOWS,"does not seek to use","is not used by"},
+
+		{14,GR_EXPRESSES,"is called","is a name for"},
+		{-14,GR_EXPRESSES,"is not called","is not a name for"},
+
+		{15,GR_EXPRESSES,"expresses an attribute","is an attribute of"},
+		{-15,GR_EXPRESSES,"has no attribute","is not an attribute of"},
+
+		{16,GR_EXPRESSES,"promises/intends","is intended/promised by"},
+		{-16,GR_EXPRESSES,"rejects/promises to not","is rejected by"},
+
+		{17,GR_EXPRESSES,"has an instance or particular case","is a particular case of"},
+		{-17,GR_EXPRESSES,"has no instance/case of","is not a particular case of"},
+
+		{18,GR_EXPRESSES,"has value or state","is the state or value of"},
+		{-18,GR_EXPRESSES,"hasn't any value or state","is not the state or value of"},
+
+		{19,GR_EXPRESSES,"has argument or parameter","is a parameter or argument of"},
+		{-19,GR_EXPRESSES,"has no argument or parameter","isn't a parameter or argument of"},
+
+		{20,GR_EXPRESSES,"has the role of","is a role fulfilled by"},
+		{-20,GR_EXPRESSES,"has no role","is not a role fulfilled by"},
+
+		{21,GR_EXPRESSES,"has outcome","is an outcome of"},
+		{-21,GR_EXPRESSES,"has no outcome","is not an outcome of"},
+
+		{22,GR_EXPRESSES,"has function","is the function of"},
+		{-22,GR_EXPRESSES,"doesn't have function","is not the function of"},
+
+		{24,GR_EXPRESSES,"infers","is inferred from"},
+		{-24,GR_EXPRESSES,"does not infer","cannot be inferred from"},
+
+		{25,GR_NEAR,"concurrent with","not concurrent with"},
+		{-25,GR_NEAR,"not concurrent with","not concurrent with"},
+
+		{26,GR_NEAR,"also known as","also known as"},
+		{-26,GR_NEAR,"not known as","not known as"},
+
+		{27,GR_NEAR,"is approximately","is approximately"},
+		{-27,GR_NEAR,"is far from","is far from"},
+
+		{28,GR_NEAR,"may be related to","may be related to"},
+		{-28,GR_NEAR,"likely unrelated to","likely unrelated to"},
 
 	}
 )
@@ -354,7 +402,9 @@ func (m RM) NotRole(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) UsingSlave(nr NameAndRole) RM {
+func (m RM) ReadsFrom(nr NameAndRole) RM {
+
+// SRC uses DEST
 
 	var logmsg string = "-used " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -362,14 +412,16 @@ func (m RM) UsingSlave(nr NameAndRole) RM {
 	return m
 }
 
-func (m RM) UsingN(name string) RM {
-	m.UsingSlave(N(name))
-	return m 
-}
+// ****************************************************************************
 
-func (m RM) UsingNR(name string, role string) RM {
-	m.UsingSlave(NR(name,role))
-	return m 
+func (m RM) WritesTo(nr NameAndRole) RM {
+
+	var logmsg string = "-used " + nr.role + ": " + nr.name
+	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
+
+// DEST uses SRC
+	Relation(m.ctx,true,m.description.hub,uses,nr.hub)
+	return m
 }
 
 // ****************************************************************************
@@ -385,7 +437,7 @@ func (m RM) PartOf(nr NameAndRole) RM {
 	return m
 }
 
-// ****************************************************************************
+// This could be folded into something else
 
 func (m RM) Contains(nr NameAndRole) RM {
 
@@ -486,7 +538,7 @@ func URI(s string) NameAndRole {
 func GetLocation(ctx context.Context) string {
 
 	val, _ := GetLogContext(ctx)
-	return val.val
+	return val.prefix
 }
 
 // ****************************************************************************
@@ -568,36 +620,8 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 		fmt.Println("ERROR ",err)
 	}
 
-	var keys,values,location string
-	var ok bool = false
-
-	keys = "("
-	values = "("
-
-	for k, v := range m {
-		ok = true
-		keys = keys + k + ","
-		values = values + v + ","
-	}
-	keys = keys + ")"
-	values = values + ")"
-	
-	if ok {
-		location = keys + " = " + values
-	} else {
-		location = "undeclared process location"
-	}
-
-
-	// combine and sha1 all location markers, take first 10 chars as prefix code
-
-	var unique string = location
-	h := sha1.New()
-	h.Write([]byte(unique))
-	bs := h.Sum(nil)
-	lctx.prefix = fmt.Sprintf("%.6x",bs)
+	lctx.prefix = path
 	lctx.proper = 0
-	lctx.val = location
 	rctx := context.WithValue(ctx, logctx, lctx)
 
 	Relation(rctx,true,location,alias,lctx.prefix)

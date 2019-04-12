@@ -59,9 +59,8 @@ func MainLoop(ctx context.Context){
 	// ...
 	H.RefMarker(&ctx,"code signpost X"). // what you intended
 	Intent("open file X").
-		UsingNR("/etc/passed","file").
-		UsingNR("123.456.789.123","dns lookup").
-		UsingN("hfdjfh").
+		WritesTo("/etc/passed","file").
+		ReadsFrom("123.456.789.123","dns lookup").
 		FailedBecause("xxx").
 		PartOf(H.NR("main","coroutine")).
 		Contains(H.NR("Test1","test function"))
