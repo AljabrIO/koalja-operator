@@ -67,7 +67,7 @@ type Coordinates struct {
 	x NameAndRole // location hub
 }
 
-type RM struct {            // Reference marker
+type PathState struct {            // Reference marker
 	description NameAndRole
 	xt Coordinates
 	ctx context.Context
@@ -83,7 +83,7 @@ type Association struct {
 
 // ****************************************************************************
 
-type LogContext struct {
+type ProcessContext struct {
 	tf *os.File
 	gf *os.File
 	t time.Time          // Start time
@@ -295,10 +295,14 @@ func Where(depth int) string {
 // Explain
 // ****************************************************************************
 
+// WriteChainBlock(m Pathstate)
+
 func WriteChainBlock(ctx context.Context,t int32, s string, propertime int, previoustime int) {
 
 	var hub string 
-	lctx, ok := GetLogContext(ctx)
+	lctx, ok := GetProcessContext(ctx)
+	pid := os.Getpid()
+
 	if ok {
 		hub = fmt.Sprintf("(%s,%d,%d,%d,%s)\n",lctx.prefix,t,propertime,previoustime,s)
 		lctx.tf.WriteString(hub)
@@ -310,7 +314,7 @@ func WriteChainBlock(ctx context.Context,t int32, s string, propertime int, prev
 func WriteAddendum(ctx context.Context, s string, propertime int, previoustime int) {
 
 	var hub string 
-	lctx, ok := GetLogContext(ctx)
+	lctx, ok := GetProcessContext(ctx)
 	if ok {
 		hub = fmt.Sprintf("(%s,-,%d,%d,%s)\n",lctx.prefix,propertime,previoustime,s)
 		lctx.tf.WriteString(hub)
@@ -319,17 +323,19 @@ func WriteAddendum(ctx context.Context, s string, propertime int, previoustime i
 
 // ****************************************************************************
 
-func RefMarker(ctx *context.Context, s string) RM {
+func RefMarker(ctx *context.Context, s string) PathState {
 
-	var rm RM 
+	var rm PathState 
 	rm.description = NR(s,PROCESS_MARKER)
 	AnnotateNR(*ctx,rm.description)
 	rm.ctx = *ctx
+	// rm ----
 	rm.previous = GetPrevious(*ctx)
 	rm.xt = GetCoordinates(*ctx) 
 	// Set the latest proper time
 	*ctx = SetPrevious(*ctx,rm.xt.proper)
 	WriteChainBlock(*ctx,rm.xt.t,rm.description.hub,rm.xt.proper,rm.previous)
+	//------
 	l := CodeLocation()
 	Relation(*ctx,true,rm.description.hub,expresses,l.hub)
 	return rm
@@ -337,7 +343,7 @@ func RefMarker(ctx *context.Context, s string) RM {
 
 // ****************************************************************************
 
-func (rm RM) Note(ctx *context.Context,s string) RM {
+func (rm PathState) Note(ctx *context.Context,s string) PathState {
 
 // Instead of a string there should be an interface to accept an INT or a free string
 // where the INT points to a list of standard strings already in the DB
@@ -353,7 +359,7 @@ func (rm RM) Note(ctx *context.Context,s string) RM {
 
 // ****************************************************************************
 
-func (m RM) Attributes(attr ...NameAndRole) RM {
+func (m PathState) Attributes(attr ...NameAndRole) PathState {
 
 	for i := 0; i < len(attr); i++ {
 		Relation(m.ctx,true,m.description.hub,expresses,attr[i].hub)
@@ -373,7 +379,7 @@ func Relation(ctx context.Context,notnot bool, n string,assoc int,subject string
 		hub = fmt.Sprintf("(%d,{%s}, NOT %s, {%s})",ASSOCIATIONS[assoc].STtype,n,ASSOCIATIONS[assoc].fwd,subject)
 	}
 
-	lctx, ok := GetLogContext(ctx)
+	lctx, ok := GetProcessContext(ctx)
 	if ok {
 		lctx.gf.WriteString(hub+"\n")
 	}
@@ -381,7 +387,7 @@ func Relation(ctx context.Context,notnot bool, n string,assoc int,subject string
 
 // ****************************************************************************
 
-func (m RM) Role(role string) RM {
+func (m PathState) Role(role string) PathState {
 
 	var logmsg string = "-in role " + role
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -392,7 +398,7 @@ func (m RM) Role(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) NotRole(role string) RM {
+func (m PathState) NotRole(role string) PathState {
 
 	var logmsg string = "-NOT in role " + role
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -402,7 +408,7 @@ func (m RM) NotRole(role string) RM {
 
 // ****************************************************************************
 
-func (m RM) ReadsFrom(nr NameAndRole) RM {
+func (m PathState) ReadsFrom(nr NameAndRole) PathState {
 
 // SRC uses DEST
 
@@ -414,7 +420,7 @@ func (m RM) ReadsFrom(nr NameAndRole) RM {
 
 // ****************************************************************************
 
-func (m RM) WritesTo(nr NameAndRole) RM {
+func (m PathState) WritesTo(nr NameAndRole) PathState {
 
 	var logmsg string = "-used " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -426,7 +432,7 @@ func (m RM) WritesTo(nr NameAndRole) RM {
 
 // ****************************************************************************
 
-func (m RM) PartOf(nr NameAndRole) RM {
+func (m PathState) PartOf(nr NameAndRole) PathState {
 
 	var logmsg string = "- part of " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -439,7 +445,7 @@ func (m RM) PartOf(nr NameAndRole) RM {
 
 // This could be folded into something else
 
-func (m RM) Contains(nr NameAndRole) RM {
+func (m PathState) Contains(nr NameAndRole) PathState {
 
 	//var logmsg string = nr.role + ": " + nr.name
 	//WriteChainBlock(m.ctx,m.xt.t,logmsg,m.xt.proper, m.previous)
@@ -451,7 +457,7 @@ func (m RM) Contains(nr NameAndRole) RM {
 // ****************************************************************************
 
 
-func (m RM) FailedSlave(nr NameAndRole) RM {
+func (m PathState) FailedSlave(nr NameAndRole) PathState {
 
 	var logmsg string = "-failure as " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
@@ -460,21 +466,22 @@ func (m RM) FailedSlave(nr NameAndRole) RM {
 	return m
 }
 
-func (m RM) FailedBecause(name string) RM {
+func (m PathState) FailedBecause(name string) PathState {
 	return m.FailedSlave(N(name))
 }
 
-func (m RM) FailedBy(name string, role string) RM {
+func (m PathState) FailedBy(name string, role string) PathState {
 	return m.FailedSlave(NR(name,role))
 }
 
 // ****************************************************************************
 
-func (m RM) Intent(s string) RM {
+func (m PathState) Intent(s string) PathState {
 
 	var nm NameAndRole = NR(s,"intended outcome")
 	AnnotateNR(m.ctx,nm)
 	Relation(m.ctx,true,m.description.hub,promises,s)
+	// m
 	WriteChainBlock(m.ctx,m.xt.t,nm.hub,m.xt.proper,m.previous)
 	return m
 }
@@ -516,7 +523,7 @@ func N(name string) NameAndRole {
 
 // ****************************************************************************
 
-func (m RM) AddError(err error) RM {
+func (m PathState) AddError(err error) PathState {
 
 	n := NR(err.Error(),SYS_ERR_MSG)
 	AnnotateNR(m.ctx,n)
@@ -537,7 +544,7 @@ func URI(s string) NameAndRole {
 
 func GetLocation(ctx context.Context) string {
 
-	val, _ := GetLogContext(ctx)
+	val, _ := GetProcessContext(ctx)
 	return val.prefix
 }
 
@@ -545,7 +552,7 @@ func GetLocation(ctx context.Context) string {
 
 func SetPrevious(ctx context.Context, propertime int) context.Context {
 
-	lctx, _ := ctx.Value(logctx).(LogContext)
+	lctx, _ := ctx.Value(logctx).(ProcessContext)
 	lctx.proper = propertime
 	return context.WithValue(ctx, logctx, lctx)
 }
@@ -560,7 +567,7 @@ func GetCoordinates(ctx context.Context) Coordinates {
 
 func GetPrevious(ctx context.Context) int {
 
-	lctx, _ := ctx.Value(logctx).(LogContext)
+	lctx, _ := ctx.Value(logctx).(ProcessContext)
 	return lctx.proper
 }
 
@@ -587,7 +594,7 @@ func Tick(ctx context.Context) Coordinates {
 
 func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 
-	var lctx LogContext
+	var lctx ProcessContext
 
 	// If the file doesn't exist, create it, or append to the file
 	var err error
@@ -638,9 +645,9 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 // ****************************************************************************
 
-func GetLogContext(ctx context.Context) (LogContext, bool) {
+func GetProcessContext(ctx context.Context) (ProcessContext, bool) {
 
-	lctx, ok := ctx.Value(logctx).(LogContext)
+	lctx, ok := ctx.Value(logctx).(ProcessContext)
 	return lctx,ok
 }
 
@@ -663,8 +670,8 @@ func UpdateSensorContext(ctx context.Context) context.Context {
 
 // ****************************************************************************
 
-func CloseLog(ctx context.Context) {
-	lctx, _ := GetLogContext(ctx)
+func CloseProcess(ctx context.Context) {
+	lctx, _ := GetProcessContext(ctx)
 	lctx.tf.Close();
 	lctx.gf.Close();
 }
