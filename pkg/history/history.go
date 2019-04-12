@@ -12,13 +12,13 @@
 package history
 
 import (
+	"strings"
 	"sync/atomic"
 	"context"
 	"time"
 	"runtime"
 	"crypto/sha1"
 	"fmt"
-	"strings"
 	"os"
 )
 
@@ -545,7 +545,10 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 	// Make a unique filename for the application instance, using pid and executable
 
 	binary, err = os.Executable()
+
+
 	path := strings.ReplaceAll(binary,"/","_")
+
 	pid = os.Getpid()
 
 	// Put the dir in /tmp for now, assuming effectively private in cloud

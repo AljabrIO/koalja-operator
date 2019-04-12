@@ -31,6 +31,8 @@ func main() {
 
    // go routine ...several parallel with same name
 
+	str := strings.ReplaceAll("aaaa","a","b")
+
 }
 
 //**************************************************************
