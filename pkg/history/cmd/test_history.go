@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"context"
 	"io/ioutil"
-	H "github.com/AljabrIO/koalja-operator/pkg/history"
+//	H "github.com/AljabrIO/koalja-operator/pkg/history"
+	H "history"
 )
 
 // ****************************************************************************
@@ -16,7 +17,7 @@ import (
 
 func main() {
 
-	// 1. test cellibrium
+	// 1. test cellibrium - need an invariant name (non trivial in cloud)
 
 	ctx := context.Background()
 	ctx = H.LocationInfo(ctx, map[string]string{
@@ -30,8 +31,6 @@ func main() {
 	// 2. test koalja, reads pipeline/container_description
 
    // go routine ...several parallel with same name
-
-	str := strings.ReplaceAll("aaaa","a","b")
 
 }
 
