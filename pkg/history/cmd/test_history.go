@@ -61,12 +61,12 @@ func MainLoop(ctx context.Context){
 		UsingNR("/etc/passed","file").
 		UsingNR("123.456.789.123","dns lookup").
 		UsingN("hfdjfh").
-		FailedBecause("xxx","xxx").
-		PartOf(H.NR("main","function")).
+		FailedBecause("xxx").
+		PartOf(H.NR("main","coroutine")).
 		Contains(H.NR("Test1","test function"))
 
 	// Pass ctx down for logging in lower levels
-	Test1(ctx)
+	go Test1(ctx)
 
 	// End loop
 	H.RefMarker(&ctx,"The end!")
@@ -80,7 +80,7 @@ func Test1(ctx context.Context){
 		PartOf(H.N("Testing suite"))
 
 	m.Intent("read whole file of data").
-		Used(H.NR("file://URI","file"))
+		UsingNR("file://URI","file")
 
 	_, err := ioutil.ReadFile("file://URI")
 

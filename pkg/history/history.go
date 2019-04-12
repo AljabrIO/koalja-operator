@@ -378,6 +378,9 @@ func (m RM) PartOf(nr NameAndRole) RM {
 	var logmsg string = "- part of " + nr.role + ": " + nr.name
 	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
 	Relation(m.ctx,true,m.description.hub,partof,nr.hub)
+
+	// context and part name and atomic counter (wait?) for unique name
+
 	return m
 }
 
@@ -535,17 +538,30 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// If the file doesn't exist, create it, or append to the file
 	var err error
+	var binary, path string
+	var pid int
 
+	// Make a unique filename for the application instance, using pid and executable
+
+	binary, err = os.Executable()
+	path = ReplaceAll(binary,"/","_")
+	pid = GetPid()
+
+	// Put the dir in /tmp for now, assuming effectively private in cloud
+
+	err = MkdirAll("/tmp/"+binary, 0755)
+
+	fmt.Println("MKDIR /tmp/"+binary)
 
 	// Transaction log
-	lctx.tf, err = os.OpenFile("/tmp/cellibrium_ts.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	lctx.tf, err = os.OpenFile("/tmp/"+binary"+"/transaction.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("ERROR ",err)
 	}
 
 	// Graph DB
-	lctx.gf, err = os.OpenFile("/tmp/cellibrium_gr.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	lctx.gf, err = os.OpenFile("/tmp/"+binary"+"/graph.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("ERROR ",err)
