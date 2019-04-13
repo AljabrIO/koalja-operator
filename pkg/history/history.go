@@ -17,7 +17,7 @@ import (
 	"context"
 	"time"
 	"runtime"
-	"crypto/sha1"
+//	"crypto/sha1"
 	"fmt"
 	"os"
 )
@@ -33,27 +33,15 @@ import (
 
 var INTERIOR_TIME int64 = 0 
 
-// Trajectory(nowtime, event, previous time)
-
-// The timeline is an array of tuples TUPLES[INTERMIOR_TIME]
-
-// Should we have a code book/dictionary for compressing?
-
 // ***************************************************************************
 
-var logctx string
+var PROCESS_CTX string
 
 type Name string
 type List []string
 type BreadBoard map[string]List
 
-type Container struct {
-	alias string
-	image_version string
-	image string
-	command string
-	args []string
-}
+// ****************************************************************************
 
 type NameAndRole struct {
 	name string
@@ -61,34 +49,38 @@ type NameAndRole struct {
 	hub string
 }
 
-type Coordinates struct {
-	proper int   // Proper time
-	t int32
-	x NameAndRole // location hub
-}
-
-type PathState struct {            // Reference marker
-	description NameAndRole
-	xt Coordinates
-	ctx context.Context
-	previous int // copied from atomic int64
-}
+// ****************************************************************************
 
 type Association struct {
- 	key  int      // index
-	STtype int    // oriented type, - reverses oriention
-	fwd  string   // forward oriented meaning
-	bwd  string   // backward " 
+ 	key     int      // index
+	STtype  int      // oriented type, - reverses oriention
+	fwd     string   // forward oriented meaning
+	bwd     string   // backward " 
 }
 
 // ****************************************************************************
 
-type ProcessContext struct {
+type PTime struct {
+
+	proper   int        // monotonic thread clock
+	exterior int        // monotonic exterior clock
+	previous int        // exterior ancestor of current time
+	utc      int64  // Unix time
+}
+
+// ****************************************************************************
+
+type ProcessContext struct {  // Embed this in ctx
+
+	// Process invariants
+
+	// Streams for dropping outcomes(t)
 	tf *os.File
 	gf *os.File
-	t time.Time          // Start time
-	proper int
-	prefix string        // unique channel identifer
+
+	tick PTime
+
+	prefix     string    // unique process channel name declared in LocationInfo()
 }
 
 // ***************************************************************************
@@ -110,6 +102,7 @@ const (
 	contains int = 1
 	uses int = 13
 	alias int = 26
+	determines int = 9
 
 	PROCESS_MARKER string = "process reference marker"
 	SYS_ERR_MSG string = "system error message"
@@ -117,7 +110,7 @@ const (
 )
 
 var (
-	ASSOCIATIONS = [29]Association{
+	ASSOCIATIONS = [99]Association{
 		{0,0, "unknown promise", "unknown promise"},
 
 		{1,GR_CONTAINS,"contains","belongs to or is part of"},
@@ -275,6 +268,7 @@ func CodeLocation() NameAndRole { // User function
 // ****************************************************************************
 
 func Where(depth int) string {
+
         // Interal usage
 	p,name,line, ok := runtime.Caller(depth)
 	
@@ -290,200 +284,126 @@ func Where(depth int) string {
 	return location
 }
 
-
 // ****************************************************************************
-// Explain
+// Transactions
 // ****************************************************************************
 
-// WriteChainBlock(m Pathstate)
+func SignPost(ctx *context.Context, remark string) ProcessContext {
 
-func WriteChainBlock(ctx context.Context,t int32, s string, propertime int, previoustime int) {
+	// Retrieve the cookie
+	cctx := *ctx
 
-	var hub string 
-	lctx, ok := GetProcessContext(ctx)
-	pid := os.Getpid()
+	pc, _ := cctx.Value(PROCESS_CTX).(ProcessContext)
 
-	if ok {
-		hub = fmt.Sprintf("(%s,%d,%d,%d,%s)\n",lctx.prefix,t,propertime,previoustime,s)
-		lctx.tf.WriteString(hub)
-	}
+	// Update the cookie
+	// time ...
+
+	pc.tick = BigTick(pc.tick)
+
+	// location ...
+
+	// Update this local copy of context, each time we erect a signpost
+	// to hand down to the next layer
+
+	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
+
+	WriteChainBlock(pc, remark)
+
+	// Pass on local data relative to current context
+	return pc
 }
 
 // ****************************************************************************
 
-func WriteAddendum(ctx context.Context, s string, propertime int, previoustime int) {
+func (pc ProcessContext) Note(s string) ProcessContext {
 
-	var hub string 
-	lctx, ok := GetProcessContext(ctx)
-	if ok {
-		hub = fmt.Sprintf("(%s,-,%d,%d,%s)\n",lctx.prefix,propertime,previoustime,s)
-		lctx.tf.WriteString(hub)
-	}
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,s)
+	return pc
 }
 
 // ****************************************************************************
 
-func RefMarker(ctx *context.Context, s string) PathState {
-
-	var rm PathState 
-	rm.description = NR(s,PROCESS_MARKER)
-	AnnotateNR(*ctx,rm.description)
-	rm.ctx = *ctx
-	// rm ----
-	rm.previous = GetPrevious(*ctx)
-	rm.xt = GetCoordinates(*ctx) 
-	// Set the latest proper time
-	*ctx = SetPrevious(*ctx,rm.xt.proper)
-	WriteChainBlock(*ctx,rm.xt.t,rm.description.hub,rm.xt.proper,rm.previous)
-	//------
-	l := CodeLocation()
-	Relation(*ctx,true,rm.description.hub,expresses,l.hub)
-	return rm
-}
-
-// ****************************************************************************
-
-func (rm PathState) Note(ctx *context.Context,s string) PathState {
-
-// Instead of a string there should be an interface to accept an INT or a free string
-// where the INT points to a list of standard strings already in the DB
-
-	var nm NameAndRole = NR(s,PROCESS_MARKER)
-	AnnotateNR(*ctx,nm)
-	Relation(*ctx,true,nm.hub,follows,rm.description.hub)
-	Relation(*ctx,true,rm.description.hub,contains,nm.hub)
-	xt := GetCoordinates(*ctx)
-	WriteChainBlock(*ctx,xt.t,nm.hub,xt.proper,rm.previous)
-	return rm
-}
-
-// ****************************************************************************
-
-func (m PathState) Attributes(attr ...NameAndRole) PathState {
+func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 
 	for i := 0; i < len(attr); i++ {
-		Relation(m.ctx,true,m.description.hub,expresses,attr[i].hub)
+		//Relation(m.ctx,true,m.description.hub,expresses,attr[i].hub)
+
+		s := "(" + attr[i].name + "," + attr[i].role + ")"
+		pc.tick = SmallTick(pc.tick)
+		WriteChainBlock(pc,s)
 	}
-	return m
+	return pc
 }
 
 // ****************************************************************************
 
-func Relation(ctx context.Context,notnot bool, n string,assoc int,subject string) {
-
-	var hub string
-
-	if notnot {
-		hub = fmt.Sprintf("(%d,{%s}, %s, {%s})",ASSOCIATIONS[assoc].STtype,n,ASSOCIATIONS[assoc].fwd,subject)
-	} else {
-		hub = fmt.Sprintf("(%d,{%s}, NOT %s, {%s})",ASSOCIATIONS[assoc].STtype,n,ASSOCIATIONS[assoc].fwd,subject)
-	}
-
-	lctx, ok := GetProcessContext(ctx)
-	if ok {
-		lctx.gf.WriteString(hub+"\n")
-	}
-}
-
-// ****************************************************************************
-
-func (m PathState) Role(role string) PathState {
-
-	var logmsg string = "-in role " + role
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
-
-	Relation(m.ctx,true,m.description.hub,hasrole,role)
-	return m
-}
-
-// ****************************************************************************
-
-func (m PathState) NotRole(role string) PathState {
-
-	var logmsg string = "-NOT in role " + role
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
-	Relation(m.ctx,false,m.description.hub,hasrole,role)
-	return m
-}
-
-// ****************************************************************************
-
-func (m PathState) ReadsFrom(nr NameAndRole) PathState {
+func (pc ProcessContext) ReliesOn(nr NameAndRole) ProcessContext {
 
 // SRC uses DEST
+// uses
+	//var logmsg string = "-used " + nr.role + ": " + nr.name
 
-	var logmsg string = "-used " + nr.role + ": " + nr.name
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
-	Relation(m.ctx,true,m.description.hub,uses,nr.hub)
-	return m
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,nr.hub)
+	return pc
 }
 
 // ****************************************************************************
 
-func (m PathState) WritesTo(nr NameAndRole) PathState {
+func (pc ProcessContext) Determines(nr NameAndRole) ProcessContext {
 
-	var logmsg string = "-used " + nr.role + ": " + nr.name
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
+	//var logmsg string = "-used by " + nr.role + ": " + nr.name
 
+// determines
 // DEST uses SRC
-	Relation(m.ctx,true,m.description.hub,uses,nr.hub)
-	return m
+	//Relation(m.ctx,true,m.description.hub,uses,nr.hub)
+
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,nr.hub)
+	return pc
 }
 
 // ****************************************************************************
 
-func (m PathState) PartOf(nr NameAndRole) PathState {
+func (pc ProcessContext) PartOf(nr NameAndRole) ProcessContext {
 
-	var logmsg string = "- part of " + nr.role + ": " + nr.name
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
-	Relation(m.ctx,true,m.description.hub,partof,nr.hub)
+	//var logmsg string = "- part of " + nr.role + ": " + nr.name
 
-	// context and part name and atomic counter (wait?) for unique name
-
-	return m
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,nr.hub)
+	return pc
 }
 
 // This could be folded into something else
 
-func (m PathState) Contains(nr NameAndRole) PathState {
+func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 
-	//var logmsg string = nr.role + ": " + nr.name
-	//WriteChainBlock(m.ctx,m.xt.t,logmsg,m.xt.proper, m.previous)
-
-	Relation(m.ctx,true,m.description.hub,contains,nr.hub)
-	return m
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,nr.hub)
+	return pc
 }
 
 // ****************************************************************************
 
+func (pc ProcessContext) FailedSlave(nr NameAndRole) ProcessContext {
 
-func (m PathState) FailedSlave(nr NameAndRole) PathState {
-
-	var logmsg string = "-failure as " + nr.role + ": " + nr.name
-	WriteAddendum(m.ctx,logmsg,m.xt.proper, m.previous)
-
-	Relation(m.ctx,false,m.description.hub,uses,nr.hub)
-	return m
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,nr.hub)
+	return pc
 }
 
-func (m PathState) FailedBecause(name string) PathState {
-	return m.FailedSlave(N(name))
-}
-
-func (m PathState) FailedBy(name string, role string) PathState {
-	return m.FailedSlave(NR(name,role))
+func (pc ProcessContext) FailedBecause(name string) ProcessContext {
+	return pc.FailedSlave(N(name))
 }
 
 // ****************************************************************************
 
-func (m PathState) Intent(s string) PathState {
+func (pc ProcessContext) Intent(s string) ProcessContext {
 
-	var nm NameAndRole = NR(s,"intended outcome")
-	AnnotateNR(m.ctx,nm)
-	Relation(m.ctx,true,m.description.hub,promises,s)
-	// m
-	WriteChainBlock(m.ctx,m.xt.t,nm.hub,m.xt.proper,m.previous)
-	return m
+	pc.tick = SmallTick(pc.tick)
+	WriteChainBlock(pc,s)
+	return pc
 }
 
 // ****************************************************************************
@@ -504,97 +424,49 @@ func NR(name string, role string) NameAndRole {
 
 // ****************************************************************************
 
-func AnnotateNR(ctx context.Context,n NameAndRole){
-
-	/*if AlreadyDefined(n.hub){
-	// SHOULD WE TOKENIZE?
-
-	}*/
-
-	Relation(ctx,true,n.hub,hasrole,n.role)
-	Relation(ctx,true,n.hub,expresses,n.name)
-}
-
-// ****************************************************************************
-
 func N(name string) NameAndRole {
 	return NR(name,UNSPEC_ROLE)
 }
 
 // ****************************************************************************
 
-func (m PathState) AddError(err error) PathState {
-
-	n := NR(err.Error(),SYS_ERR_MSG)
-	AnnotateNR(m.ctx,n)
-	Relation(m.ctx,true,n.hub,hasrole,n.role)
-	Relation(m.ctx,true,m.description.hub,expresses,n.hub)
-	Relation(m.ctx,true,n.hub,follows,m.description.hub)
-	
-	return m
-}
-
-// ****************************************************************************
-
-func URI(s string) NameAndRole {
-	return NR(s,"object URI")
-}
-
-// ****************************************************************************
-
-func GetLocation(ctx context.Context) string {
-
-	val, _ := GetProcessContext(ctx)
-	return val.prefix
-}
-
-// ****************************************************************************
-
-func SetPrevious(ctx context.Context, propertime int) context.Context {
-
-	lctx, _ := ctx.Value(logctx).(ProcessContext)
-	lctx.proper = propertime
-	return context.WithValue(ctx, logctx, lctx)
-}
-
-// ****************************************************************************
-
-func GetCoordinates(ctx context.Context) Coordinates {
-	return Tick(ctx)
-}
-
-// ****************************************************************************
-
-func GetPrevious(ctx context.Context) int {
-
-	lctx, _ := ctx.Value(logctx).(ProcessContext)
-	return lctx.proper
-}
-
-// ****************************************************************************
-
-// Increment a proper time interval
-
-func Tick(ctx context.Context) Coordinates {
+func BigTick(t PTime) PTime {
 
 	// Since proper time gets reset by new exec, we should keep x,t clear
 	// And x should depend on the execution is possible
-	var c Coordinates
+
 	var next int64 = atomic.AddInt64(&INTERIOR_TIME,1)
-	c.proper = int(next)
-	c.t = int32(time.Now().Unix())
-	hub := GetLocation(ctx)
- 	c.x = NR(hub,PROCESS_MARKER)
-	return c
+	// record the ancestry
+	t.previous = t.exterior
+	// and add to unique timeline
+	t.exterior = int(next)
+	t.proper += 1
+	t.utc = time.Now().Unix()
+
+	// Check for discontinuous time
+
+	return t
+}
+
+// ****************************************************************************
+
+func SmallTick(t PTime) PTime {
+
+	t.proper += 1
+	t.utc = time.Now().Unix()
+
+	// Check for discontinuous time
+
+	return t
 }
 
 // ****************************************************************************
 // * Context
 // ****************************************************************************
 
-func LocationInfo(ctx context.Context, m map[string]string) context.Context {
+func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
-	var lctx ProcessContext
+	var pc ProcessContext
 
 	// If the file doesn't exist, create it, or append to the file
 	var err error
@@ -610,68 +482,74 @@ func LocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	err = os.MkdirAll("/tmp/cellibrium/"+path, 0755)
 
-	tpath := fmt.Sprintf("/tmp/cellibrium/%s/transaction_%d.log",path,pid)
+	tpath := fmt.Sprintf("/tmp/cellibrium/%s/transaction_%d",path,pid)
 
 	// Transaction log
-	lctx.tf, err = os.OpenFile(tpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	pc.tf, err = os.OpenFile(tpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("ERROR ",err)
 	}
 
 	// Graph DB
-	gpath := fmt.Sprintf("/tmp/cellibrium/%s/graph_%d.log",path,pid)
-	lctx.gf, err = os.OpenFile(gpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	gpath := fmt.Sprintf("/tmp/cellibrium/%s/graph_%d",path,pid)
+	pc.gf, err = os.OpenFile(gpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("ERROR ",err)
 	}
 
-	lctx.prefix = path
-	lctx.proper = 0
-	rctx := context.WithValue(ctx, logctx, lctx)
+	// Initialize process time
+	pc.tick.proper = 0
+	pc.tick.previous = 0
+	pc.tick.exterior = 0
+	pc.tick.utc = time.Now().Unix()
 
-	Relation(rctx,true,location,alias,lctx.prefix)
+	ext_ctx := context.WithValue(ctx, PROCESS_CTX, pc)
 
-	for k, v := range m {
-		kv := k + ":" + v
-		Relation(rctx,true,location,expresses,kv)
-		Relation(rctx,true,kv,hasrole,k)
-		Relation(rctx,true,kv,expresses,v)
-	}
+	// Explain context in graphical terms
 
-	return rctx
+//	Relation(ext_ctx,true,location,alias,pc.prefix)
+
+	//for k, v := range m {
+		//kv := k + ":" + v
+		//Relation(ext_ctx,true,location,expresses,kv)
+		//Relation(ext_ctx,true,kv,hasrole,k)
+		//Relation(ext_ctx,true,kv,expresses,v)
+	//}
+
+	return ext_ctx
 }
 
 // ****************************************************************************
 
-func GetProcessContext(ctx context.Context) (ProcessContext, bool) {
+func WriteChainBlock(pc ProcessContext, remark string) {
 
-	lctx, ok := ctx.Value(logctx).(ProcessContext)
-	return lctx,ok
+	pid := os.Getpid()
+	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
+	pc.tf.WriteString(entry)
+	fmt.Print(entry)
 }
 
 // ****************************************************************************
 
-func UpdateSensorContext(ctx context.Context) context.Context {
+func (pc ProcessContext) AddError(err error) ProcessContext {
 
-	/* Scan sensors for 
-              i) software version changes, 
-             ii) new inputs, 
-             iii)new targets
-        */
+	n := NR(err.Error(),SYS_ERR_MSG)
+	pc.FailedSlave(n)
 
-	// Should we comput diff here, or later?
-
-	// Build in ML for normal state of context flags
-
-	return ctx
+/*	AnnotateNR(m.ctx,n)
+	Relation(m.ctx,true,n.hub,hasrole,n.role)
+	Relation(m.ctx,true,m.description.hub,expresses,n.hub)
+	Relation(m.ctx,true,n.hub,follows,m.description.hub)
+	*/
+	return pc
 }
 
 // ****************************************************************************
 
 func CloseProcess(ctx context.Context) {
-	lctx, _ := GetProcessContext(ctx)
-	lctx.tf.Close();
-	lctx.gf.Close();
+//	pc, _ := GetProcessContext(ctx)
+//	pc.tf.Close();
+//	pc.gf.Close();
 }

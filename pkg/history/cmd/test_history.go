@@ -20,7 +20,7 @@ func main() {
 	// 1. test cellibrium - need an invariant name (non trivial in cloud)
 
 	ctx := context.Background()
-	ctx = H.LocationInfo(ctx, map[string]string{
+	ctx = H.SetLocationInfo(ctx, map[string]string{
 		"Pod":     "A_pod_named_foo",
 		"Process": "myApp_name2",  // insert instance data from env?
 		"Version": "1.2.3",
@@ -40,52 +40,50 @@ func main() {
 
 func MainLoop(ctx context.Context){
 
-	H.RefMarker(&ctx,"MainLoop start").
+	H.SignPost(&ctx,"MainLoop start").
 		PartOf(H.NR("main","function"))
 
 	// Adaptive loop to update context by sensor/input activity
 	// Context changes as a result of new environment detected
 
-	// Start loop
-	ctx = H.UpdateSensorContext(ctx)
-
         // ...other stuff happens
-	mk := H.RefMarker(&ctx,"Beginning of test code").
-		Role("Start process").
+	mk := H.SignPost(&ctx,"Beginning of test code").
+		Note("Start process").
 		Attributes(H.NR("cellibrium","go package"),H.N("example code"))
 	// ...
-	mk.Note(&ctx,"look up a name")
+	mk.Note("look up a name")
 
 	// ...
-	H.RefMarker(&ctx,"code signpost X"). // what you intended
+	H.SignPost(&ctx,"code signpost X"). // what you intended
 	Intent("open file X").
-		WritesTo("/etc/passed","file").
-		ReadsFrom("123.456.789.123","dns lookup").
+		ReliesOn(H.NR("/etc/passed","file")).
+		Determines(H.NR("123.456.789.123","dns lookup")).
 		FailedBecause("xxx").
-		PartOf(H.NR("main","coroutine")).
-		Contains(H.NR("Test1","test function"))
+		PartOf(H.NR("main","coroutine"))
 
 	// Pass ctx down for logging in lower levels
 	go Test1(ctx)
 
 	// End loop
-	H.RefMarker(&ctx,"The end!")
+	H.SignPost(&ctx,"The end!")
+	fmt.Scanln()
+
 }
 
 //**************************************************************
 
 func Test1(ctx context.Context){
 
-	m := H.RefMarker(&ctx,"TEST1---------").
-		PartOf(H.N("Testing suite"))
+	m := H.SignPost(&ctx,"TEST1---------").
+		PartOf(H.N("Testing suite 1"))
 
 	m.Intent("read whole file of data").
-		UsingNR("file://URI","file")
+		Determines(H.NR("file://URI","file"))
 
 	_, err := ioutil.ReadFile("file://URI")
 
 	if err != nil {
-	        m.Note(&ctx,"file read failed").AddError(err)
+	        m.Note("file read failed").AddError(err)
 	}
 	
 }

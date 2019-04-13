@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"bufio"
 //	H "github.com/AljabrIO/koalja-operator/pkg/history"
 //	H "history"
 )
@@ -31,7 +32,7 @@ func main() {
 
 	fmt.Printf("opening /tmp/cellibrium/%s\n", args[0]);
 	
-	path := fmt.Sprintf("/tmp/cellibrium/%s",args[0])
+	path := fmt.Sprintf("/tmp/cellibrium/%s/",args[0])
 
 	files, err := ioutil.ReadDir(path)
 
@@ -40,14 +41,62 @@ func main() {
 	}
 
 	for _, file := range files {
-		fmt.Println(file.Name())
+		if strings.HasPrefix(file.Name(),"transaction") {
+			ShowFile(path,file.Name())
+		}
 	}
+
+
+}
+
+//**************************************************************
+
+func ShowFile(path,name string) {
+
+	file, err := os.Open(path+name)
 
 	if err != nil {
-		fmt.Println("ERROR ",err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
+	defer file.Close()
+	
+	scanner := bufio.NewScanner(file)
 
+	parts := strings.Split(name,"_")
+
+	fmt.Println("SCANNING process originally started as pid ",parts[1])
+
+	for scanner.Scan() {
+		ParseLine(scanner.Text(),parts[1])
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+//**************************************************************
+
+func ParseLine(s string, fpid string) {
+
+	var t,proper,exterior,prev int
+	var pid string
+
+	fmt.Sscanf(s,"%s , %d , %d , %d , %d",&pid,&t,&proper,&exterior,&prev)
+	remark := strings.Split(s,";")
+
+	if (fpid != pid) {
+		fmt.Println("process forked -- ",pid," != ",fpid)
+	}
+
+	if exterior != prev+1 {
+		fmt.Printf("go> %d <- root = %d+d%d  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
+	} else {
+		fmt.Printf("%d <- root = %d+d%d  (utc %d)      | %s \n",prev,exterior,proper,t,remark[1])
+	}
 }
 
 //**************************************************************
