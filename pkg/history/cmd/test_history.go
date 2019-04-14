@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"context"
 	"io/ioutil"
+	"os/exec"
+	"sort"
 //	H "github.com/AljabrIO/koalja-operator/pkg/history"
 	H "history"
 )
@@ -63,16 +65,20 @@ func MainLoop(ctx context.Context){
 
 	// Pass ctx down for logging in lower levels
 	go Test1(ctx)
-
+	
+	ScanSystem(ctx)
+	
 	// End loop
 	H.SignPost(&ctx,"The end!")
-	fmt.Scanln()
+
+	H.SignPost(&ctx,"Show the signposts")
+	ShowMap()
 
 }
 
 //**************************************************************
 
-func Test1(ctx context.Context){
+func Test1(ctx context.Context) {
 
 	m := H.SignPost(&ctx,"TEST1---------").
 		PartOf(H.N("Testing suite 1"))
@@ -86,6 +92,36 @@ func Test1(ctx context.Context){
 	        m.Note("file read failed").AddError(err)
 	}
 	
+}
+
+//**************************************************************
+
+func ScanSystem(ctx context.Context) string {
+	
+	mk := H.SignPost(&ctx,"Run ps command").
+		Attributes(H.N("/bin/ps -eo user,pcpu,pmem,vsz,stime,etime,time,args"))
+	
+	lsCmd := exec.Command("/bin/ps", "-eo", "user,pcpu,pmem,vsz,stime,etime,time,args")
+	lsOut, err := lsCmd.Output()
+	
+	mk.Note("Finished ps command")
+	
+	if err != nil {
+		panic(err)
+	}
+	return string(lsOut)
+}
+
+//**************************************************************
+
+func ShowMap() {
+
+	fmt.Println("This signature of the execution can be compared for intferometry of changes in testing w fixed inputs")
+
+	sort.Ints(H.PROPER_PATHS)
+	for k,v := range H.PROPER_PATHS {
+		fmt.Println(k," ",v)
+		}
 }
 
 //**************************************************************

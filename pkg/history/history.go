@@ -31,15 +31,15 @@ import (
 // This will end up being irrelevant to graphDB, has only local significance,
 // except for relative order
 
-var INTERIOR_TIME int64 = 0 
-
-// ***************************************************************************
-
-var PROCESS_CTX string
-
 type Name string
 type List []string
+type Neighbours []int
+type SparseGraph map[int]Neighbours
 type BreadBoard map[string]List
+
+var INTERIOR_TIME int64 = 0 
+var PROPER_PATHS SparseGraph
+var PROCESS_CTX string
 
 // ****************************************************************************
 
@@ -440,8 +440,14 @@ func BigTick(t PTime) PTime {
 	t.previous = t.exterior
 	// and add to unique timeline
 	t.exterior = int(next)
-	t.proper += 1
+	t.proper = 1
 	t.utc = time.Now().Unix()
+
+	if PROPER_PATHS[t.previous] == nil {
+		PROPER_PATHS[t.previous] = make(Neighbours,0)
+	}
+
+	PROPER_PATHS[t.previous] = append(PROPER_PATHS[t.previous], t.exterior)
 
 	// Check for discontinuous time
 
@@ -505,6 +511,8 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	pc.tick.exterior = 0
 	pc.tick.utc = time.Now().Unix()
 
+	PROPER_PATHS = make(SparseGraph)
+
 	ext_ctx := context.WithValue(ctx, PROCESS_CTX, pc)
 
 	// Explain context in graphical terms
@@ -528,7 +536,7 @@ func WriteChainBlock(pc ProcessContext, remark string) {
 	pid := os.Getpid()
 	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
 	pc.tf.WriteString(entry)
-	fmt.Print(entry)
+	//fmt.Print(entry)
 }
 
 // ****************************************************************************

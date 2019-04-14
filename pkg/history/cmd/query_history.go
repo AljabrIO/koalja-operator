@@ -93,9 +93,9 @@ func ParseLine(s string, fpid string) {
 	}
 
 	if exterior != prev+1 {
-		fmt.Printf("go> %d <- root = %d+d%d  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
+		fmt.Printf("go> %d <- root = (%d,%d)  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
 	} else {
-		fmt.Printf("%d <- root = %d+d%d  (utc %d)      | %s \n",prev,exterior,proper,t,remark[1])
+		fmt.Printf("... %d <- root = (%d,%d)  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
 	}
 }
 
