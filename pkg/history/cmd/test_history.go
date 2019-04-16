@@ -116,11 +116,19 @@ func ScanSystem(ctx context.Context) string {
 
 func ShowMap() {
 
-	fmt.Println("This signature of the execution can be compared for intferometry of changes in testing w fixed inputs")
+	fmt.Println("This signature of the execution can be compared for interferometry of changes in testing w fixed inputs")
 
-	sort.Ints(H.PROPER_PATHS)
-	for k,v := range H.PROPER_PATHS {
-		fmt.Println(k," ",v)
+	// Need to sort the keys because map is non-deterministic
+
+	var keys []int
+	for k := range H.PROPER_PATHS  {
+		keys = append(keys, k)
+	}
+	
+	sort.Ints(keys)
+	
+	for k := range keys {
+		fmt.Println(k," ",H.PROPER_PATHS[k])
 		}
 }
 
