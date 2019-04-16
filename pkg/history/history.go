@@ -17,9 +17,13 @@ import (
 	"context"
 	"time"
 	"runtime"
+	"io/ioutil"
 //	"crypto/sha1"
 	"fmt"
 	"os"
+
+	// Try this for local string -> int
+	"hash/fnv"
 )
 
 // ***************************************************************************
@@ -40,6 +44,16 @@ type BreadBoard map[string]List
 var INTERIOR_TIME int64 = 0 
 var PROPER_PATHS SparseGraph
 var PROCESS_CTX string
+
+var BASEDIR string = "/tmp/cellibrium"
+
+// ****************************************************************************
+
+type Concept struct {
+	name string
+	hash string
+	key uint64
+}
 
 // ****************************************************************************
 
@@ -70,14 +84,17 @@ type PTime struct {
 
 // ****************************************************************************
 
-type ProcessContext struct {  // Embed this in ctx
+type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 	// Process invariants
+
+	previous_concept Concept
 
 	// Streams for dropping outcomes(t)
 	tf *os.File
 	gf *os.File
 
+	// Process paths
 	tick PTime
 
 	prefix     string    // unique process channel name declared in LocationInfo()
@@ -95,7 +112,8 @@ const GR_CONTEXT int   = 5  // approx like
 const ALL_CONTEXTS string = "any"
 
 const (
-	hasrole int = 20
+	has_role int = 20
+	has_coordinates int = 21
 	expresses int = 15
 	promises int = 16
 	follows int = 5
@@ -172,8 +190,8 @@ var (
 		{20,GR_EXPRESSES,"has the role of","is a role fulfilled by"},
 		{-20,GR_EXPRESSES,"has no role","is not a role fulfilled by"},
 
-		{21,GR_EXPRESSES,"has outcome","is an outcome of"},
-		{-21,GR_EXPRESSES,"has no outcome","is not an outcome of"},
+		{21,GR_EXPRESSES,"occurred at","was marked by event"},
+		{-21,GR_EXPRESSES,"did not occur at","was not marked by an event"},
 
 		{22,GR_EXPRESSES,"has function","is the function of"},
 		{-22,GR_EXPRESSES,"doesn't have function","is not the function of"},
@@ -236,6 +254,10 @@ func HereAndNow() string {
 
 	// Lookup, expand, graph
 
+	// BEEN HERE BEFORE? THEN DON'T DO ALL THIS AGAIN!
+
+	// ifelapsed into new range....
+
 	then := time.Now()
 
 	year := fmt.Sprintf("Yr%d",then.Year())
@@ -253,9 +275,31 @@ func HereAndNow() string {
         interval_end := (interval_start + 5) % 60
         minD := fmt.Sprintf("Min%02d_%02d",interval_start,interval_end)
 
+	var when string = fmt.Sprintf(" on %s %s %d %s %s at %s %s %s %s",shift,dow,day,month,year,hour,mins,quarter,minD)
+	var where = Where(3)
 
-	var hub string = fmt.Sprintf(" on %s %s %d %s %s at %s %s %s %s",shift,dow,day,month,year,hour,mins,quarter,minD)
-	var hereandnow = Where(3) + hub
+	// Build the invariant concept subgraphs
+
+	c1 := CreateConcept(when)
+	c2 := CreateConcept("event")
+	ConceptLink(c1,has_role,c2)
+
+	c2 = CreateConcept(mins)
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(hour)
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(year)
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(fmt.Sprintf("Day%d",day))
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(quarter)
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(minD)
+	ConceptLink(c1,expresses,c2)
+	c2 = CreateConcept(shift)
+	ConceptLink(c1,expresses,c2)
+
+	var hereandnow = where + when
 	return hereandnow
 }
 
@@ -276,7 +320,7 @@ func Where(depth int) string {
 
 	if ok {
 		var funcname = runtime.FuncForPC(p).Name()
-		location = fmt.Sprintf("in function %s in file %s at line %d",funcname,name,line)
+		location = fmt.Sprintf(" in function %s in file %s at line %d",funcname,name,line)
 	} else {
 		location = "unknown origin"
 	}
@@ -293,17 +337,36 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	// Retrieve the cookie
 	cctx := *ctx
 
+	// Pick up the stigmergic process memory
 	pc, _ := cctx.Value(PROCESS_CTX).(ProcessContext)
 
-	// Update the cookie
-	// time ...
+	// Part1. Update the stigmergic cookie
+	// Build the timelike change interaction picture
 
 	pc.tick = BigTick(pc.tick)
 
-	// location ...
+	// Part 2. Build invariant picture
+	// location ... and metric space of concepts
+
+	hereandnow := HereAndNow()
+	signpost := remark + hereandnow
+
+	c12 := CreateConcept(signpost)        // specific combinatoric instance
+	c1  := CreateConcept(remark)          // possibly used elsewhere/when
+	c2  := CreateConcept(hereandnow)      // disambiguator
+
+	// This instance expresses both invariants
+	ConceptLink(c12,expresses,c1)
+	ConceptLink(c12,has_coordinates,c2)
+
+	// Graph causality - must be idempotent/invariant
+
+	ConceptLink(c12,follows,pc.previous_concept)
 
 	// Update this local copy of context, each time we erect a signpost
 	// to hand down to the next layer
+
+	pc.previous_concept = c12
 
 	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
 
@@ -311,6 +374,68 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 
 	// Pass on local data relative to current context
 	return pc
+}
+
+// ****************************************************************************
+
+func ConceptLink(c1 Concept, rel int, c2 Concept) {
+
+	// Does these concepts already exist? If so, don't do these heavyweight ops again!
+
+	var path string
+	var err error
+	// write BASEDIR/app/concepts/<number>/<STtype>/<reln-nr>/text,list of numbers to neighbours
+
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c1.hash,ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
+	err = os.MkdirAll(BASEDIR, 0755)
+
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// inode's name is concept hash for the link of type STtype
+	os.Create(path + c2.hash)
+
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.hash,-ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
+	err = os.MkdirAll(BASEDIR, 0755)
+
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// inode's name is concept hash for the INVERSE link of type -STtype
+	os.Create(path + c1.hash)
+}
+
+// ****************************************************************************
+
+func CreateConcept(description string) Concept {
+
+	// Using a hash to avoid overthinking this unique key problem for now
+
+	var concept Concept
+	var err error
+
+	concept.name = description
+	concept.key = fnvhash([]byte(description))
+	concept.hash = fmt.Sprintf("%d",concept.key)
+
+	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.hash)
+
+	fmt.Println("creating "+path)
+ 
+	err = os.MkdirAll(path, 0755)
+	if err != nil {
+		os.Exit(1)
+	}
+	cpath := path + "/description"	
+
+	if !FileExists(cpath) {
+		content := []byte(concept.name)
+		err = ioutil.WriteFile(cpath, content, 0644)
+	}
+
+	return concept
 }
 
 // ****************************************************************************
@@ -451,6 +576,7 @@ func BigTick(t PTime) PTime {
 
 	// Check for discontinuous time
 
+
 	return t
 }
 
@@ -478,6 +604,11 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	var err error
 	var pid int
 
+	if BASEDIR != "/tmp/cellibrium" {
+		fmt.Println("Second call to SetLocationInfo is not allowed")
+		os.Exit(1)
+	}
+
 	// Make a unique filename for the application instance, using pid and executable
 
 	path := m["Process"] + m["Version"]
@@ -486,9 +617,10 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// Put the dir in /tmp for now, assuming effectively private in cloud
 
-	err = os.MkdirAll("/tmp/cellibrium/"+path, 0755)
+	BASEDIR = BASEDIR+"/"+path
+	err = os.MkdirAll(BASEDIR, 0755)
 
-	tpath := fmt.Sprintf("/tmp/cellibrium/%s/transaction_%d",path,pid)
+	tpath := fmt.Sprintf("%s/%s/transaction_%d",BASEDIR,path,pid)
 
 	// Transaction log
 	pc.tf, err = os.OpenFile(tpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -498,7 +630,7 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	}
 
 	// Graph DB
-	gpath := fmt.Sprintf("/tmp/cellibrium/%s/graph_%d",path,pid)
+	gpath := fmt.Sprintf("%s/%s/graph_%d",BASEDIR,path,pid)
 	pc.gf, err = os.OpenFile(gpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
@@ -517,12 +649,15 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// Explain context in graphical terms
 
-//	Relation(ext_ctx,true,location,alias,pc.prefix)
+
+//	ConceptContains(THISSOFTWAREpath,c)
+//	ConceptCloseEncounter()
+
 
 	//for k, v := range m {
 		//kv := k + ":" + v
 		//Relation(ext_ctx,true,location,expresses,kv)
-		//Relation(ext_ctx,true,kv,hasrole,k)
+		//Relation(ext_ctx,true,kv,has_role,k)
 		//Relation(ext_ctx,true,kv,expresses,v)
 	//}
 
@@ -534,9 +669,27 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 func WriteChainBlock(pc ProcessContext, remark string) {
 
 	pid := os.Getpid()
+
 	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
+
 	pc.tf.WriteString(entry)
-	//fmt.Print(entry)
+}
+
+// ****************************************************************************
+
+func fnvhash(b []byte) uint64 {
+	hash := fnv.New64a()
+	hash.Write(b)
+	return hash.Sum64()
+}
+
+// ****************************************************************************
+
+func FileExists(path string) bool {
+    _, err := os.Stat(path)
+    if err == nil { return true }
+    if os.IsNotExist(err) { return false }
+    return true
 }
 
 // ****************************************************************************
@@ -547,7 +700,7 @@ func (pc ProcessContext) AddError(err error) ProcessContext {
 	pc.FailedSlave(n)
 
 /*	AnnotateNR(m.ctx,n)
-	Relation(m.ctx,true,n.hub,hasrole,n.role)
+	Relation(m.ctx,true,n.hub,has_role,n.role)
 	Relation(m.ctx,true,m.description.hub,expresses,n.hub)
 	Relation(m.ctx,true,n.hub,follows,m.description.hub)
 	*/
