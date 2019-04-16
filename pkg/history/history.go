@@ -378,68 +378,6 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 
 // ****************************************************************************
 
-func ConceptLink(c1 Concept, rel int, c2 Concept) {
-
-	// Does these concepts already exist? If so, don't do these heavyweight ops again!
-
-	var path string
-	var err error
-	// write BASEDIR/app/concepts/<number>/<STtype>/<reln-nr>/text,list of numbers to neighbours
-
-	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c1.hash,ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
-	err = os.MkdirAll(BASEDIR, 0755)
-
-	if err != nil {
-		os.Exit(1)
-	}
-
-	// inode's name is concept hash for the link of type STtype
-	os.Create(path + c2.hash)
-
-	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.hash,-ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
-	err = os.MkdirAll(BASEDIR, 0755)
-
-	if err != nil {
-		os.Exit(1)
-	}
-
-	// inode's name is concept hash for the INVERSE link of type -STtype
-	os.Create(path + c1.hash)
-}
-
-// ****************************************************************************
-
-func CreateConcept(description string) Concept {
-
-	// Using a hash to avoid overthinking this unique key problem for now
-
-	var concept Concept
-	var err error
-
-	concept.name = description
-	concept.key = fnvhash([]byte(description))
-	concept.hash = fmt.Sprintf("%d",concept.key)
-
-	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.hash)
-
-	fmt.Println("creating "+path)
- 
-	err = os.MkdirAll(path, 0755)
-	if err != nil {
-		os.Exit(1)
-	}
-	cpath := path + "/description"	
-
-	if !FileExists(cpath) {
-		content := []byte(concept.name)
-		err = ioutil.WriteFile(cpath, content, 0644)
-	}
-
-	return concept
-}
-
-// ****************************************************************************
-
 func (pc ProcessContext) Note(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
@@ -629,14 +567,6 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 		fmt.Println("ERROR ",err)
 	}
 
-	// Graph DB
-	gpath := fmt.Sprintf("%s/%s/graph_%d",BASEDIR,path,pid)
-	pc.gf, err = os.OpenFile(gpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-	if err != nil {
-		fmt.Println("ERROR ",err)
-	}
-
 	// Initialize process time
 	pc.tick.proper = 0
 	pc.tick.previous = 0
@@ -677,7 +607,7 @@ func WriteChainBlock(pc ProcessContext, remark string) {
 
 // ****************************************************************************
 
-func fnvhash(b []byte) uint64 {
+func fnvhash(b []byte) uint64 { // Currently trusting this to have no collisions
 	hash := fnv.New64a()
 	hash.Write(b)
 	return hash.Sum64()
@@ -714,3 +644,68 @@ func CloseProcess(ctx context.Context) {
 //	pc.tf.Close();
 //	pc.gf.Close();
 }
+
+// ****************************************************************************
+//  Graph invariants
+// ****************************************************************************
+
+func ConceptLink(c1 Concept, rel int, c2 Concept) {
+
+	// Does these concepts already exist? If so, don't do these heavyweight ops again!
+
+	var path string
+	var err error
+	// write BASEDIR/app/concepts/<number>/<STtype>/<reln-nr>/text,list of numbers to neighbours
+
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c1.hash,ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
+	err = os.MkdirAll(BASEDIR, 0755)
+
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// inode's name is concept hash for the link of type STtype
+	os.Create(path + c2.hash)
+
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.hash,-ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
+	err = os.MkdirAll(BASEDIR, 0755)
+
+	if err != nil {
+		os.Exit(1)
+	}
+
+	// inode's name is concept hash for the INVERSE link of type -STtype
+	os.Create(path + c1.hash)
+}
+
+// ****************************************************************************
+
+func CreateConcept(description string) Concept {
+
+	// Using a hash to avoid overthinking this unique key problem for now
+
+	var concept Concept
+	var err error
+
+	concept.name = description
+	concept.key = fnvhash([]byte(description))
+	concept.hash = fmt.Sprintf("%d",concept.key)
+
+	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.hash)
+
+	fmt.Println("creating "+path)
+ 
+	err = os.MkdirAll(path, 0755)
+	if err != nil {
+		os.Exit(1)
+	}
+	cpath := path + "/description"	
+
+	if !FileExists(cpath) {
+		content := []byte(concept.name)
+		err = ioutil.WriteFile(cpath, content, 0644)
+	}
+
+	return concept
+}
+
