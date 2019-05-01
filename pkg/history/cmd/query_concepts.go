@@ -14,8 +14,11 @@ import (
 )
 
 // ****************************************************************************
-// SPLIT ! TOP
-// 2. Koalja program starts BELOW ...
+// basic query of graph structure
+// ****************************************************************************
+
+var VISITED = make(map[string]bool)  // loop avoidance
+
 // ****************************************************************************
 
 func main() {
@@ -44,7 +47,7 @@ func main() {
 	if len(args) == 1 || args[1] == "all" {
 		ListConcepts(args[0])
 	} else {
-		ShowConcept(args[0],args[1])
+		ShowConcept(0,args[0],args[1])
 	}
 
 
@@ -104,19 +107,16 @@ func ListConcepts(app string) {
 
 //**************************************************************
 
-func ShowConcept (app,concept_hash string) {
+func ShowConcept (level int, app,concept_hash string) {
 
-//	c := H.CreateConcept(concept)
-	
-	path := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s",app,concept_hash)
-	
-	files, err := ioutil.ReadDir(path)
-
-	if err != nil {
-		fmt.Println("Couldn't read directory "+path+" for concept: "+concept_hash)
-		os.Exit(1)
+	if VISITED[concept_hash] {
+		return
 	}
 
+	VISITED[concept_hash] = true
+
+	path := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s",app,concept_hash)
+	
 	descr := fmt.Sprintf("%s/description",path)
 	description, err := ioutil.ReadFile(descr)
 
@@ -125,16 +125,59 @@ func ShowConcept (app,concept_hash string) {
 		os.Exit(1)
 	}
 	
-	fmt.Printf("Stories about \"%s\" (%s)\n",string(description),concept_hash)
+	fmt.Printf("%s Stories about \"%s\" (%s)\n",I(level),string(description),concept_hash)
 
+	links := GetLinksFrom(app,string(description),concept_hash)
+	
+	for i := 1; i < 5; i++ {
+
+		if links.Bwd[i].Reltype != 0 {
+			fmt.Printf("%s %s <-- type (%s)  \"%s\"\n",
+				I(level),
+				links.Bwd[i].Next,
+				H.ASSOCIATIONS[links.Bwd[i].Reltype].Bwd,
+				description)
+
+			for next := 0; next < len(links.Bwd[i].Next); next++ {
+				ShowConcept(level+1,app,links.Bwd[i].Next[next])
+			}
+		}
+
+		if links.Fwd[i].Reltype != 0 {
+			fmt.Printf("%s \"%s\" type (%s) --> %s\n",
+				I(level),
+				description,
+				H.ASSOCIATIONS[links.Fwd[i].Reltype].Fwd,
+				links.Fwd[i].Next)
+			
+			for next := 0; next < len(links.Fwd[i].Next); next++ {
+				ShowConcept(level,app,links.Fwd[i].Next[next])
+			}
+		}
+	}
+}
+
+//**************************************************************
+
+func GetLinksFrom(app,description,concept_hash string) H.Links {
+
+	path := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s",app,concept_hash)
+	
+	files, err := ioutil.ReadDir(path)
+	
+	if err != nil {
+		fmt.Println("Couldn't read directory "+path+" for concept: "+concept_hash)
+		os.Exit(1)
+	}
+	
 	var links H.Links = H.LinkInit()
-
+	
 	for _, file := range files {
-
+		
 		if file.IsDir() {
-
+			
 			subdir := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s/%s/",app,concept_hash,file.Name())
-
+			
 			sfiles, serr := ioutil.ReadDir(subdir)
 			
 			if serr != nil {
@@ -158,13 +201,9 @@ func ShowConcept (app,concept_hash string) {
 					
 					for _, ssfile := range ssfiles {
 
-						var reltype,index int
+						var reltype, index int
 						fmt.Sscanf(file.Name(),"%d",&reltype)
 
-						//fmt.Printf("RAW of type (%s,%s) = %s\n",file.Name(),sfile.Name(),ssfile.Name())
-
-						// The POSITIVE and NEGATIVE relations are stored in pairs, so...
-						
 						if reltype < 0 {
 							index = -2*reltype+1
 						} else {
@@ -172,22 +211,12 @@ func ShowConcept (app,concept_hash string) {
 						}
 
 						if sttype < 0 {
-							links.Bwd[-sttype].Name = append(links.Bwd[-sttype].Name,ssfile.Name())
-							links.Bwd[-sttype].Reltype = reltype
-							fmt.Printf("BWD \"%s\" type (%s,%d) = %s\n",
-								string(description),
-								H.ASSOCIATIONS[index].Bwd,
-								reltype,
-								H.ConceptName(ssfile.Name()))
+							links.Bwd[-sttype].Next = append(links.Bwd[-sttype].Next,ssfile.Name())
+							links.Bwd[-sttype].Reltype = index
 
 						} else {
-							links.Fwd[sttype].Name = append(links.Fwd[-sttype].Name,ssfile.Name())
-							links.Fwd[sttype].Reltype = reltype
-							fmt.Printf("FWD \"%s\" type (%s,%d) = %s\n",
-								string(description),
-								H.ASSOCIATIONS[index].Fwd,
-								reltype,
-								H.ConceptName(ssfile.Name()))
+							links.Fwd[sttype].Next = append(links.Fwd[sttype].Next,ssfile.Name())
+							links.Fwd[sttype].Reltype = index
 						}
 					}
 				}
@@ -196,6 +225,7 @@ func ShowConcept (app,concept_hash string) {
 
 	}
 
+return links
 }
 
 //**************************************************************

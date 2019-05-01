@@ -102,28 +102,31 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 // ****************************************************************************
 
-type Relation struct {
-	Name    []string
-	Reltype int
+type NeighbourConcepts struct {
+	Next    []string  // a list of concepts reachable by this type of relation
+	Reltype int       // The precise line index in ASSOCIATIONS for the association
 }
 
 type Links struct {
-	Fwd [5]Relation
-	Bwd [5]Relation
+	Fwd [5]NeighbourConcepts  // The association links, classified by direction and ST type
+	Bwd [5]NeighbourConcepts
 }
 
 // ****************************************************************************
 
+/* From each concept, there may be links of different ST types, and these may
+   have subtly different interpretations, we collect a list here */
+
 func LinkInit() Links {
 	var links Links
- 	links.Fwd[GR_NEAR].Name = make([]string,0)
-	links.Fwd[GR_FOLLOWS].Name = make([]string,0)
-	links.Fwd[GR_CONTAINS].Name = make([]string,0)
-	links.Fwd[GR_EXPRESSES].Name = make([]string,0)  
-	links.Bwd[GR_NEAR].Name = make([]string,0)
-	links.Bwd[GR_FOLLOWS].Name = make([]string,0)
-	links.Bwd[GR_CONTAINS].Name = make([]string,0)
-	links.Bwd[GR_EXPRESSES].Name = make([]string,0)  
+ 	links.Fwd[GR_NEAR].Next = make([]string,0)
+	links.Fwd[GR_FOLLOWS].Next = make([]string,0)
+	links.Fwd[GR_CONTAINS].Next = make([]string,0)
+	links.Fwd[GR_EXPRESSES].Next = make([]string,0)  
+	links.Bwd[GR_NEAR].Next = make([]string,0)
+	links.Bwd[GR_FOLLOWS].Next = make([]string,0)
+	links.Bwd[GR_CONTAINS].Next = make([]string,0)
+	links.Bwd[GR_EXPRESSES].Next = make([]string,0)  
 	return links
 }
 
@@ -157,7 +160,7 @@ const (
 
 var (
 	ASSOCIATIONS = [99]Association{
-		{0,0, "unknown promise", "unknown promise"},
+		{0,0, "", ""},
 
 		{1,GR_CONTAINS,"contains","belongs to or is part of"},
 		{-1,GR_CONTAINS,"does not contain","is not part of"},
