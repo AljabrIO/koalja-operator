@@ -50,9 +50,9 @@ var BASEDIR string = "/tmp/cellibrium"
 // ****************************************************************************
 
 type Concept struct {
-	name string
-	hash string
-	key uint64
+	Name string
+	Hash string
+	Key uint64
 }
 
 // ****************************************************************************
@@ -66,10 +66,10 @@ type NameAndRole struct {
 // ****************************************************************************
 
 type Association struct {
- 	key     int      // index
+ 	Key     int      // index
 	STtype  int      // oriented type, - reverses oriention
-	fwd     string   // forward oriented meaning
-	bwd     string   // backward " 
+	Fwd     string   // forward oriented meaning
+	Bwd     string   // backward " 
 }
 
 // ****************************************************************************
@@ -100,6 +100,33 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 	prefix     string    // unique process channel name declared in LocationInfo()
 }
 
+// ****************************************************************************
+
+type Relation struct {
+	Name    []string
+	Reltype int
+}
+
+type Links struct {
+	Fwd [5]Relation
+	Bwd [5]Relation
+}
+
+// ****************************************************************************
+
+func LinkInit() Links {
+	var links Links
+ 	links.Fwd[GR_NEAR].Name = make([]string,0)
+	links.Fwd[GR_FOLLOWS].Name = make([]string,0)
+	links.Fwd[GR_CONTAINS].Name = make([]string,0)
+	links.Fwd[GR_EXPRESSES].Name = make([]string,0)  
+	links.Bwd[GR_NEAR].Name = make([]string,0)
+	links.Bwd[GR_FOLLOWS].Name = make([]string,0)
+	links.Bwd[GR_CONTAINS].Name = make([]string,0)
+	links.Bwd[GR_EXPRESSES].Name = make([]string,0)  
+	return links
+}
+
 // ***************************************************************************
 // Invariants
 // ****************************************************************************
@@ -112,20 +139,21 @@ const GR_CONTEXT int   = 5  // approx like
 const ALL_CONTEXTS string = "any"
 
 const (
-	has_role int = 20
-	has_coordinates int = 21
-	expresses int = 15
-	promises int = 16
-	follows int = 5
+	has_role int = 19
+	originates_from int = 5
+	expresses int = 14
+	promises int = 15
+	follows int = 4
 	contains int = 1
-	uses int = 13
-	alias int = 26
-	determines int = 9
+	uses int = 12
+	alias int = 24
 
 	PROCESS_MARKER string = "process reference marker"
 	SYS_ERR_MSG string = "system error message"
 	UNSPEC_ROLE string = "unspecified role"
 )
+
+// ****************************************************************************
 
 var (
 	ASSOCIATIONS = [99]Association{
@@ -135,81 +163,81 @@ var (
 		{-1,GR_CONTAINS,"does not contain","is not part of"},
 
 		// blue satisfies colour, colour is satisfied by blue
-		{3,-GR_CONTAINS,"satisfies","is satisfied by"},
-		{-3,-GR_CONTAINS,"does not satisfy","is not satisfied by"},
+		{2,-GR_CONTAINS,"satisfies","is satisfied by"},
+		{-2,-GR_CONTAINS,"does not satisfy","is not satisfied by"},
 
 		// colour generalizes blue
-		{4,GR_CONTAINS,"generalizes","is a special case of"},
-		{-4,GR_CONTAINS,"is not a generalization of","is not a special case of"},
+		{3,GR_CONTAINS,"generalizes","is a special case of"},
+		{-3,GR_CONTAINS,"is not a generalization of","is not a special case of"},
 
-		{5,GR_FOLLOWS,"followed after","is preceded by"},
-		{-5,GR_FOLLOWS,"does not follow","is not preceded by"},
+		{4,GR_FOLLOWS,"followed after","is preceded by"},
+		{-4,GR_FOLLOWS,"does not follow","is not preceded by"},
 
-		{6,GR_FOLLOWS,"originates from","is the source/origin of"},
-		{-6,GR_FOLLOWS,"does not originate from","is not the source/origin of"},
+		{5,GR_FOLLOWS,"originates from","is the source/origin of"},
+		{-5,GR_FOLLOWS,"does not originate from","is not the source/origin of"},
 
-		{7,GR_FOLLOWS,"provided by","provides"},
-		{-7,GR_FOLLOWS,"is not provided by","does not provide"},
+		{6,GR_FOLLOWS,"provided by","provides"},
+		{-6,GR_FOLLOWS,"is not provided by","does not provide"},
 
-		{8,GR_FOLLOWS,"maintained by","maintains"},
-		{-8,GR_FOLLOWS,"is not maintained by","doesn't maintain"},
+		{7,GR_FOLLOWS,"maintained by","maintains"},
+		{-7,GR_FOLLOWS,"is not maintained by","doesn't maintain"},
 
-		{9,GR_FOLLOWS,"may depend on","may determine"},
-		{-9,GR_FOLLOWS,"doesn't depend on","doesn't determine"},
+		{8,GR_FOLLOWS,"may depend on","may determine"},
+		{-8,GR_FOLLOWS,"doesn't depend on","doesn't determine"},
 
-		{10,GR_FOLLOWS,"was created by","created"},
-		{-10,GR_FOLLOWS,"was not created by","did not creat"},
+		{9,GR_FOLLOWS,"was created by","created"},
+		{-9,GR_FOLLOWS,"was not created by","did not creat"},
 
-		{11,GR_FOLLOWS,"reached to","reponded to"},
-		{-11,GR_FOLLOWS,"did not reach to","did not repond to"},
+		{10,GR_FOLLOWS,"reached to","reponded to"},
+		{-10,GR_FOLLOWS,"did not reach to","did not repond to"},
 
-		{12,GR_FOLLOWS,"caused by","may cause"},
-		{-12,GR_FOLLOWS,"was not caused by","probably didn't cause"},
+		{11,GR_FOLLOWS,"caused by","may cause"},
+		{-11,GR_FOLLOWS,"was not caused by","probably didn't cause"},
 
-		{13,GR_FOLLOWS,"seeks to use","is used by"},
-		{-13,GR_FOLLOWS,"does not seek to use","is not used by"},
+		{12,GR_FOLLOWS,"seeks to use","is used by"},
+		{-12,GR_FOLLOWS,"does not seek to use","is not used by"},
 
-		{14,GR_EXPRESSES,"is called","is a name for"},
-		{-14,GR_EXPRESSES,"is not called","is not a name for"},
+		{13,GR_EXPRESSES,"is called","is a name for"},
+		{-13,GR_EXPRESSES,"is not called","is not a name for"},
 
-		{15,GR_EXPRESSES,"expresses an attribute","is an attribute of"},
-		{-15,GR_EXPRESSES,"has no attribute","is not an attribute of"},
+		{14,GR_EXPRESSES,"expresses an attribute","is an attribute of"},
+		{-14,GR_EXPRESSES,"has no attribute","is not an attribute of"},
 
-		{16,GR_EXPRESSES,"promises/intends","is intended/promised by"},
-		{-16,GR_EXPRESSES,"rejects/promises to not","is rejected by"},
+		{15,GR_EXPRESSES,"promises/intends","is intended/promised by"},
+		{-15,GR_EXPRESSES,"rejects/promises to not","is rejected by"},
 
-		{17,GR_EXPRESSES,"has an instance or particular case","is a particular case of"},
-		{-17,GR_EXPRESSES,"has no instance/case of","is not a particular case of"},
+		{16,GR_EXPRESSES,"has an instance or particular case","is a particular case of"},
+		{-16,GR_EXPRESSES,"has no instance/case of","is not a particular case of"},
 
-		{18,GR_EXPRESSES,"has value or state","is the state or value of"},
-		{-18,GR_EXPRESSES,"hasn't any value or state","is not the state or value of"},
+		{17,GR_EXPRESSES,"has value or state","is the state or value of"},
+		{-17,GR_EXPRESSES,"hasn't any value or state","is not the state or value of"},
 
-		{19,GR_EXPRESSES,"has argument or parameter","is a parameter or argument of"},
-		{-19,GR_EXPRESSES,"has no argument or parameter","isn't a parameter or argument of"},
+		{18,GR_EXPRESSES,"has argument or parameter","is a parameter or argument of"},
+		{-18,GR_EXPRESSES,"has no argument or parameter","isn't a parameter or argument of"},
 
-		{20,GR_EXPRESSES,"has the role of","is a role fulfilled by"},
-		{-20,GR_EXPRESSES,"has no role","is not a role fulfilled by"},
+		{19,GR_EXPRESSES,"has the role of","is a role fulfilled by"},
+		{-19,GR_EXPRESSES,"has no role","is not a role fulfilled by"},
 
-		{21,GR_EXPRESSES,"occurred at","was marked by event"},
-		{-21,GR_EXPRESSES,"did not occur at","was not marked by an event"},
+		{20,GR_EXPRESSES,"occurred at","was marked by event"},
+		{-20,GR_EXPRESSES,"did not occur at","was not marked by an event"},
 
-		{22,GR_EXPRESSES,"has function","is the function of"},
-		{-22,GR_EXPRESSES,"doesn't have function","is not the function of"},
+		{21,GR_EXPRESSES,"has function","is the function of"},
+		{-21,GR_EXPRESSES,"doesn't have function","is not the function of"},
 
-		{24,GR_EXPRESSES,"infers","is inferred from"},
-		{-24,GR_EXPRESSES,"does not infer","cannot be inferred from"},
+		{22,GR_EXPRESSES,"infers","is inferred from"},
+		{-22,GR_EXPRESSES,"does not infer","cannot be inferred from"},
 
-		{25,GR_NEAR,"concurrent with","not concurrent with"},
-		{-25,GR_NEAR,"not concurrent with","not concurrent with"},
+		{23,GR_NEAR,"concurrent with","not concurrent with"},
+		{-23,GR_NEAR,"not concurrent with","not concurrent with"},
 
-		{26,GR_NEAR,"also known as","also known as"},
-		{-26,GR_NEAR,"not known as","not known as"},
+		{24,GR_NEAR,"also known as","also known as"},
+		{-24,GR_NEAR,"not known as","not known as"},
 
-		{27,GR_NEAR,"is approximately","is approximately"},
-		{-27,GR_NEAR,"is far from","is far from"},
+		{25,GR_NEAR,"is approximately","is approximately"},
+		{-25,GR_NEAR,"is far from","is far from"},
 
-		{28,GR_NEAR,"may be related to","may be related to"},
-		{-28,GR_NEAR,"likely unrelated to","likely unrelated to"},
+		{26,GR_NEAR,"may be related to","may be related to"},
+		{-26,GR_NEAR,"likely unrelated to","likely unrelated to"},
 
 	}
 )
@@ -354,10 +382,12 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	c12 := CreateConcept(signpost)        // specific combinatoric instance
 	c1  := CreateConcept(remark)          // possibly used elsewhere/when
 	c2  := CreateConcept(hereandnow)      // disambiguator
+	c3  := CreateConcept("signpost")
 
 	// This instance expresses both invariants
 	ConceptLink(c12,expresses,c1)
-	ConceptLink(c12,has_coordinates,c2)
+	ConceptLink(c12,expresses,c3)
+	ConceptLink(c12,originates_from,c2)
 
 	// Graph causality - must be idempotent/invariant
 
@@ -558,7 +588,7 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	BASEDIR = BASEDIR+"/"+path
 	err = os.MkdirAll(BASEDIR, 0755)
 
-	tpath := fmt.Sprintf("%s/%s/transaction_%d",BASEDIR,path,pid)
+	tpath := fmt.Sprintf("%s/transaction_%d",BASEDIR,pid)
 
 	// Transaction log
 	pc.tf, err = os.OpenFile(tpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -572,6 +602,8 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	pc.tick.previous = 0
 	pc.tick.exterior = 0
 	pc.tick.utc = time.Now().Unix()
+
+	pc.previous_concept = CreateConcept("program start")
 
 	PROPER_PATHS = make(SparseGraph)
 
@@ -655,27 +687,37 @@ func ConceptLink(c1 Concept, rel int, c2 Concept) {
 
 	var path string
 	var err error
-	// write BASEDIR/app/concepts/<number>/<STtype>/<reln-nr>/text,list of numbers to neighbours
+	var index int
 
-	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c1.hash,ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
-	err = os.MkdirAll(BASEDIR, 0755)
+	if rel < 0 {
+		index = -2*rel
+	} else {
+		index = 2*rel-1
+	}
+
+	//fmt.Printf("LINKS of type (%s,%d)\n",ASSOCIATIONS[index].Fwd,rel)
+
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c1.Hash,ASSOCIATIONS[index].STtype,ASSOCIATIONS[index].Key)
+	err = os.MkdirAll(path, 0755)
 
 	if err != nil {
+		fmt.Println("Couldn't make directory "+path)
 		os.Exit(1)
 	}
 
 	// inode's name is concept hash for the link of type STtype
-	os.Create(path + c2.hash)
+	os.Create(path + c2.Hash)
 
-	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.hash,-ASSOCIATIONS[rel].STtype,ASSOCIATIONS[rel].key)
-	err = os.MkdirAll(BASEDIR, 0755)
+	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.Hash,-ASSOCIATIONS[index].STtype,ASSOCIATIONS[index].Key)
+	err = os.MkdirAll(path, 0755)
 
 	if err != nil {
+		fmt.Println("Couldn't make directory "+path)
 		os.Exit(1)
 	}
 
 	// inode's name is concept hash for the INVERSE link of type -STtype
-	os.Create(path + c1.hash)
+	os.Create(path + c1.Hash)
 }
 
 // ****************************************************************************
@@ -687,25 +729,38 @@ func CreateConcept(description string) Concept {
 	var concept Concept
 	var err error
 
-	concept.name = description
-	concept.key = fnvhash([]byte(description))
-	concept.hash = fmt.Sprintf("%d",concept.key)
+	concept.Name = description
+	concept.Key = fnvhash([]byte(description))
+	concept.Hash = fmt.Sprintf("%d",concept.Key)
 
-	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.hash)
+	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.Hash)
 
-	fmt.Println("creating "+path)
- 
 	err = os.MkdirAll(path, 0755)
 	if err != nil {
+		fmt.Println("Couldn't make directory "+path)
 		os.Exit(1)
 	}
+
 	cpath := path + "/description"	
 
 	if !FileExists(cpath) {
-		content := []byte(concept.name)
+		content := []byte(concept.Name)
 		err = ioutil.WriteFile(cpath, content, 0644)
 	}
 
 	return concept
 }
 
+// ****************************************************************************
+
+func ConceptName(hash string) string {
+
+	path := fmt.Sprintf("%s/concepts/%s/description",BASEDIR,hash)
+	description, err := ioutil.ReadFile(path)
+
+	if err != nil {
+	        fmt.Println(err)
+	}
+
+	return string(description)
+}
