@@ -299,31 +299,29 @@ func HereAndNow() string {
 	//secs := then.Second()
 	//nano := then.Nanosecond()
 	dow := then.Weekday()
+	dayname := fmt.Sprintf("Day%d",day)
 
         interval_start := (then.Minute() / 5) * 5
         interval_end := (interval_start + 5) % 60
         minD := fmt.Sprintf("Min%02d_%02d",interval_start,interval_end)
 
-	var when string = fmt.Sprintf(" on %s %s %d %s %s at %s %s %s %s",shift,dow,day,month,year,hour,mins,quarter,minD)
+	var when string = fmt.Sprintf(" on %s %s %s %s %s at %s %s %s %s",shift,dow,dayname,month,year,hour,mins,quarter,minD)
 	var where = Where(3)
 
 	// Build the invariant concept subgraphs
 
 	c1 := CreateConcept(when)
-	c2 := CreateConcept("event")
-	ConceptLink(c1,has_role,c2)
 
 	// invariant sub-intervals CONTAIN when as a special case
 	// variant times labels are only expressed by special case "when"
 
-	c2 = CreateConcept(mins)
+	c2 := CreateConcept(mins)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(hour)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(year)
 	ConceptLink(c1,expresses,c2)
 	ConceptLink(c2,contains,c1)
-	dayname := fmt.Sprintf("Day%d",day)
 	c2 = CreateConcept(dayname)
 	ConceptLink(c2,contains,c1)
 	ConceptLink(c1,expresses,c2)
@@ -340,6 +338,20 @@ func HereAndNow() string {
 	ConceptLink(c2,contains,c1)
 
 	var hereandnow = where + when
+
+	c2 = CreateConcept("events")
+	chn := CreateConcept(hereandnow)
+	ConceptLink(c2,generalizes,chn)
+
+	c5 := CreateConcept(where)
+	c6 := CreateConcept("locations")
+	ConceptLink(c6,contains,c5)
+
+	// Specific time/space coordinates generalized by general region
+
+	ConceptLink(c2,generalizes,c5)
+	ConceptLink(c2,generalizes,chn)
+
 	return hereandnow
 }
 
@@ -591,7 +603,7 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// Make a unique filename for the application instance, using pid and executable
 
-	path := m["Process"] + m["Version"]
+	path := m["Deployment"] + m["Version"]
 
 	pid = os.Getpid()
 
@@ -621,19 +633,28 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	ext_ctx := context.WithValue(ctx, PROCESS_CTX, pc)
 
-	// Explain context in graphical terms
+	c1 := CreateConcept("kubernetes pods")
+	c2 := CreateConcept("kubernetes")
+	c3 := CreateConcept("pods")
 
+	ConceptLink(c1,expresses,c2)
+	ConceptLink(c3,generalizes,c1)
 
-//	ConceptContains(THISSOFTWAREpath,c)
-//	ConceptCloseEncounter()
+	c3a := CreateConcept(m["Pod"])
+	ConceptLink(c1,contains,c3a)
 
+	c4 := CreateConcept("kubernetes deployments")
+	c5 := CreateConcept("deployments")
+	ConceptLink(c4,expresses,c2)
+	ConceptLink(c5,generalizes,c4)
 
-	//for k, v := range m {
-		//kv := k + ":" + v
-		//Relation(ext_ctx,true,location,expresses,kv)
-		//Relation(ext_ctx,true,kv,has_role,k)
-		//Relation(ext_ctx,true,kv,expresses,v)
-	//}
+	c5a := CreateConcept(m["Deployment"])
+	ConceptLink(c4,contains,c5a)
+
+	ConceptLink(c5,contains,c5a)
+
+	//c7 := CreateConcept("compute nodes")
+
 
 	return ext_ctx
 }

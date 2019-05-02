@@ -24,9 +24,9 @@ func main() {
 
 	ctx := context.Background()
 	ctx = H.SetLocationInfo(ctx, map[string]string{
-		"Pod":     "A_pod_named_foo",
-		"Process": "myApp_name2",  // insert instance data from env?
-		"Version": "1.2.3",
+		"Pod":        "A_pod_named_foo",
+		"Deployment": "myApp_name2",  // insert instance data from env?
+		"Version":    "1.2.3",
 	})
 
 	MainLoop(ctx)

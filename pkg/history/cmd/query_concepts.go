@@ -25,9 +25,9 @@ func main() {
 
 	ctx := context.Background()
 	ctx = H.SetLocationInfo(ctx, map[string]string{
-		"Pod":     "A_pod_named_foo",
-		"Process": "query_concepts",  // insert instance data from env?
-		"Version": "0.1",
+		"Pod":        "A_pod_named_foo",
+		"Deployment": "query_concepts",  // insert instance data from env?
+		"Version":    "0.1",
 	})
 
 	// 1. test cellibrium graph
@@ -183,12 +183,12 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 
 		for next := 0; next < len(links.Bwd[H.GR_EXPRESSES][l]); next++ {
 			
-			fmt.Printf("%s %s -- (%s=%d) --> \"%s\"\n",
+			fmt.Printf("%s \"%s\" -- (%s) --> \"%s\" (%s)\n",
 				I(level),
 				name,
 				H.ASSOCIATIONS[l].Bwd,
-				l,
-				ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]))
+				ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]),
+				links.Bwd[H.GR_EXPRESSES][l][next])
 		}
 	}
 	
@@ -196,12 +196,12 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 		
 		for next := 0; next < len(links.Fwd[H.GR_EXPRESSES][l]); next++ {
 			
-			fmt.Printf("%s %s -- (%s=%d) -->  \"%s\"\n",
+			fmt.Printf("%s \"%s\" -- (%s) -->  \"%s\" (%s)\n",
 				I(level),
 				name,
 				H.ASSOCIATIONS[l].Fwd,
-				l,
-				ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]))
+				ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]),
+				links.Fwd[H.GR_EXPRESSES][l][next])
 		}
 	}
 
@@ -218,25 +218,65 @@ func GeneralizeConcept (app string, level int, name string, links H.Links) {
 
 		for next := 0; next < len(links.Bwd[H.GR_CONTAINS][l]); next++ {
 			
+			description := ConceptName(app,links.Bwd[H.GR_CONTAINS][l][next])
+
 			fmt.Printf("%s %s -- (%s) --> \"%s\"\n",
 				I(level),
 				name,
 				H.ASSOCIATIONS[l].Bwd,
-				ConceptName(app,links.Bwd[H.GR_CONTAINS][l][next]))
+				description)
+
+			nextlinks := GetLinksFrom(app,description,links.Bwd[H.GR_CONTAINS][l][next])
+
+			for l2 := range nextlinks.Bwd[H.GR_CONTAINS] {
+				for next := 0; next < len(nextlinks.Bwd[H.GR_CONTAINS][l2]); next++ {
+					
+					description := ConceptName(app,nextlinks.Bwd[H.GR_CONTAINS][l2][next])
+					
+					fmt.Printf("%s %s -- (%s) --> \"%s\"\n",
+						I(level+1),
+						name,
+						H.ASSOCIATIONS[l2].Bwd,
+						description)
+				}
+				
+			}
 		}
 	}
 	
-	for l := range links.Fwd[H.GR_EXPRESSES] {
-		
+
+	// **
+
+	for l := range links.Fwd[H.GR_CONTAINS] {
+
 		for next := 0; next < len(links.Fwd[H.GR_CONTAINS][l]); next++ {
 			
-			fmt.Printf("%s %s -- (%s) -->  \"%s\"\n",
+			description := ConceptName(app,links.Fwd[H.GR_CONTAINS][l][next])
+
+			fmt.Printf("%s %s -- (%s) --> \"%s\"\n",
 				I(level),
 				name,
 				H.ASSOCIATIONS[l].Fwd,
-				ConceptName(app,links.Fwd[H.GR_CONTAINS][l][next]))
+				description)
+
+			nextlinks := GetLinksFrom(app,description,links.Fwd[H.GR_CONTAINS][l][next])
+
+			for l2 := range nextlinks.Fwd[H.GR_CONTAINS] {
+				for next := 0; next < len(nextlinks.Fwd[H.GR_CONTAINS][l2]); next++ {
+					
+					description := ConceptName(app,nextlinks.Fwd[H.GR_CONTAINS][l2][next])
+					
+					fmt.Printf("%s %s -- (%s) --> \"%s\"\n",
+						I(level+1),
+						name,
+						H.ASSOCIATIONS[l2].Fwd,
+						description)
+				}
+				
+			}
 		}
 	}
+
 
 	fmt.Println(I(level),"<end general>")
 }
