@@ -102,10 +102,7 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 // ****************************************************************************
 
-type NeighbourConcepts struct {
-	Next    []string  // a list of concepts reachable by this type of relation
-	Reltype int       // The precise line index in ASSOCIATIONS for the association
-}
+type NeighbourConcepts map[int][]string // a list of concepts reachable by int type of relation
 
 type Links struct {
 	Fwd [5]NeighbourConcepts  // The association links, classified by direction and ST type
@@ -119,14 +116,14 @@ type Links struct {
 
 func LinkInit() Links {
 	var links Links
- 	links.Fwd[GR_NEAR].Next = make([]string,0)
-	links.Fwd[GR_FOLLOWS].Next = make([]string,0)
-	links.Fwd[GR_CONTAINS].Next = make([]string,0)
-	links.Fwd[GR_EXPRESSES].Next = make([]string,0)  
-	links.Bwd[GR_NEAR].Next = make([]string,0)
-	links.Bwd[GR_FOLLOWS].Next = make([]string,0)
-	links.Bwd[GR_CONTAINS].Next = make([]string,0)
-	links.Bwd[GR_EXPRESSES].Next = make([]string,0)  
+ 	links.Fwd[GR_NEAR] = make(NeighbourConcepts,0)
+	links.Fwd[GR_FOLLOWS] = make(NeighbourConcepts,0)
+	links.Fwd[GR_CONTAINS] = make(NeighbourConcepts,0)
+	links.Fwd[GR_EXPRESSES] = make(NeighbourConcepts,0)  
+	links.Bwd[GR_NEAR] = make(NeighbourConcepts,0)
+	links.Bwd[GR_FOLLOWS] = make(NeighbourConcepts,0)
+	links.Bwd[GR_CONTAINS] = make(NeighbourConcepts,0)
+	links.Bwd[GR_EXPRESSES] = make(NeighbourConcepts,0)  
 	return links
 }
 
@@ -148,6 +145,7 @@ const (
 	promises int = 15
 	follows int = 4
 	contains int = 1
+	generalizes int = 3
 	uses int = 12
 	alias int = 24
 
@@ -315,20 +313,31 @@ func HereAndNow() string {
 	c2 := CreateConcept("event")
 	ConceptLink(c1,has_role,c2)
 
+	// invariant sub-intervals CONTAIN when as a special case
+	// variant times labels are only expressed by special case "when"
+
 	c2 = CreateConcept(mins)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(hour)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(year)
 	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(fmt.Sprintf("Day%d",day))
+	ConceptLink(c2,contains,c1)
+	dayname := fmt.Sprintf("Day%d",day)
+	c2 = CreateConcept(dayname)
+	ConceptLink(c2,contains,c1)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(quarter)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(minD)
+	ConceptLink(c2,contains,c1)
 	ConceptLink(c1,expresses,c2)
 	c2 = CreateConcept(shift)
 	ConceptLink(c1,expresses,c2)
+	ConceptLink(c2,contains,c1)
+
+	c2 = CreateConcept(month)
+	ConceptLink(c2,contains,c1)
 
 	var hereandnow = where + when
 	return hereandnow
