@@ -102,7 +102,7 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 // ****************************************************************************
 
-type NeighbourConcepts map[int][]string // a list of concepts reachable by int type of relation
+type NeighbourConcepts map[int][]string // a list of concept hashes reachable by int type of relation
 
 type Links struct {
 	Fwd [5]NeighbourConcepts  // The association links, classified by direction and ST type
@@ -411,7 +411,7 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	// This instance expresses both invariants
 	ConceptLink(c12,expresses,c1)
 	ConceptLink(c12,expresses,c3)
-	ConceptLink(c12,originates_from,c2)
+	ConceptLink(c12,expresses,c2)
 
 	// Graph causality - must be idempotent/invariant
 
@@ -796,4 +796,35 @@ func ConceptName(hash string) string {
 	}
 
 	return string(description)
+}
+
+// ****************************************************************************
+
+func ConeTest() {
+
+	country := CreateConcept("country")
+	town := CreateConcept("town")
+	city := CreateConcept("city")
+	metro := CreateConcept("metropolis")
+	district := CreateConcept("district")
+	house := CreateConcept("house")
+	apartment := CreateConcept("apartment")
+	flat := CreateConcept("flat")
+	home := CreateConcept("home")
+	dwelling := CreateConcept("dwelling")
+	oslo := CreateConcept("Oslo")
+
+	ConceptLink(country,contains,city)
+	ConceptLink(city,contains,district)
+	ConceptLink(district,contains,home)
+
+	ConceptLink(home,generalizes,house)
+	ConceptLink(home,generalizes,apartment)
+	ConceptLink(apartment,generalizes,flat)
+	ConceptLink(dwelling,generalizes,home)
+	ConceptLink(metro,generalizes,city)
+
+	ConceptLink(city,generalizes,town)
+	ConceptLink(town,generalizes,oslo)
+
 }

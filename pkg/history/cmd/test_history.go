@@ -68,6 +68,8 @@ func MainLoop(ctx context.Context){
 	go Test1(ctx)
 	
 	ScanSystem(ctx)
+
+	ConceptConeGeneralizations()
 	
 	// End loop
 	H.SignPost(&ctx,"The end!")
@@ -75,6 +77,13 @@ func MainLoop(ctx context.Context){
 	H.SignPost(&ctx,"Show the signposts")
 	ShowMap()
 
+}
+
+//**************************************************************
+
+func ConceptConeGeneralizations() {
+
+	H.ConeTest()
 }
 
 //**************************************************************
