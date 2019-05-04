@@ -47,25 +47,21 @@ func main() {
 		ListConcepts(args[0])
 	} else {
 
-		//DeletePreviousSearches?
+		app := args[0]
+		concept_hash := args[1]
+
 		var visited = make(map[string]bool)  // loop avoidance
 
-		description := ConceptName(args[0],args[1])
-		links := GetLinksFrom(args[0],args[1],visited)
+		description := ConceptName(app,concept_hash)
+		links := GetLinksFrom(app,concept_hash,visited)
 	
-		fmt.Printf("\nStories about \"%s\" (%s) in app %s \n\n",description,args[1],args[0])
-		DescribeConcept(args[0],1,description,links)
-		GeneralizeConcept(args[0],1,description,links)
-		GetConceptCone(args[0],args[1])
+		fmt.Printf("\nStories about \"%s\" (%s) in app %s \n\n",description,concept_hash,app)
+		DescribeConcept(app,1,description,links)
 
-		fmt.Println("1. Following ---------\n")
-		ShowNeighbourConcepts(0,H.GR_FOLLOWS,args[0],args[1],description,links)
-		fmt.Println("2. Is followed by ---------\n")
-		ShowNeighbourConcepts(0,-H.GR_FOLLOWS,args[0],args[1],description,links)
+		causal_set := GetGeneralizationCone(app,concept_hash)
 
+		GetCausationCone(app,causal_set)
 	}
-
-
 }
 
 
@@ -138,49 +134,9 @@ func ConceptName(app,concept_hash string) string {
 
 //**************************************************************
 
-func ShowNeighbourConcepts (level int, sttype int, app string, concept_hash string, description string, links H.Links) {
-
-//	fmt.Println("DEB",sttype,links)
-
-	if sttype < 0 {
-		for l := range links.Bwd[-sttype] {
-		
-			for next := 0; next < len(links.Bwd[-sttype][l]); next++ {
-				
-				fmt.Printf("%s %s <-- type (%s) -- \"%s\"\n",
-					I(level),
-					links.Bwd[-sttype][l][next],
-					H.ASSOCIATIONS[l].Bwd,
-					description)
-				
-				//ShowNeighbourConcepts(level+1,sttype,app,links.Bwd[sttype].Next[next])
-			}
-		}
-		
-	} else {
-		for l := range links.Fwd[sttype] {
-
-			for next := 0; next < len(links.Fwd[sttype][l]); next++ {
-				
-				fmt.Printf("%s %s -- type (%s) -->  \"%s\"\n",
-					I(level),
-					description,
-					H.ASSOCIATIONS[l].Fwd,
-					links.Fwd[sttype][l][next])
-				
-				//ShowNeighbourConcepts(level+1,sttype,app,links.Bwd[sttype].Next[next])
-			}
-		}
-		
-	}
-}
-
-
-//**************************************************************
-
 func DescribeConcept (app string, level int, name string, links H.Links) {
 	
-	fmt.Println(I(level),"<begin descr>")
+	fmt.Println(I(level),"<begin describe>")
 
 	for l := range links.Bwd[H.GR_EXPRESSES] {
 
@@ -188,7 +144,7 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 			
 			fmt.Printf("%s \"%s\" -- (%s) --> \"%s\" (%s)\n",
 				I(level),
-				name,
+				"topic",
 				H.ASSOCIATIONS[l].Bwd,
 				ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]),
 				links.Bwd[H.GR_EXPRESSES][l][next])
@@ -201,98 +157,19 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 			
 			fmt.Printf("%s \"%s\" -- (%s) -->  \"%s\" (%s)\n",
 				I(level),
-				name,
+				"topic",
 				H.ASSOCIATIONS[l].Fwd,
 				ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]),
 				links.Fwd[H.GR_EXPRESSES][l][next])
 		}
 	}
 
-	fmt.Println(I(level),"<end descr>")
+	fmt.Println(I(level),"<end describe>")
 }
 
 //**************************************************************
 
-func GeneralizeConcept (app string, level int, name string, links H.Links) {
-
-	var visited = make(map[string]bool)  // loop avoidance
-	
-	fmt.Println(I(level),"<begin general>")
-
-	for l := range links.Bwd[H.GR_CONTAINS] {
-
-		for next := 0; next < len(links.Bwd[H.GR_CONTAINS][l]); next++ {
-			
-			description := ConceptName(app,links.Bwd[H.GR_CONTAINS][l][next])
-
-			fmt.Printf("%s %s -- (%s) --> \"%s\" bwd(%s)\n",
-				I(level+1),
-				name,
-				H.ASSOCIATIONS[l].Bwd,
-				description,
-				links.Bwd[H.GR_CONTAINS][l][next])
-
-			nextlinks := GetLinksFrom(app,links.Bwd[H.GR_CONTAINS][l][next],visited)
-
-			for l2 := range nextlinks.Bwd[H.GR_CONTAINS] {
-				for next := 0; next < len(nextlinks.Bwd[H.GR_CONTAINS][l2]); next++ {
-					
-					description := ConceptName(app,nextlinks.Bwd[H.GR_CONTAINS][l2][next])
-					
-					fmt.Printf("%s %s -- (%s) --> \"%s\" (%s)\n",
-						I(level+2),
-						name,
-						H.ASSOCIATIONS[l2].Bwd,
-						description,
-						nextlinks.Bwd[H.GR_CONTAINS][l2][next])
-				}
-				
-			}
-		}
-	}
-	
-
-	// **
-
-	for l := range links.Fwd[H.GR_CONTAINS] {
-
-		for next := 0; next < len(links.Fwd[H.GR_CONTAINS][l]); next++ {
-			
-			description := ConceptName(app,links.Fwd[H.GR_CONTAINS][l][next])
-
-			fmt.Printf("%s %s -- (%s) --> \"%s\" fwd(%s)\n",
-				I(level+1),
-				name,
-				H.ASSOCIATIONS[l].Fwd,
-				description,
-				links.Fwd[H.GR_CONTAINS][l][next])
-
-			nextlinks := GetLinksFrom(app,links.Fwd[H.GR_CONTAINS][l][next],visited)
-
-			for l2 := range nextlinks.Fwd[H.GR_CONTAINS] {
-				for next := 0; next < len(nextlinks.Fwd[H.GR_CONTAINS][l2]); next++ {
-					
-					description := ConceptName(app,nextlinks.Fwd[H.GR_CONTAINS][l2][next])
-					
-					fmt.Printf("%s %s -- (%s) --> \"%s\" (%s) \n",
-						I(level+2),
-						name,
-						H.ASSOCIATIONS[l2].Fwd,
-						description,
-						nextlinks.Fwd[H.GR_CONTAINS][l2][next])
-				}
-				
-			}
-		}
-	}
-
-
-	fmt.Println(I(level),"<end general>")
-}
-
-//**************************************************************
-
-func GetConceptCone (app string, concept_hash string) {
+func GetGeneralizationCone (app string, concept_hash string) []string {
 	
 	// First establish how many different up/down CONTAINS relations attach to the anchor concept
 	// These form separate graphs
@@ -308,15 +185,31 @@ func GetConceptCone (app string, concept_hash string) {
 	fwd_cone := RetardedCone(app,retarded_directions,visited)
 	bwd_cone := AdvancedCone(app,advanced_directions,visited)
 
-//	typed_region = JoinNeighbours(fwd_cone,retarded_directions)
+	fmt.Println(I(level),"<begin generalization cone>")
+	region := ShowCone(app,concept_hash,fwd_cone,bwd_cone)
+	fmt.Println(I(level),"<end generalization cone>")
 
-	fmt.Println(I(level),"<begin region>")
+return region
+}
+
+//**************************************************************
+
+func GetCausationCone (app string, cset []string) {
 	
+	var visited = make(map[string]bool)  // loop avoidance
 
-	fmt.Println("FWD CONE ",fwd_cone)
-	fmt.Println("BWD CONE ",bwd_cone)
-	fmt.Println("FOCUS ",concept_hash)
-	fmt.Println(I(level),"<end region>")
+	for c := range cset {
+		concept_hash := cset[c]
+		visited[concept_hash] = true
+		nodelinks := GetLinksFrom(app,concept_hash,visited)
+		retarded_directions := nodelinks.Bwd[H.GR_FOLLOWS]
+		advanced_directions := nodelinks.Fwd[H.GR_FOLLOWS]
+		
+		fmt.Println("CAUSE <> ",concept_hash,retarded_directions,advanced_directions)
+	}
+
+
+
 }
 
 
@@ -352,30 +245,23 @@ func RetardedCone(app string, init H.NeighbourConcepts, visited map[string]bool)
 
 	var maplist, nextlist, fwd_cone H.NeighbourConcepts
 
-	var counter int = 0
-
 	fwd_cone = make(H.NeighbourConcepts,0)
 
 	for maplist = init; Neighbours(maplist); maplist = nextlist {
 
+		fwd_cone = JoinNeighbours(fwd_cone,maplist)
 		nextlist = make(H.NeighbourConcepts,0)
-		counter++
 
-		for linktype := range maplist {
-			
+		for linktype := range maplist {			
 			if nextlist[linktype] == nil {
 				nextlist[linktype] = make([]string,0)
 			}
 			
 			for node := 0; node < len(maplist[linktype]); node++ {
-				fmt.Println("Expanding",counter,maplist[linktype][node])
 				neighbours := GetLinksFrom(app,maplist[linktype][node],visited)
 				nextlist = JoinNeighbours(nextlist,neighbours.Fwd[H.GR_CONTAINS])
 			}
 		}
-
-		fwd_cone = JoinNeighbours(fwd_cone,nextlist)
-
 	}
 
 return fwd_cone
@@ -391,6 +277,7 @@ func AdvancedCone(app string, init H.NeighbourConcepts, visited map[string]bool)
 
 	for maplist = init; Neighbours(maplist); maplist = nextlist {
 
+		bwd_cone = JoinNeighbours(bwd_cone,nextlist)
 		nextlist = make(H.NeighbourConcepts,0)
 		
 		for linktype := range maplist {
@@ -405,12 +292,56 @@ func AdvancedCone(app string, init H.NeighbourConcepts, visited map[string]bool)
 				nextlist = JoinNeighbours(nextlist,neighbours.Bwd[H.GR_CONTAINS])
 			}
 		}
-
-		bwd_cone = JoinNeighbours(bwd_cone,nextlist)
-
 	}
 
 return bwd_cone
+}
+
+// ************************************************************************
+
+func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) []string {
+
+	var kinds = make(map[int]bool)
+	var region = make([]string,0)
+
+	// merge the region subtypes from the forward/backward propagation cones
+
+	for linktype := range fcone {
+		kinds[linktype] = true
+	}
+
+	for linktype := range bcone {
+		kinds[linktype] = true
+	}
+
+	for linktype := range kinds {
+		if fcone[linktype] != nil {
+
+			for fnode := 0; fnode < len(fcone[linktype]); fnode++ {
+				fmt.Printf("%s%s --(%s)--> %s\n",
+					I(3),
+					ConceptName(app,concept_hash),
+					H.ASSOCIATIONS[linktype].Fwd,
+					ConceptName(app,fcone[linktype][fnode]))
+
+				region = append(region,fcone[linktype][fnode])
+			}
+		}
+		if bcone[linktype] != nil {
+			for bnode := 0; bnode < len(bcone[linktype]); bnode++ {
+				fmt.Printf("%s%s --(%s)--> %s\n",
+					I(3),
+					ConceptName(app,concept_hash),
+					H.ASSOCIATIONS[linktype].Bwd,
+					ConceptName(app,bcone[linktype][bnode]))
+
+				region = append(region,bcone[linktype][bnode])
+			}
+		}
+		
+	}
+
+return region
 }
 
 // ************************************************************************
