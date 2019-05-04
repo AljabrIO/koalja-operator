@@ -179,8 +179,8 @@ func GetGeneralizationCone (app string, concept_hash string) []string {
 	retarded_directions := nodelinks.Fwd[H.GR_CONTAINS]
 	advanced_directions := nodelinks.Bwd[H.GR_CONTAINS]
 
-	fwd_cone := RetardedCone(app,retarded_directions,visited)
-	bwd_cone := AdvancedCone(app,advanced_directions,visited)
+	fwd_cone := RetardedCone(app,retarded_directions,H.GR_CONTAINS,visited)
+	bwd_cone := AdvancedCone(app,advanced_directions,H.GR_CONTAINS,visited)
 
 	fmt.Println("")
 	fmt.Println(I(level),"<begin generalization cone>")
@@ -205,6 +205,14 @@ func GetCausationCone (app string, cset []string) {
 		retarded_directions := nodelinks.Bwd[H.GR_FOLLOWS]
 		advanced_directions := nodelinks.Fwd[H.GR_FOLLOWS]
 
+		bwd_cone := RetardedCone(app,retarded_directions,H.GR_FOLLOWS,visited)
+		fwd_cone := AdvancedCone(app,advanced_directions,H.GR_FOLLOWS,visited)
+
+		fmt.Println("")
+		fmt.Println(I(1),"<begin CAUSE>")
+		ShowCone(app,concept_hash,fwd_cone,bwd_cone)
+		fmt.Println(I(1),"<end CASUE>")
+
 		fmt.Println("")		
 		fmt.Println(I(1),"<begin causal propagation cone>")
 		for  i := range advanced_directions {
@@ -219,7 +227,7 @@ func GetCausationCone (app string, cset []string) {
 			}
 		}
 
-		fmt.Println(I(1),"<begin causal propagation cone>")
+		fmt.Println(I(1),"<end causal propagation cone>")
 	}
 }
 
@@ -247,12 +255,12 @@ func GetCausationCone (app string, cset []string) {
 
    // we are only doing ascent, so don't need to mix fwd/bwd channels in same process
    // no antiparticles in reasoning...?
-
+g
 */
 
 //**************************************************************
 
-func RetardedCone(app string, init H.NeighbourConcepts, visited map[string]bool) H.NeighbourConcepts {
+func RetardedCone(app string, init H.NeighbourConcepts, STtype int, visited map[string]bool) H.NeighbourConcepts {
 
 	var maplist, nextlist, fwd_cone H.NeighbourConcepts
 
@@ -270,7 +278,7 @@ func RetardedCone(app string, init H.NeighbourConcepts, visited map[string]bool)
 			
 			for node := 0; node < len(maplist[linktype]); node++ {
 				neighbours := GetLinksFrom(app,maplist[linktype][node],visited)
-				nextlist = JoinNeighbours(nextlist,neighbours.Fwd[H.GR_CONTAINS])
+				nextlist = JoinNeighbours(nextlist,neighbours.Fwd[STtype])
 			}
 		}
 	}
@@ -280,7 +288,7 @@ return fwd_cone
 
 //**************************************************************
 
-func AdvancedCone(app string, init H.NeighbourConcepts, visited map[string]bool) H.NeighbourConcepts {
+func AdvancedCone(app string, init H.NeighbourConcepts, STtype int, visited map[string]bool) H.NeighbourConcepts {
 
 	var maplist, nextlist, bwd_cone H.NeighbourConcepts
 
@@ -300,7 +308,7 @@ func AdvancedCone(app string, init H.NeighbourConcepts, visited map[string]bool)
 			for node := 0; node < len(maplist[linktype]); node++ {
 				
 				neighbours := GetLinksFrom(app,maplist[linktype][node],visited)
-				nextlist = JoinNeighbours(nextlist,neighbours.Bwd[H.GR_CONTAINS])
+				nextlist = JoinNeighbours(nextlist,neighbours.Bwd[STtype])
 			}
 		}
 	}
