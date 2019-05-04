@@ -182,6 +182,7 @@ func GetGeneralizationCone (app string, concept_hash string) []string {
 	fwd_cone := RetardedCone(app,retarded_directions,visited)
 	bwd_cone := AdvancedCone(app,advanced_directions,visited)
 
+	fmt.Println("")
 	fmt.Println(I(level),"<begin generalization cone>")
 	region := ShowCone(app,concept_hash,fwd_cone,bwd_cone)
 	fmt.Println(I(level),"<end generalization cone>")
@@ -203,26 +204,23 @@ func GetCausationCone (app string, cset []string) {
 
 		retarded_directions := nodelinks.Bwd[H.GR_FOLLOWS]
 		advanced_directions := nodelinks.Fwd[H.GR_FOLLOWS]
-		
-//		fmt.Println("CAUSE <> ",concept_hash,retarded_directions,advanced_directions)
+
+		fmt.Println("")		
+		fmt.Println(I(1),"<begin causal propagation cone>")
+		for  i := range advanced_directions {
+			for n := range advanced_directions[i] {
+				fmt.Println(I(2),"-", H.ASSOCIATIONS[i].Fwd,ConceptName(app,advanced_directions[i][n]))
+			}
+		}
 
 		for  i := range retarded_directions {
-			fmt.Println(i)
 			for n := range retarded_directions[i] {
-				fmt.Println(I(2),"topic ",H.ASSOCIATIONS[i].Bwd,ConceptName(app,retarded_directions[i][n]))
+				fmt.Println(I(2),"-",H.ASSOCIATIONS[i].Bwd,ConceptName(app,retarded_directions[i][n]))
 			}
 		}
 
-		for  i := range advanced_directions {
-			fmt.Println(i)
-			for n := range advanced_directions[i] {
-				fmt.Println(I(2),"topic", H.ASSOCIATIONS[i].Fwd,ConceptName(app,advanced_directions[i][n]))
-			}
-		}
+		fmt.Println(I(1),"<begin causal propagation cone>")
 	}
-
-
-
 }
 
 

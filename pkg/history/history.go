@@ -89,6 +89,7 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 	// Process invariants
 
 	previous_concept Concept
+	previous_event Concept
 
 	// Streams for dropping outcomes(t)
 	tf *os.File
@@ -279,13 +280,9 @@ var GR_SHIFT_TEXT = []string{
 
 // ****************************************************************************
 
-func HereAndNow() string {
+func HereAndNow() (string, string) {
 
-	// Lookup, expand, graph
-
-	// BEEN HERE BEFORE? THEN DON'T DO ALL THIS AGAIN!
-
-	// ifelapsed into new range....
+	// Time
 
 	then := time.Now()
 
@@ -306,6 +303,9 @@ func HereAndNow() string {
         minD := fmt.Sprintf("Min%02d_%02d",interval_start,interval_end)
 
 	var when string = fmt.Sprintf(" on %s %s %s %s %s at %s %s %s %s",shift,dow,dayname,month,year,hour,mins,quarter,minD)
+
+	// Space
+
 	var where = Where(3)
 
 	// Build the invariant concept subgraphs
@@ -333,30 +333,7 @@ func HereAndNow() string {
 	ConceptLink(cwhen,expresses,cshift)
 	ConceptLink(cwhen,expresses,cmonth)
 
-	var hereandnow = where + when
-
-	// invariants CONTAIN when as a special case
-
-	cloc := CreateConcept("locations")
-	cevent := CreateConcept("events")
-	cwhere := CreateConcept(where)
-	chn := CreateConcept(hereandnow)
-
-	ConceptLink(cevent,generalizes,chn)
-	ConceptLink(cloc,generalizes,cwhere)
-	ConceptLink(cevent,generalizes,chn)
-
-	ConceptLink(chn,expresses,cwhere)
-	ConceptLink(chn,expresses,cwhen)
-
-
-	return hereandnow
-}
-
-// ****************************************************************************
-
-func CodeLocation() NameAndRole { // User function
-	return NR(Where(1),"code position")
+	return where, when
 }
 
 // ****************************************************************************
@@ -413,28 +390,53 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	// Part 2. Build invariant picture
 	// location ... and metric space of concepts
 
+	cloc := CreateConcept("locations")
 	csigns  := CreateConcept("signpost")
+	cevent := CreateConcept("events")
 
-	hereandnow := HereAndNow()
+	here, now := HereAndNow()
+
+	// prefix contains the deployment
+	hereandnow := here + " of " + pc.prefix + now
+
 	chn  := CreateConcept(hereandnow)      // disambiguator
+	cwhere := CreateConcept(here)
+	cwhen := CreateConcept(now)
 
-	signpost := remark + hereandnow
-	cthis := CreateConcept(signpost)        // specific combinatoric instance
-	cremark  := CreateConcept(remark)          // possibly used elsewhere/when
+	// the remark sets semantics of this disambiguated region
 
-	ConceptLink(csigns,contains,cthis)
+	signpost := remark + hereandnow        // unique semantic event + spacetime
 
-	ConceptLink(cthis,expresses,cremark)
-	ConceptLink(cthis,expresses,chn)
+	cthissign := CreateConcept(signpost)       // specific combinatoric instance
+	cremark  := CreateConcept(remark)      // possibly used elsewhere/when
 
-	// Graph causality - must be idempotent/invariant
+	ConceptLink(csigns,contains,cthissign)
 
-	ConceptLink(cthis,follows,pc.previous_concept)
+	ConceptLink(cthissign,expresses,cremark)
+	ConceptLink(cthissign,expresses,chn)
+	ConceptLink(cthissign,expresses,cwhere)
+
+	// invariants CONTAIN when as a special case
+
+	ConceptLink(cevent,generalizes,chn)
+	ConceptLink(cloc,generalizes,cwhere)
+	ConceptLink(cevent,generalizes,chn)
+
+	ConceptLink(chn,expresses,cwhere)
+	ConceptLink(chn,expresses,cwhen)
+
+	// Graph causality - must be idempotent/invariant, so no specific coordinates
+
+	ConceptLink(cremark,follows,pc.previous_concept)
+
+	// This is variant, but orthogonal (testing, as this doesn't converge)
+	ConceptLink(cthissign,follows,pc.previous_event)
 
 	// Update this local copy of context, each time we erect a signpost
 	// to hand down to the next layer
 
-	pc.previous_concept = cthis
+	pc.previous_concept = cremark
+	pc.previous_event = cthissign
 
 	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
 
@@ -640,8 +642,20 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	pc.tick.previous = 0
 	pc.tick.exterior = 0
 	pc.tick.utc = time.Now().Unix()
+	pc.prefix = path
 
 	pc.previous_concept = CreateConcept("program start")
+
+	here, now := HereAndNow()
+
+	// prefix contains the deployment
+	hereandnow := here + " of " + pc.prefix + now
+
+	chn  := CreateConcept(hereandnow)      // disambiguator
+	CreateConcept(here)
+	CreateConcept(now)
+
+	pc.previous_event = chn
 
 	PROPER_PATHS = make(SparseGraph)
 
@@ -651,16 +665,23 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	k8s := CreateConcept("kubernetes")
 	pod := CreateConcept("pods")
 	thispod := CreateConcept(m["Pod"])
+	thisdeploy := CreateConcept(path)
+	thisversion := CreateConcept(m["Version"])
+
 	kdeploy := CreateConcept("kubernetes deployments")
 	deploy := CreateConcept("deployments")
 
-	ConceptLink(kpod,expresses,k8s)
-	ConceptLink(kdeploy,expresses,k8s)
-
+	// invariants are contained 
 	ConceptLink(pod,generalizes,kpod)
 	ConceptLink(deploy,generalizes,kdeploy)
+	ConceptLink(kpod,generalizes,thispod)
 
-	ConceptLink(kpod,contains,thispod)
+	// Variants are expressed
+	ConceptLink(kpod,expresses,k8s)
+	ConceptLink(kdeploy,expresses,k8s)
+	ConceptLink(kdeploy,generalizes,thisdeploy)
+	ConceptLink(thisdeploy,expresses,thispod)
+	ConceptLink(thisdeploy,expresses,thisversion)
 
 	return ext_ctx
 }
@@ -671,7 +692,8 @@ func WriteChainBlock(pc ProcessContext, remark string) {
 
 	pid := os.Getpid()
 
-	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
+	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),
+		pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
 
 	pc.tf.WriteString(entry)
 }
