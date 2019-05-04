@@ -17,9 +17,6 @@ import (
 // basic query of graph structure
 // ****************************************************************************
 
-
-// ****************************************************************************
-
 func main() {
 
 	ctx := context.Background()
@@ -201,11 +198,27 @@ func GetCausationCone (app string, cset []string) {
 	for c := range cset {
 		concept_hash := cset[c]
 		visited[concept_hash] = true
+
 		nodelinks := GetLinksFrom(app,concept_hash,visited)
+
 		retarded_directions := nodelinks.Bwd[H.GR_FOLLOWS]
 		advanced_directions := nodelinks.Fwd[H.GR_FOLLOWS]
 		
-		fmt.Println("CAUSE <> ",concept_hash,retarded_directions,advanced_directions)
+//		fmt.Println("CAUSE <> ",concept_hash,retarded_directions,advanced_directions)
+
+		for  i := range retarded_directions {
+			fmt.Println(i)
+			for n := range retarded_directions[i] {
+				fmt.Println(I(2),"topic ",H.ASSOCIATIONS[i].Bwd,ConceptName(app,retarded_directions[i][n]))
+			}
+		}
+
+		for  i := range advanced_directions {
+			fmt.Println(i)
+			for n := range advanced_directions[i] {
+				fmt.Println(I(2),"topic", H.ASSOCIATIONS[i].Fwd,ConceptName(app,advanced_directions[i][n]))
+			}
+		}
 	}
 
 
@@ -314,6 +327,8 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 		kinds[linktype] = true
 	}
 
+	// print and merge into a single list
+
 	for linktype := range kinds {
 		if fcone[linktype] != nil {
 
@@ -341,7 +356,10 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 		
 	}
 
-return region
+	// don't forget the focal point!
+	
+	region = append(region,concept_hash)
+	return region
 }
 
 // ************************************************************************

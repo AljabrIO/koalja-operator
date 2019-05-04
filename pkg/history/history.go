@@ -171,7 +171,7 @@ var (
 		{3,GR_CONTAINS,"generalizes","is a special case of"},
 		{-3,GR_CONTAINS,"is not a generalization of","is not a special case of"},
 
-		{4,GR_FOLLOWS,"followed after","is preceded by"},
+		{4,GR_FOLLOWS,"follows after","is preceded by"},
 		{-4,GR_FOLLOWS,"does not follow","is not preceded by"},
 
 		{5,GR_FOLLOWS,"originates from","is the source/origin of"},
@@ -310,47 +310,45 @@ func HereAndNow() string {
 
 	// Build the invariant concept subgraphs
 
-	c1 := CreateConcept(when)
+	cwhen := CreateConcept(when)
+	cmins := CreateConcept(mins)
+	chour := CreateConcept(hour)
+	cyear := CreateConcept(year)
+	cday := CreateConcept(dayname)
+	cquart := CreateConcept(quarter)
+	cminD := CreateConcept(minD)
+	cshift := CreateConcept(shift)
+	cmonth := CreateConcept(month)
 
-	// invariant sub-intervals CONTAIN when as a special case
 	// variant times labels are only expressed by special case "when"
 
-	c2 := CreateConcept(mins)
-	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(hour)
-	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(year)
-	ConceptLink(c1,expresses,c2)
-	ConceptLink(c2,contains,c1)
-	c2 = CreateConcept(dayname)
-	ConceptLink(c2,contains,c1)
-	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(quarter)
-	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(minD)
-	ConceptLink(c2,contains,c1)
-	ConceptLink(c1,expresses,c2)
-	c2 = CreateConcept(shift)
-	ConceptLink(c1,expresses,c2)
-	ConceptLink(c2,contains,c1)
-
-	c2 = CreateConcept(month)
-	ConceptLink(c2,contains,c1)
+	ConceptLink(cwhen,expresses,cmins)
+	ConceptLink(cwhen,expresses,chour)
+	ConceptLink(cwhen,expresses,cday)
+	ConceptLink(cwhen,expresses,cyear)
+	ConceptLink(cwhen,expresses,cquart)
+	ConceptLink(cwhen,expresses,cminD)
+	ConceptLink(cwhen,expresses,cshift)
+	ConceptLink(cwhen,expresses,cyear)
+	ConceptLink(cwhen,expresses,cshift)
+	ConceptLink(cwhen,expresses,cmonth)
 
 	var hereandnow = where + when
 
-	c2 = CreateConcept("events")
+	// invariants CONTAIN when as a special case
+
+	cloc := CreateConcept("locations")
+	cevent := CreateConcept("events")
+	cwhere := CreateConcept(where)
 	chn := CreateConcept(hereandnow)
-	ConceptLink(c2,generalizes,chn)
 
-	c5 := CreateConcept(where)
-	c6 := CreateConcept("locations")
-	ConceptLink(c6,contains,c5)
+	ConceptLink(cevent,generalizes,chn)
+	ConceptLink(cloc,generalizes,cwhere)
+	ConceptLink(cevent,generalizes,chn)
 
-	// Specific time/space coordinates generalized by general region
+	ConceptLink(chn,expresses,cwhere)
+	ConceptLink(chn,expresses,cwhen)
 
-	ConceptLink(c2,generalizes,c5)
-	ConceptLink(c2,generalizes,chn)
 
 	return hereandnow
 }
@@ -366,13 +364,28 @@ func CodeLocation() NameAndRole { // User function
 func Where(depth int) string {
 
         // Interal usage
-	p,name,line, ok := runtime.Caller(depth)
+	p,fname,line, ok := runtime.Caller(depth)
 	
 	var location string
 
 	if ok {
 		var funcname = runtime.FuncForPC(p).Name()
-		location = fmt.Sprintf(" in function %s in file %s at line %d",funcname,name,line)
+		fn := "function "+funcname
+		file := "file "+fname
+		lnr := fmt.Sprintf("line %d",line)
+		location = fmt.Sprintf(" in %s of %s at %s",fn,file,lnr)
+
+		call := CreateConcept("code position")
+		cwhere := CreateConcept(location)
+		cfunc := CreateConcept(fn)
+		cname := CreateConcept(file)
+		cline := CreateConcept(lnr)
+
+		ConceptLink(call,generalizes,cwhere)
+		ConceptLink(cwhere,expresses,cfunc)
+		ConceptLink(cwhere,expresses,cname)
+		ConceptLink(cwhere,expresses,cline)
+
 	} else {
 		location = "unknown origin"
 	}
@@ -400,27 +413,28 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	// Part 2. Build invariant picture
 	// location ... and metric space of concepts
 
+	csigns  := CreateConcept("signpost")
+
 	hereandnow := HereAndNow()
+	chn  := CreateConcept(hereandnow)      // disambiguator
+
 	signpost := remark + hereandnow
+	cthis := CreateConcept(signpost)        // specific combinatoric instance
+	cremark  := CreateConcept(remark)          // possibly used elsewhere/when
 
-	c12 := CreateConcept(signpost)        // specific combinatoric instance
-	c1  := CreateConcept(remark)          // possibly used elsewhere/when
-	c2  := CreateConcept(hereandnow)      // disambiguator
-	c3  := CreateConcept("signpost")
+	ConceptLink(csigns,contains,cthis)
 
-	// This instance expresses both invariants
-	ConceptLink(c12,expresses,c1)
-	ConceptLink(c12,expresses,c3)
-	ConceptLink(c12,expresses,c2)
+	ConceptLink(cthis,expresses,cremark)
+	ConceptLink(cthis,expresses,chn)
 
 	// Graph causality - must be idempotent/invariant
 
-	ConceptLink(c12,follows,pc.previous_concept)
+	ConceptLink(cthis,follows,pc.previous_concept)
 
 	// Update this local copy of context, each time we erect a signpost
 	// to hand down to the next layer
 
-	pc.previous_concept = c12
+	pc.previous_concept = cthis
 
 	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
 
@@ -633,28 +647,20 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	ext_ctx := context.WithValue(ctx, PROCESS_CTX, pc)
 
-	c1 := CreateConcept("kubernetes pods")
-	c2 := CreateConcept("kubernetes")
-	c3 := CreateConcept("pods")
+	kpod := CreateConcept("kubernetes pods")
+	k8s := CreateConcept("kubernetes")
+	pod := CreateConcept("pods")
+	thispod := CreateConcept(m["Pod"])
+	kdeploy := CreateConcept("kubernetes deployments")
+	deploy := CreateConcept("deployments")
 
-	ConceptLink(c1,expresses,c2)
-	ConceptLink(c3,generalizes,c1)
+	ConceptLink(kpod,expresses,k8s)
+	ConceptLink(kdeploy,expresses,k8s)
 
-	c3a := CreateConcept(m["Pod"])
-	ConceptLink(c1,contains,c3a)
+	ConceptLink(pod,generalizes,kpod)
+	ConceptLink(deploy,generalizes,kdeploy)
 
-	c4 := CreateConcept("kubernetes deployments")
-	c5 := CreateConcept("deployments")
-	ConceptLink(c4,expresses,c2)
-	ConceptLink(c5,generalizes,c4)
-
-	c5a := CreateConcept(m["Deployment"])
-	ConceptLink(c4,contains,c5a)
-
-	ConceptLink(c5,contains,c5a)
-
-	//c7 := CreateConcept("compute nodes")
-
+	ConceptLink(kpod,contains,thispod)
 
 	return ext_ctx
 }
