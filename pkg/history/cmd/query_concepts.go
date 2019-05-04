@@ -300,75 +300,177 @@ func GetConceptCone (app string, concept_hash string) {
 	var visited = make(map[string]bool)  // loop avoidance
 	var level int = 1
 
-	links := GetLinksFrom(app,concept_hash,visited)
+	nodelinks := GetLinksFrom(app,concept_hash,visited)
 
-	var directions H.NeighbourConcepts = make(map[int][]string,0)
+	retarded_directions := nodelinks.Fwd[H.GR_CONTAINS]
+	advanced_directions := nodelinks.Bwd[H.GR_CONTAINS]
 
-	// for nextlinks = GetNextFwd(links); nextlinks != empty; nextlinks = GetNextFwd(nextlinks)
+	fwd_cone := RetardedCone(app,retarded_directions,visited)
+	bwd_cone := AdvancedCone(app,advanced_directions,visited)
 
-	for rel := range links.Fwd[H.GR_CONTAINS] {
-
-		for next := 0; next < len(links.Fwd[H.GR_CONTAINS][rel]); next++ {
-			
-			if directions[rel] == nil {
-				directions[rel] = make([]string,0)
-			}
-
-			directions[rel] = append(directions[rel],links.Fwd[H.GR_CONTAINS][rel][next])
-			nextlinks := GetLinksFrom(app,links.Fwd[H.GR_CONTAINS][rel][next],visited)
-			ExploreFwdCone(app,nextlinks,directions,rel)
-
-			// Now iterate for sum of all newlinks,rel <-> links, rel
-		}
-	}
-	
-	for rel := range links.Bwd[H.GR_CONTAINS] {
-
-		for next := 0; next < len(links.Bwd[H.GR_CONTAINS][rel]); next++ {
-			
-			if directions[rel] == nil {
-				directions[rel] = make([]string,0)
-			}
-			
-			directions[rel] = append(directions[rel],links.Bwd[H.GR_CONTAINS][rel][next])
-			nextlinks := GetLinksFrom(app,links.Bwd[H.GR_CONTAINS][rel][next],visited)
-			ExploreBwdCone(app,nextlinks,directions,rel)
-		}
-	}
+//	typed_region = JoinNeighbours(fwd_cone,retarded_directions)
 
 	fmt.Println(I(level),"<begin region>")
 	
-	// CHECK FOR BLOCKER NOT == dir+1
 
-	for dir := range directions {
-		fmt.Printf("%s Region type : %d (%s) %s\n",I(level+1),dir,H.ASSOCIATIONS[dir].Fwd,ConceptName(app,concept_hash))
-		for node := range directions[dir] {
-			fmt.Println(">>>>>>>>>",ConceptName(app,directions[dir][node]))
-		}
-	}
-	
+	fmt.Println("FWD CONE ",fwd_cone)
+	fmt.Println("BWD CONE ",bwd_cone)
+	fmt.Println("FOCUS ",concept_hash)
 	fmt.Println(I(level),"<end region>")
 }
 
 
 //**************************************************************
 
-func ExploreFwdCone(app string, nextlinks H.Links, region H.NeighbourConcepts, rel int) {
+/* retarded wave, for each direction, push the wave and accumulate 
+   the wavefront, which will be added to the total region
 
-	for l := range nextlinks.Fwd[H.GR_CONTAINS] {
-		for next := 0; next < len(nextlinks.Fwd[H.GR_CONTAINS][l]); next++ {
-			region[rel] = append(region[rel],nextlinks.Fwd[H.GR_CONTAINS][l][next])
+    directions 1 **
+        |      2 **** locations ->
+        V      3 *
+
+   // RetardedCone (init H.NeighourConcepts)
+   // for maplist = init; maplist not empty; maplist = nextlist
+   //   
+   //   for each channel in maplist[]
+   //       for each node in maplist[channel]
+   //         scan node -> fwd(channel, nextnode) 
+   //         nextlist[channel] = nextnode
+   // fwd_cone[] += maplist[]
+   // return fwd_cone
+		
+   // total_region = init + fwd_cone + bwd_cone
+
+   // we are only doing ascent, so don't need to mix fwd/bwd channels in same process
+   // no antiparticles in reasoning...?
+
+*/
+
+//**************************************************************
+
+func RetardedCone(app string, init H.NeighbourConcepts, visited map[string]bool) H.NeighbourConcepts {
+
+	var maplist, nextlist, fwd_cone H.NeighbourConcepts
+
+	var counter int = 0
+
+	fwd_cone = make(H.NeighbourConcepts,0)
+
+	for maplist = init; Neighbours(maplist); maplist = nextlist {
+
+		nextlist = make(H.NeighbourConcepts,0)
+		counter++
+
+		for linktype := range maplist {
+			
+			if nextlist[linktype] == nil {
+				nextlist[linktype] = make([]string,0)
+			}
+			
+			for node := 0; node < len(maplist[linktype]); node++ {
+				fmt.Println("Expanding",counter,maplist[linktype][node])
+				neighbours := GetLinksFrom(app,maplist[linktype][node],visited)
+				nextlist = JoinNeighbours(nextlist,neighbours.Fwd[H.GR_CONTAINS])
+			}
+		}
+
+		fwd_cone = JoinNeighbours(fwd_cone,nextlist)
+
+	}
+
+return fwd_cone
+}
+
+//**************************************************************
+
+func AdvancedCone(app string, init H.NeighbourConcepts, visited map[string]bool) H.NeighbourConcepts {
+
+	var maplist, nextlist, bwd_cone H.NeighbourConcepts
+
+	bwd_cone = make(H.NeighbourConcepts,0)
+
+	for maplist = init; Neighbours(maplist); maplist = nextlist {
+
+		nextlist = make(H.NeighbourConcepts,0)
+		
+		for linktype := range maplist {
+			
+			if nextlist[linktype] == nil {
+				nextlist[linktype] = make([]string,0)
+			}
+			
+			for node := 0; node < len(maplist[linktype]); node++ {
+				
+				neighbours := GetLinksFrom(app,maplist[linktype][node],visited)
+				nextlist = JoinNeighbours(nextlist,neighbours.Bwd[H.GR_CONTAINS])
+			}
+		}
+
+		bwd_cone = JoinNeighbours(bwd_cone,nextlist)
+
+	}
+
+return bwd_cone
+}
+
+// ************************************************************************
+
+func Neighbours(x H.NeighbourConcepts) bool {
+
+	for t := range x {
+		if x[t] != nil && len(x[t]) > 0 {
+			return true
 		}
 	}
+	
+	return false
+}
+
+// ************************************************************************
+
+func JoinNeighbours(master H.NeighbourConcepts, delta H.NeighbourConcepts) H.NeighbourConcepts {
+
+	var result H.NeighbourConcepts = make(H.NeighbourConcepts)
+
+	for t := range master {
+		
+		result[t] = make([]string,0)
+	
+		for n := 0; n < len(master[t]); n++ {
+
+			result[t] = append(result[t],master[t][n])
+		}
+	}
+
+	for t := range delta {
+		
+		if result[t] == nil {
+			result[t] = make([]string,0)
+		}
+	
+		for n := 0; n < len(delta[t]); n++ {
+			result[t] = append(result[t],delta[t][n])
+		}
+	}
+
+return result
 }
 
 //************************************
+// advanced wave
 
-func ExploreBwdCone(app string, nextlinks H.Links, region H.NeighbourConcepts, rel int) {
+func ExploreBwdCone(app string, nextlinks H.Links, region H.NeighbourConcepts) {
 
-	for l := range nextlinks.Fwd[H.GR_CONTAINS] {
-		for next := 0; next < len(nextlinks.Bwd[H.GR_CONTAINS][l]); next++ {
-			region[rel] = append(region[rel],nextlinks.Bwd[H.GR_CONTAINS][l][next])
+	for direction := range nextlinks.Fwd[H.GR_CONTAINS] {
+
+		if region[direction] == nil {
+			region[direction] = make([]string,0)
+		}
+
+		// iterate over the links of same type
+
+		for next_location := 0; next_location < len(nextlinks.Bwd[H.GR_CONTAINS][direction]); next_location++ {
+			region[direction] = append(region[direction],nextlinks.Bwd[H.GR_CONTAINS][direction][next_location])
 		}
 	}
 }
