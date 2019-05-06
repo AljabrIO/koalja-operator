@@ -172,8 +172,8 @@ var (
 		{3,GR_CONTAINS,"generalizes","is a special case of"},
 		{-3,GR_CONTAINS,"is not a generalization of","is not a special case of"},
 
-		{4,GR_FOLLOWS,"follows after","is preceded by"},
-		{-4,GR_FOLLOWS,"does not follow","is not preceded by"},
+		{4,GR_FOLLOWS,"follows after","precedes"},
+		{-4,GR_FOLLOWS,"does not follow","does not precede"},
 
 		{5,GR_FOLLOWS,"originates from","is the source/origin of"},
 		{-5,GR_FOLLOWS,"does not originate from","is not the source/origin of"},
@@ -854,5 +854,23 @@ func ConeTest() {
 
 	ConceptLink(city,generalizes,town)
 	ConceptLink(town,generalizes,oslo)
+
+	realnum := CreateConcept("real number")
+	complexnum := CreateConcept("complex number")
+	integer := CreateConcept("integer")
+	one := CreateConcept("1")
+	two := CreateConcept("2")
+	three := CreateConcept("3")
+	four := CreateConcept("4")
+
+	ConceptLink(complexnum,generalizes,realnum)
+	ConceptLink(realnum,generalizes,integer)
+	ConceptLink(integer,generalizes,one)
+	ConceptLink(integer,generalizes,two)
+	ConceptLink(integer,generalizes,three)
+	ConceptLink(integer,generalizes,four)
+	ConceptLink(two,follows,one)
+	ConceptLink(three,follows,two)
+	ConceptLink(four,follows,three)
 
 }
