@@ -69,7 +69,11 @@ func MainLoop(ctx context.Context){
 	
 	ScanSystem(ctx)
 
-	ConceptConeGeneralizations()
+	H.SignPost(&ctx,"Commence testing")
+
+	go ConceptConeGeneralizations(ctx)
+
+	DataPipelineExample(ctx)
 	
 	// End loop
 	H.SignPost(&ctx,"The end!")
@@ -81,9 +85,30 @@ func MainLoop(ctx context.Context){
 
 //**************************************************************
 
-func ConceptConeGeneralizations() {
+func ConceptConeGeneralizations(ctx context.Context) {
+
+	H.SignPost(&ctx,"A sideline to test some raw concept mapping").
+		PartOf(H.N("Commence testing"))
 
 	H.ConeTest()
+
+	H.SignPost(&ctx,"End of sideline concept test").
+		PartOf(H.N("Commence testing"))
+}
+
+//**************************************************************
+
+func DataPipelineExample(ctx context.Context){
+
+	// Initiate pod for the description
+
+	// for each input signal an arrival from sensor
+
+	// Look up data in a model service
+
+	// trigger an output result
+
+	// request to build or get from cache
 }
 
 //**************************************************************

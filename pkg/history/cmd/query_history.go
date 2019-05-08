@@ -69,7 +69,7 @@ func ShowFile(app,name string) {
 
 	parts := strings.Split(name,"_")
 
-	fmt.Println("SCANNING process originally started as pid ",parts[1])
+	fmt.Println("\nNew process timeline for (",app,") originally started as pid ",parts[1],"\n")
 
 	for scanner.Scan() {
 		ParseLine(app,scanner.Text(),parts[1])
