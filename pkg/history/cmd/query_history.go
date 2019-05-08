@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 	"bufio"
 //	H "github.com/AljabrIO/koalja-operator/pkg/history"
-//	H "history"
+	H "history"
 )
 
 // ****************************************************************************
@@ -42,7 +43,7 @@ func main() {
 
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(),"transaction") {
-			ShowFile(path,file.Name())
+			ShowFile(args[0],file.Name())
 		}
 	}
 
@@ -51,7 +52,9 @@ func main() {
 
 //**************************************************************
 
-func ShowFile(path,name string) {
+func ShowFile(app,name string) {
+
+	path := fmt.Sprintf("/tmp/cellibrium/%s/",app)
 
 	file, err := os.Open(path+name)
 
@@ -69,7 +72,7 @@ func ShowFile(path,name string) {
 	fmt.Println("SCANNING process originally started as pid ",parts[1])
 
 	for scanner.Scan() {
-		ParseLine(scanner.Text(),parts[1])
+		ParseLine(app,scanner.Text(),parts[1])
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -80,7 +83,7 @@ func ShowFile(path,name string) {
 
 //**************************************************************
 
-func ParseLine(s string, fpid string) {
+func ParseLine(app string, s string, fpid string) {
 
 	var t,proper,exterior,prev int
 	var pid string
@@ -92,11 +95,7 @@ func ParseLine(s string, fpid string) {
 		fmt.Println("process forked -- ",pid," != ",fpid)
 	}
 
-	if exterior != prev+1 {
-		fmt.Printf("go> %d <- root = (%d,%d)  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
-	} else {
-		fmt.Printf("... %d <- root = (%d,%d)  (utc %d)  | %s \n",prev,exterior,proper,t,remark[1])
-	}
+	fmt.Printf("%s  | %s %s \n",Clock(t),R(prev,exterior,proper),H.ConceptName(app,remark[1]))
 }
 
 //**************************************************************
@@ -115,4 +114,27 @@ func I(level int) string {
 	s = fmt.Sprintf("%.3d:%s",level,indent)
 	s = indent
 	return s
+}
+
+//**************************************************************
+
+func R(previous,now,t int) string {
+
+	if t == 1 {
+
+		if now != previous+1 {
+			return fmt.Sprintf("%d go> %d. %s",previous,now,I(t))
+		} else {
+			return fmt.Sprintf("%d --> %d. %s",previous,now,I(t))
+		}
+	} else {
+		return fmt.Sprintf("   -> %d. %s",now,I(t))
+	}
+}
+//**************************************************************
+
+func Clock(t int) string {
+	
+	secs := int64(t)
+	return fmt.Sprintf("%s",time.Unix(secs, 0))
 }

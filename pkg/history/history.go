@@ -692,8 +692,10 @@ func WriteChainBlock(pc ProcessContext, remark string) {
 
 	pid := os.Getpid()
 
+	c := CreateConcept(remark)
+
 	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),
-		pc.tick.proper,pc.tick.exterior,pc.tick.previous,remark)
+		pc.tick.proper,pc.tick.exterior,pc.tick.previous,c.Hash)
 
 	pc.tf.WriteString(entry)
 }
@@ -812,15 +814,17 @@ func CreateConcept(description string) Concept {
 	return concept
 }
 
-// ****************************************************************************
+//**************************************************************
 
-func ConceptName(hash string) string {
+func ConceptName(app,concept_hash string) string {
 
-	path := fmt.Sprintf("%s/concepts/%s/description",BASEDIR,hash)
-	description, err := ioutil.ReadFile(path)
+	path := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s",app,concept_hash)	
+	descr := fmt.Sprintf("%s/description",path)
+	description, err := ioutil.ReadFile(descr)
 
 	if err != nil {
-	        fmt.Println(err)
+		fmt.Println("Couldn't read concept file - "+descr)
+		os.Exit(1)
 	}
 
 	return string(description)

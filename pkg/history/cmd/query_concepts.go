@@ -49,7 +49,7 @@ func main() {
 
 		var visited = make(map[string]bool)  // loop avoidance
 
-		description := ConceptName(app,concept_hash)
+		description := H.ConceptName(app,concept_hash)
 		links := GetLinksFrom(app,concept_hash,visited)
 	
 		fmt.Printf("\nStories about \"%s\" (%s) in app %s \n\n",description,concept_hash,app)
@@ -115,22 +115,6 @@ func ListConcepts(app string) {
 
 //**************************************************************
 
-func ConceptName(app,concept_hash string) string {
-
-	path := fmt.Sprintf("/tmp/cellibrium/%s/concepts/%s",app,concept_hash)	
-	descr := fmt.Sprintf("%s/description",path)
-	description, err := ioutil.ReadFile(descr)
-
-	if err != nil {
-		fmt.Println("Couldn't read concept file - "+descr)
-		os.Exit(1)
-	}
-
-	return string(description)
-}
-
-//**************************************************************
-
 func DescribeConcept (app string, level int, name string, links H.Links) {
 	
 	fmt.Println(I(level),"<begin describe>")
@@ -143,7 +127,7 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 				I(level),
 				"topic",
 				H.ASSOCIATIONS[l].Bwd,
-				ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]),
+				H.ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]),
 				links.Bwd[H.GR_EXPRESSES][l][next])
 		}
 	}
@@ -156,7 +140,7 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 				I(level),
 				"topic",
 				H.ASSOCIATIONS[l].Fwd,
-				ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]),
+				H.ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]),
 				links.Fwd[H.GR_EXPRESSES][l][next])
 		}
 	}
@@ -315,9 +299,9 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 			for fnode := 0; fnode < len(fcone[linktype]); fnode++ {
 				fmt.Printf("\n%s\"%s\" --f(%s)--> \"%s\"\n",
 					I(3),
-					ConceptName(app,concept_hash),
+					H.ConceptName(app,concept_hash),
 					H.ASSOCIATIONS[linktype].Fwd,
-					ConceptName(app,fcone[linktype][fnode]))
+					H.ConceptName(app,fcone[linktype][fnode]))
 
 				region = append(region,fcone[linktype][fnode])
 			}
@@ -327,9 +311,9 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 			for bnode := 0; bnode < len(bcone[linktype]); bnode++ {
 				fmt.Printf("\n%s\"%s\" --b(%s)--> \"%s\"\n",
 					I(3),
-					ConceptName(app,concept_hash),
+					H.ConceptName(app,concept_hash),
 					H.ASSOCIATIONS[linktype].Bwd,
-					ConceptName(app,bcone[linktype][bnode]))
+					H.ConceptName(app,bcone[linktype][bnode]))
 
 				region = append(region,bcone[linktype][bnode])
 			}
