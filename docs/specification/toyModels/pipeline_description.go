@@ -28,6 +28,8 @@ type Container struct {
 	args []string
 }
 
+var CPIPELINE H.Concept
+
 // ****************************************************************************
 
 func main() {
@@ -51,7 +53,6 @@ func main() {
 
 	// 3. run pipeline
 }
-
 
 //**************************************************************
 //* Koalja PIPELINE SPEC package
@@ -81,9 +82,22 @@ func ParsePipeline(ctx context.Context, v map[string]string){
 	fmt.Println(I(0),"spec:")
 	fmt.Println(I(1),"tasks:")
 
+	DocumentPipelineByName(namespace,name)
+
 	for i := 0; i < len(yaml); i++ {
 		fmt.Println(yaml[i])
 	}
+}
+
+//**************************************************************
+
+func DocumentPipelineByName(namespace,name string) {
+
+	CPIPELINE= H.CreateConcept("data pipeline "+name)
+	H.ConceptLink(H.CreateConcept("data pipeline"),H.GENERALIZES,CPIPELINE)
+	cnamespace := H.CreateConcept("namespace "+name)
+	H.ConceptLink(cnamespace,H.CONTAINS,CPIPELINE)
+	H.ConceptLink(H.CreateConcept("kubernetes namespace"),H.GENERALIZES,cnamespace)
 }
 
 //**************************************************************
@@ -493,6 +507,10 @@ func CheckFileDrops(ctx context.Context, bb BreadBoard, in []byte) []string {
 
 			if bb[name] == nil {
 				bb[name] = make([]string,0)
+
+				ctask := H.CreateConcept("data pipeline task Drop"+name)
+				H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("data pipeline ingress"))
+				H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
 			}
 
 			bb[name] = append(bb["Drop"+name],"Drop"+name)
@@ -542,15 +560,36 @@ func HandleIOPolicy(ctx context.Context, bb BreadBoard, operator string, in []by
 		
 		yaml = append(yaml,"- name:"+" "+name)
 		yaml = append(yaml,I(1)+"typeRef:"+" "+typename)
-		
+
+		ctask := H.CreateConcept("data pipeline task "+name)
+
+		H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("name"))
+		H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
+
 		if window > 0 {
 			yaml = append(yaml,I(1)+fmt.Sprintf("slide: %d",window))
+
+			cwin := H.CreateConcept(fmt.Sprintf("sliding window size %d",window))
+			H.ConceptLink(ctask,H.EXPRESSES,cwin)
+
 		}
 		
 		if min > 1 && max == min {
 			yaml = append(yaml,I(1)+fmt.Sprintf("requiredSequenceLength: %d",min))
+			c := H.CreateConcept(fmt.Sprintf("exact required batch size %d",min))
+			H.ConceptLink(ctask,H.EXPRESSES,c)
+
 		} else if min > 1 {
 			yaml = append(yaml,I(1)+fmt.Sprintf("minSequenceLength: %d",min))
+			c := H.CreateConcept(fmt.Sprintf("minimum required batch size %d",min))
+			H.ConceptLink(ctask,H.EXPRESSES,c)
+		}
+
+		if max > 1 && max > min {
+			yaml = append(yaml,I(1)+fmt.Sprintf("maxSequenceLength: %d",max))
+			c := H.CreateConcept(fmt.Sprintf("maximum required batch size %d",max))
+			H.ConceptLink(ctask,H.EXPRESSES,c)
+
 		}
 		
 		if strings.HasPrefix(name,"in") {
@@ -649,6 +688,11 @@ func AddWiring(ctx context.Context, bb BreadBoard) []string {
 			for j := 1; j < len(v); j++ {
 				//fmt.Println("WIRES: ",k,v)
 				name = v[0]+"2"+v[j]
+
+				cfrom := H.CreateConcept("data pipeline task "+v[0])
+				cto := H.CreateConcept("data pipeline task "+v[j])
+				H.ConceptLink(cto,H.FOLLOWS,cfrom)
+
 				source = fmt.Sprintf("%s/%s",v[0],k)
 				dest = fmt.Sprintf("%s/%s",v[j],k)
 				yaml = append(yaml,I(3)+"- name:"+" "+name)
