@@ -140,15 +140,15 @@ const GR_CONTEXT int   = 5  // approx like
 const ALL_CONTEXTS string = "any"
 
 const (
-	has_role int = 19
-	originates_from int = 5
-	expresses int = 14
-	promises int = 15
-	follows int = 4
-	contains int = 1
-	generalizes int = 3
-	uses int = 12
-	alias int = 24
+	HAS_ROLE int = 19
+	ORIGINATES_FROM int = 5
+	EXPRESSES int = 14
+	PROMISES int = 15
+	FOLLOWS int = 4
+	CONTAINS int = 1
+	GENERALIZES int = 3
+	USES int = 12
+	ALIAS int = 24
 
 	PROCESS_MARKER string = "process reference marker"
 	SYS_ERR_MSG string = "system error message"
@@ -322,16 +322,16 @@ func HereAndNow() (string, string) {
 
 	// variant times labels are only expressed by special case "when"
 
-	ConceptLink(cwhen,expresses,cmins)
-	ConceptLink(cwhen,expresses,chour)
-	ConceptLink(cwhen,expresses,cday)
-	ConceptLink(cwhen,expresses,cyear)
-	ConceptLink(cwhen,expresses,cquart)
-	ConceptLink(cwhen,expresses,cminD)
-	ConceptLink(cwhen,expresses,cshift)
-	ConceptLink(cwhen,expresses,cyear)
-	ConceptLink(cwhen,expresses,cshift)
-	ConceptLink(cwhen,expresses,cmonth)
+	ConceptLink(cwhen,EXPRESSES,cmins)
+	ConceptLink(cwhen,EXPRESSES,chour)
+	ConceptLink(cwhen,EXPRESSES,cday)
+	ConceptLink(cwhen,EXPRESSES,cyear)
+	ConceptLink(cwhen,EXPRESSES,cquart)
+	ConceptLink(cwhen,EXPRESSES,cminD)
+	ConceptLink(cwhen,EXPRESSES,cshift)
+	ConceptLink(cwhen,EXPRESSES,cyear)
+	ConceptLink(cwhen,EXPRESSES,cshift)
+	ConceptLink(cwhen,EXPRESSES,cmonth)
 
 	return where, when
 }
@@ -358,10 +358,10 @@ func Where(depth int) string {
 		cname := CreateConcept(file)
 		cline := CreateConcept(lnr)
 
-		ConceptLink(call,generalizes,cwhere)
-		ConceptLink(cwhere,expresses,cfunc)
-		ConceptLink(cwhere,expresses,cname)
-		ConceptLink(cwhere,expresses,cline)
+		ConceptLink(call,GENERALIZES,cwhere)
+		ConceptLink(cwhere,EXPRESSES,cfunc)
+		ConceptLink(cwhere,EXPRESSES,cname)
+		ConceptLink(cwhere,EXPRESSES,cline)
 
 	} else {
 		location = "unknown origin"
@@ -410,27 +410,27 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	cthissign := CreateConcept(signpost)       // specific combinatoric instance
 	cremark  := CreateConcept(remark)      // possibly used elsewhere/when
 
-	ConceptLink(csigns,contains,cthissign)
+	ConceptLink(csigns,CONTAINS,cthissign)
 
-	ConceptLink(cthissign,expresses,cremark)
-	ConceptLink(cthissign,expresses,chn)
-	ConceptLink(cthissign,expresses,cwhere)
+	ConceptLink(cthissign,EXPRESSES,cremark)
+	ConceptLink(cthissign,EXPRESSES,chn)
+	ConceptLink(cthissign,EXPRESSES,cwhere)
 
 	// invariants CONTAIN when as a special case
 
-	ConceptLink(cevent,generalizes,chn)
-	ConceptLink(cloc,generalizes,cwhere)
-	ConceptLink(cevent,generalizes,chn)
+	ConceptLink(cevent,GENERALIZES,chn)
+	ConceptLink(cloc,GENERALIZES,cwhere)
+	ConceptLink(cevent,GENERALIZES,chn)
 
-	ConceptLink(chn,expresses,cwhere)
-	ConceptLink(chn,expresses,cwhen)
+	ConceptLink(chn,EXPRESSES,cwhere)
+	ConceptLink(chn,EXPRESSES,cwhen)
 
 	// Graph causality - must be idempotent/invariant, so no specific coordinates
 
-	ConceptLink(cremark,follows,pc.previous_concept)
+	ConceptLink(cremark,FOLLOWS,pc.previous_concept)
 
 	// This is variant, but orthogonal (testing, as this doesn't converge)
-	ConceptLink(cthissign,follows,pc.previous_event)
+	ConceptLink(cthissign,FOLLOWS,pc.previous_event)
 
 	// Update this local copy of context, each time we erect a signpost
 	// to hand down to the next layer
@@ -460,7 +460,7 @@ func (pc ProcessContext) Note(s string) ProcessContext {
 func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 
 	for i := 0; i < len(attr); i++ {
-		//Relation(m.ctx,true,m.description.hub,expresses,attr[i].hub)
+		//Relation(m.ctx,true,m.description.hub,EXPRESSES,attr[i].hub)
 
 		s := "(" + attr[i].name + "," + attr[i].role + ")"
 		pc.tick = SmallTick(pc.tick)
@@ -671,17 +671,20 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	kdeploy := CreateConcept("kubernetes deployments")
 	deploy := CreateConcept("deployments")
 
+	kname := CreateConcept("kubernetes namespace")
+
 	// invariants are contained 
-	ConceptLink(pod,generalizes,kpod)
-	ConceptLink(deploy,generalizes,kdeploy)
-	ConceptLink(kpod,generalizes,thispod)
+	ConceptLink(pod,GENERALIZES,kpod)
+	ConceptLink(deploy,GENERALIZES,kdeploy)
+	ConceptLink(kpod,GENERALIZES,thispod)
 
 	// Variants are expressed
-	ConceptLink(kpod,expresses,k8s)
-	ConceptLink(kdeploy,expresses,k8s)
-	ConceptLink(kdeploy,generalizes,thisdeploy)
-	ConceptLink(thisdeploy,expresses,thispod)
-	ConceptLink(thisdeploy,expresses,thisversion)
+	ConceptLink(kpod,EXPRESSES,k8s)
+	ConceptLink(kdeploy,EXPRESSES,k8s)
+	ConceptLink(kname,EXPRESSES,k8s)
+	ConceptLink(kdeploy,GENERALIZES,thisdeploy)
+	ConceptLink(thisdeploy,EXPRESSES,thispod)
+	ConceptLink(thisdeploy,EXPRESSES,thisversion)
 
 	return ext_ctx
 }
@@ -726,8 +729,8 @@ func (pc ProcessContext) AddError(err error) ProcessContext {
 
 /*	AnnotateNR(m.ctx,n)
 	Relation(m.ctx,true,n.hub,has_role,n.role)
-	Relation(m.ctx,true,m.description.hub,expresses,n.hub)
-	Relation(m.ctx,true,n.hub,follows,m.description.hub)
+	Relation(m.ctx,true,m.description.hub,EXPRESSES,n.hub)
+	Relation(m.ctx,true,n.hub,FOLLOWS,m.description.hub)
 	*/
 	return pc
 }
@@ -846,18 +849,18 @@ func ConeTest() {
 	dwelling := CreateConcept("dwelling")
 	oslo := CreateConcept("Oslo")
 
-	ConceptLink(country,contains,city)
-	ConceptLink(city,contains,district)
-	ConceptLink(district,contains,home)
+	ConceptLink(country,CONTAINS,city)
+	ConceptLink(city,CONTAINS,district)
+	ConceptLink(district,CONTAINS,home)
 
-	ConceptLink(home,generalizes,house)
-	ConceptLink(home,generalizes,apartment)
-	ConceptLink(apartment,generalizes,flat)
-	ConceptLink(dwelling,generalizes,home)
-	ConceptLink(metro,generalizes,city)
+	ConceptLink(home,GENERALIZES,house)
+	ConceptLink(home,GENERALIZES,apartment)
+	ConceptLink(apartment,GENERALIZES,flat)
+	ConceptLink(dwelling,GENERALIZES,home)
+	ConceptLink(metro,GENERALIZES,city)
 
-	ConceptLink(city,generalizes,town)
-	ConceptLink(town,generalizes,oslo)
+	ConceptLink(city,GENERALIZES,town)
+	ConceptLink(town,GENERALIZES,oslo)
 
 	realnum := CreateConcept("real number")
 	complexnum := CreateConcept("complex number")
@@ -867,14 +870,14 @@ func ConeTest() {
 	three := CreateConcept("3")
 	four := CreateConcept("4")
 
-	ConceptLink(complexnum,generalizes,realnum)
-	ConceptLink(realnum,generalizes,integer)
-	ConceptLink(integer,generalizes,one)
-	ConceptLink(integer,generalizes,two)
-	ConceptLink(integer,generalizes,three)
-	ConceptLink(integer,generalizes,four)
-	ConceptLink(two,follows,one)
-	ConceptLink(three,follows,two)
-	ConceptLink(four,follows,three)
+	ConceptLink(complexnum,GENERALIZES,realnum)
+	ConceptLink(realnum,GENERALIZES,integer)
+	ConceptLink(integer,GENERALIZES,one)
+	ConceptLink(integer,GENERALIZES,two)
+	ConceptLink(integer,GENERALIZES,three)
+	ConceptLink(integer,GENERALIZES,four)
+	ConceptLink(two,FOLLOWS,one)
+	ConceptLink(three,FOLLOWS,two)
+	ConceptLink(four,FOLLOWS,three)
 
 }
