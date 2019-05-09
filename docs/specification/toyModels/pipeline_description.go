@@ -36,16 +36,18 @@ func main() {
 
 	// 1. Initialize
 
-	ctx := context.Background()
-	ctx = H.SetLocationInfo(ctx, map[string]string{
+	details := map[string]string{
 		"Pod":        "Koalja_"+pipeline,
-		"Deployment": pipeline,  // insert instance data from env?
-		"Version":    "1.2.3",
-	})
+		"Deployment": pipeline,
+		"Version":    "v1alpha",
+	}
+
+	ctx := context.Background()
+	ctx = H.SetLocationInfo(ctx,details)
 
 	// 2. test koalja, reads pipeline/container_description
 
-	ParsePipeline(ctx)
+	ParsePipeline(ctx,details)
 
 	// 3. run pipeline
 }
@@ -55,7 +57,7 @@ func main() {
 //* Koalja PIPELINE SPEC package
 //**************************************************************
 
-func ParsePipeline(ctx context.Context){
+func ParsePipeline(ctx context.Context, v map[string]string){
 
 	m := H.SignPost(&ctx,"Parser").
 		Intent("Parse a pipeline description file and generate YAML").
@@ -64,14 +66,14 @@ func ParsePipeline(ctx context.Context){
 	buffer, err := ioutil.ReadFile("./pipeline_description")
 
 	if err != nil {
-		m.Note("file read failed").AddError(err)
+		m.FailedBecause("File read failed").AddError(err)
 	}
 
 	namespace, name, yaml := GetPipelineDefinition(ctx,buffer)
 
 	// Print the k8s YAML
 
-	fmt.Println(I(0),"apiVersion: koalja.aljabr.io/v1alpha1")
+	fmt.Println(I(0),"apiVersion: koalja.aljabr.io/"+v["Version"])
 	fmt.Println(I(0),"kind: Pipeline")
 	fmt.Println(I(0),"metadata:")
 	fmt.Println(I(1),"name: "+name)
@@ -305,7 +307,7 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 	var inarray []string = StripWires(in)
 	var outarray []string = StripWires(out)	
 	var s string
-	
+
 	s = fmt.Sprintf("image: %s:%s", c.image,c.image_version)
 	yaml = append(yaml,s)
 	s = fmt.Sprintf("command:")
@@ -324,38 +326,52 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 
 		if s == "<IN>" {
 			for j := 0; j < len(inarray); j++ {
-				s = fmt.Sprintf("%s", "{{.inputs."+inarray[j]+".path}}")
+				s = fmt.Sprintf("%s", "{{.inputs."+StripPolicy(inarray[j])+".path}}")
 				c.args[i] = s
+				s = fmt.Sprintf("- %s", s)
+				yaml = append(yaml,s)
 
 			}
 		} else if strings.Contains(s,"<IN>") {
 			var expand string
 			for j := 0; j < len(inarray); j++ {
-				expand = expand + "{{.inputs."+inarray[j]+".path}} "
+				expand = expand + "{{.inputs."+StripPolicy(inarray[j])+".path}} "
 			}
 			s = strings.Replace(s,"<IN>",expand,1)
 			c.args[i] = s
+			s = fmt.Sprintf("- %s", s)
+			yaml = append(yaml,s)
+
 		}
 		
 		if s == "<OUT>" {
 			for j := 0; j < len(outarray); j++ {
-				s = fmt.Sprintf("%s", "{{.inputs."+outarray[j]+".path}}")
+				s = fmt.Sprintf("%s", "{{.outputs."+StripPolicy(outarray[j])+".path}}")
 				c.args[i] = s
+				s = fmt.Sprintf("- %s", s)
+				yaml = append(yaml,s)
 			}
 		} else if strings.Contains(s,"<OUT>") {
 			var expand string
 			for j := 0; j < len(outarray); j++ {
-				expand = expand + "{{.inputs."+outarray[j]+".path}} "
+				expand = expand + "{{.outputs."+StripPolicy(outarray[j])+".path}} "
+				s = fmt.Sprintf("- %s", s)
+				yaml = append(yaml,s)
 			}
 			s = strings.Replace(s,"<OUT>",expand,1)
 			c.args[i] = s
 		}
-
-		s = fmt.Sprintf("- %s", s)
-		yaml = append(yaml,s)
 	}
 
 	return yaml
+}
+
+//**************************************************************
+
+func StripPolicy(s string) string {
+
+	array := strings.Split(s,"[")
+	return array[0]
 }
 
 //**************************************************************
@@ -443,12 +459,12 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 
 	// Append executor or filedrop ingress node
 	
-	yaml = append(yaml,I(2)+"executor:")
+	yaml = append(yaml,I(3)+"executor:")
 
 	containers := LookupContainerDef(ctx,operator,in,out)
 
 	for i := 0; i < len(containers); i++ {
-		yaml = append(yaml,I(3)+containers[i])
+		yaml = append(yaml,I(4)+containers[i])
 	}
 
 	return yaml
@@ -466,7 +482,7 @@ func CheckFileDrops(ctx context.Context, bb BreadBoard, in []byte) []string {
 
 		s := strings.Split(array[i],"[")
 		name := s[0]
-		fmt.Println("NAME: ",name)
+
 		if strings.HasPrefix(name,"in") {
 			yaml = append(yaml,I(2)+"- name: Drop"+name)
 			yaml = append(yaml,I(3)+"outputs: ")
