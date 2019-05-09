@@ -297,11 +297,12 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 
 		if fcone[linktype] != nil {
 			for fnode := 0; fnode < len(fcone[linktype]); fnode++ {
-				fmt.Printf("\n%s\"%s\" --f(%s)--> \"%s\"\n",
+				fmt.Printf("\n%s\"%s\" --f(%s)--> \"%s\" (%s)\n",
 					I(3),
 					H.ConceptName(app,concept_hash),
 					H.ASSOCIATIONS[linktype].Fwd,
-					H.ConceptName(app,fcone[linktype][fnode]))
+					H.ConceptName(app,fcone[linktype][fnode]),
+					fcone[linktype][fnode])
 
 				region = append(region,fcone[linktype][fnode])
 			}
@@ -309,11 +310,12 @@ func ShowCone(app string,concept_hash string, fcone, bcone H.NeighbourConcepts) 
 
 		if bcone[linktype] != nil {
 			for bnode := 0; bnode < len(bcone[linktype]); bnode++ {
-				fmt.Printf("\n%s\"%s\" --b(%s)--> \"%s\"\n",
+				fmt.Printf("\n%s\"%s\" --b(%s)--> \"%s\" (%s)\n",
 					I(3),
 					H.ConceptName(app,concept_hash),
 					H.ASSOCIATIONS[linktype].Bwd,
-					H.ConceptName(app,bcone[linktype][bnode]))
+					H.ConceptName(app,bcone[linktype][bnode]),
+					bcone[linktype][bnode])
 
 				region = append(region,bcone[linktype][bnode])
 			}

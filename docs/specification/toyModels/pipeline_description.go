@@ -34,14 +34,12 @@ var CPIPELINE H.Concept
 
 func main() {
 
-	pipeline := "IoT_Workspace_model"
-
 	// 1. Initialize
 
 	details := map[string]string{
-		"Pod":        "Koalja_"+pipeline,
-		"Deployment": pipeline,
-		"Version":    "v1alpha",
+		"Pod":        "Koalja_empty_pod",
+		"Deployment": "Koalja pipeline description",
+		"Version":    "0.1",
 	}
 
 	ctx := context.Background()
@@ -81,8 +79,6 @@ func ParsePipeline(ctx context.Context, v map[string]string){
 	fmt.Println(I(1),"namespace: "+namespace)
 	fmt.Println(I(0),"spec:")
 	fmt.Println(I(1),"tasks:")
-
-	DocumentPipelineByName(namespace,name)
 
 	for i := 0; i < len(yaml); i++ {
 		fmt.Println(yaml[i])
@@ -152,6 +148,7 @@ NewTask:
 							name =string(nsn)
 							namespace = "default"
 						}
+						DocumentPipelineByName(namespace,name)
 						break
 					} else {
 						nsn = append(nsn,input[k])
@@ -447,9 +444,14 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 	
 	yaml = append(yaml,I(2)+"- name: "+string(operator))
 	
+	ctask := H.CreateConcept("data pipeline task "+string(operator))
+	H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("task name"))
+	H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
+	fmt.Println("TASKS",CPIPELINE,ctask)
+
 	// generate inputs
 
-	var inputs []string = HandleIOPolicy(ctx,bb,operator,in)
+	var inputs []string = HandleIOPolicy(ctx,bb,operator,in,ctask)
 
 	if (len(inputs)) > 0 {
 		yaml = append(yaml,I(3)+"inputs:")
@@ -461,7 +463,7 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 
 	// generate outputs
 
-	var outputs []string = HandleIOPolicy(ctx,bb,operator,out)
+	var outputs []string = HandleIOPolicy(ctx,bb,operator,out,ctask)
 
 	if (len(outputs)) > 0 {
 		yaml = append(yaml,I(3)+"outputs:")
@@ -522,7 +524,7 @@ func CheckFileDrops(ctx context.Context, bb BreadBoard, in []byte) []string {
 
 //**************************************************************
 
-func HandleIOPolicy(ctx context.Context, bb BreadBoard, operator string, in []byte) []string {
+func HandleIOPolicy(ctx context.Context, bb BreadBoard, operator string, in []byte, ctask H.Concept) []string {
 
 	var array []string = strings.FieldsFunc(string(in),InOutSplit)
 
@@ -561,17 +563,11 @@ func HandleIOPolicy(ctx context.Context, bb BreadBoard, operator string, in []by
 		yaml = append(yaml,"- name:"+" "+name)
 		yaml = append(yaml,I(1)+"typeRef:"+" "+typename)
 
-		ctask := H.CreateConcept("data pipeline task "+name)
-
-		H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("name"))
-		H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
-
 		if window > 0 {
 			yaml = append(yaml,I(1)+fmt.Sprintf("slide: %d",window))
 
 			cwin := H.CreateConcept(fmt.Sprintf("sliding window size %d",window))
 			H.ConceptLink(ctask,H.EXPRESSES,cwin)
-
 		}
 		
 		if min > 1 && max == min {
