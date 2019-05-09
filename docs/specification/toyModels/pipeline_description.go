@@ -231,7 +231,7 @@ NewTask:
 
 //**************************************************************
 
-func LookupContainerDef(ctx context.Context, search string, in []byte, out []byte) []string {
+func LookupContainerDef(ctx context.Context, search string, in []byte, out []byte, ctask H.Concept) []string {
 
 	m := H.SignPost(&ctx,"Container lookup").
 		Intent("Import container description from database")
@@ -329,9 +329,21 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 	s = fmt.Sprintf("- %s", c.command)
 	yaml = append(yaml,s)
 
+	cimage := H.CreateConcept(c.image+":"+c.image_version)
+	cbinary:= H.CreateConcept(c.command)
+
+	H.ConceptLink(ctask,H.EXPRESSES,cimage)
+	H.ConceptLink(ctask,H.EXPRESSES,cbinary)
+
 	for i := 0; i < len(c.args); i++ {
 
 		s = c.args[i]
+
+		cargstr := fmt.Sprintf("process arg[%d] %s",i,c.args[i])
+		carg := H.CreateConcept(cargstr)
+		H.ConceptLink(ctask,H.EXPRESSES,carg)
+		H.ConceptLink(H.CreateConcept("process argument"),H.GENERALIZES,carg)
+		H.ConceptLink(carg,H.EXPRESSES,H.CreateConcept(c.args[i]))
 
 		// substitute IN/OUT if on separate line, then split the args one per line
 
@@ -447,7 +459,6 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 	ctask := H.CreateConcept("data pipeline task "+string(operator))
 	H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("task name"))
 	H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
-	fmt.Println("TASKS",CPIPELINE,ctask)
 
 	// generate inputs
 
@@ -477,7 +488,7 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 	
 	yaml = append(yaml,I(3)+"executor:")
 
-	containers := LookupContainerDef(ctx,operator,in,out)
+	containers := LookupContainerDef(ctx,operator,in,out,ctask)
 
 	for i := 0; i < len(containers); i++ {
 		yaml = append(yaml,I(4)+containers[i])
