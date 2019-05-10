@@ -317,8 +317,11 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 
 	// Get the wire endings to sub for IN and OUT, generate YAML
 
-	var inarray []string = StripWires(in)
-	var outarray []string = StripWires(out)	
+	var inarray, implicit_in = StripWires(in)
+	var outarray, implicit_out = StripWires(out)	
+
+	DocumentImplicit(ctask,implicit_in,implicit_out)
+
 	var s string
 
 	s = fmt.Sprintf("image: %s:%s", c.image,c.image_version)
@@ -405,25 +408,40 @@ func StripPolicy(s string) string {
 
 //**************************************************************
 
-func StripWires(array []byte) []string {
+func DocumentImplicit(ctask H.Concept, in,out []string) {
+
+	for i := range in {
+		c := H.CreateConcept("implicit dataflow: "+in[i])
+		H.ConceptLink(ctask,H.DEPENDS,c)
+	}
+
+	for o := range out {
+		c := H.CreateConcept("implicit dataflow: "+out[o])
+		H.ConceptLink(c,H.DEPENDS,ctask)
+	}
+}
+
+//**************************************************************
+
+func StripWires(array []byte) ([]string,[]string) {
 
 	var a []string = strings.FieldsFunc(string(array),InOutSplit)
-	var r []string
+	var explicit []string
+	var implicit []string
+
+	var prev string = "missing identifier"
 
 	for i := 0; i < len(a); i++ {
 
-		// Might need to revise these types - files already deprecated
-
-		if strings.HasPrefix(a[i],"files") ||         // file passing
-   	 	        strings.HasPrefix(a[i],"query") ||   // explicit DB/service query
-			strings.HasPrefix(a[i],"implicit") { // implicit DB/service query
-			continue
+		if a[i] == "implicit" { // implicit DB/service query
+			implicit = append(implicit,prev)
+		} else {
+			explicit = append(explicit,a[i])
 		}
-
-		r = append(r,a[i])
+		prev = a[i]
 	}
 
-	return r
+	return explicit,implicit
 }
 
 //**************************************************************
