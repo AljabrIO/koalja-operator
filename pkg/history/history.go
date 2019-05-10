@@ -58,10 +58,10 @@ type Concept struct {
 // ****************************************************************************
 
 type NameAndRole struct {
-	name string
-	role string
-	hub string
-	concept Concept
+	Name string
+	Role string
+	Hub string
+	Ccpt Concept   // Points to a cached concept structure for hub
 }
 
 // ****************************************************************************
@@ -200,8 +200,8 @@ var (
 		{11,GR_FOLLOWS,"caused by","may cause"},
 		{-11,GR_FOLLOWS,"was not caused by","probably didn't cause"},
 
-		{12,GR_FOLLOWS,"seeks to use","is used by"},
-		{-12,GR_FOLLOWS,"does not seek to use","is not used by"},
+		{12,GR_FOLLOWS,"uses","is used by"},
+		{-12,GR_FOLLOWS,"does not use","is not used by"},
 
 		{13,GR_EXPRESSES,"is called","is a name for"},
 		{-13,GR_EXPRESSES,"is not called","is not a name for"},
@@ -456,8 +456,8 @@ func (pc ProcessContext) Note(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
 	nr := NR(s,REMARK)
-	ConceptLink(pc.previous_concept,EXPRESSES,nr.concept)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	ConceptLink(pc.previous_concept,EXPRESSES,nr.Ccpt)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -467,10 +467,10 @@ func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 
 	for i := 0; i < len(attr); i++ {
 
-		s := attr[i].hub
+		s := attr[i].Hub
 		pc.tick = SmallTick(pc.tick)
-		ConceptLink(pc.previous_concept,EXPRESSES,attr[i].concept)
-		WriteChainBlock(pc,s,attr[i].concept.Hash)
+		ConceptLink(pc.previous_concept,EXPRESSES,attr[i].Ccpt)
+		WriteChainBlock(pc,s,attr[i].Ccpt.Hash)
 	}
 	return pc
 }
@@ -480,8 +480,8 @@ func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 func (pc ProcessContext) ReliesOn(nr NameAndRole) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	ConceptLink(pc.previous_concept,USES,nr.concept)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	ConceptLink(pc.previous_concept,USES,nr.Ccpt)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -492,8 +492,8 @@ func (pc ProcessContext) Determines(nr NameAndRole) ProcessContext {
 	//var logmsg string = "-used by " + nr.role + ": " + nr.name
 
 	pc.tick = SmallTick(pc.tick)
-	ConceptLink(nr.concept,DEPENDS,pc.previous_concept)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	ConceptLink(nr.Ccpt,DEPENDS,pc.previous_concept)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -504,7 +504,7 @@ func (pc ProcessContext) PartOf(nr NameAndRole) ProcessContext {
 	//var logmsg string = "- part of " + nr.role + ": " + nr.name
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -513,7 +513,7 @@ func (pc ProcessContext) PartOf(nr NameAndRole) ProcessContext {
 func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -522,7 +522,7 @@ func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 func (pc ProcessContext) FailedSlave(nr NameAndRole) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -536,8 +536,8 @@ func (pc ProcessContext) Intent(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
 	nr := NR(s,INTENTION)
-	ConceptLink(pc.previous_concept,EXPRESSES,nr.concept)
-	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
+	ConceptLink(pc.previous_concept,EXPRESSES,nr.Ccpt)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
 
@@ -551,12 +551,12 @@ func Hub(name,role string) string {
 
 func NR(name string, role string) NameAndRole {
 	var n NameAndRole
-	n.name = name
-	n.role = role
-	n.hub = Hub(name,role)
-	c := CreateConcept(n.hub)
+	n.Name = name
+	n.Role = role
+	n.Hub = Hub(name,role)
+	c := CreateConcept(n.Hub)
 	// Cache the hub's concept hash to avoid recomputing
-	n.concept = c
+	n.Ccpt = c
 	cn := CreateConcept(name)
 	cr := CreateConcept(role)
 	ConceptLink(c,HAS_ROLE,cr)

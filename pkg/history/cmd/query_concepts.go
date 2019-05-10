@@ -123,9 +123,8 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 
 		for next := 0; next < len(links.Bwd[H.GR_EXPRESSES][l]); next++ {
 			
-			fmt.Printf("%s \"%s\" -- (%s) --> \"%s\" (%s)\n",
+			fmt.Printf("%s   -- (%s) --> \"%s\" (%s)\n",
 				I(level),
-				"topic",
 				H.ASSOCIATIONS[l].Bwd,
 				H.ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next]),
 				links.Bwd[H.GR_EXPRESSES][l][next])
@@ -136,9 +135,8 @@ func DescribeConcept (app string, level int, name string, links H.Links) {
 		
 		for next := 0; next < len(links.Fwd[H.GR_EXPRESSES][l]); next++ {
 			
-			fmt.Printf("%s \"%s\" -- (%s) -->  \"%s\" (%s)\n",
+			fmt.Printf("%s   -- (%s) -->  \"%s\" (%s)\n",
 				I(level),
-				"topic",
 				H.ASSOCIATIONS[l].Fwd,
 				H.ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next]),
 				links.Fwd[H.GR_EXPRESSES][l][next])
