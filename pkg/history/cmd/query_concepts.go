@@ -21,8 +21,8 @@ func main() {
 
 	ctx := context.Background()
 	ctx = H.SetLocationInfo(ctx, map[string]string{
-		"Pod":        "A_pod_named_foo",
-		"Deployment": "query_concepts",  // insert instance data from env?
+		"Pod":        "Koalja_empty_pod",
+		"Deployment": "Koalja query_concepts",  // insert instance data from env?
 		"Version":    "0.1",
 	})
 
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	H.SignPost(&ctx,"Test local concept graph").
-		PartOf(H.N("Testing suite 1"))
+		PartOf(H.N("Koalja"))
 
 	if len(args) == 1 || args[1] == "all" {
 		ListConcepts(args[0])

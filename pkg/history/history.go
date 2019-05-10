@@ -12,7 +12,7 @@
 package history
 
 import (
-//	"strings"
+	"strings"
 	"sync/atomic"
 	"context"
 	"time"
@@ -61,6 +61,7 @@ type NameAndRole struct {
 	name string
 	role string
 	hub string
+	concept Concept
 }
 
 // ****************************************************************************
@@ -149,10 +150,13 @@ const (
 	GENERALIZES int = 3
 	USES int = 12
 	ALIAS int = 24
+	DEPENDS int = 8
 
 	PROCESS_MARKER string = "process reference marker"
 	SYS_ERR_MSG string = "system error message"
 	UNSPEC_ROLE string = "unspecified role"
+	INTENTION string = "intent: "	
+	REMARK string = "remarked: "
 )
 
 // ****************************************************************************
@@ -440,7 +444,7 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 
 	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
 
-	WriteChainBlock(pc, remark)
+	WriteChainBlock(pc, remark,cremark.Hash)
 
 	// Pass on local data relative to current context
 	return pc
@@ -451,7 +455,9 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 func (pc ProcessContext) Note(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,s)
+	nr := NR(s,REMARK)
+	ConceptLink(pc.previous_concept,EXPRESSES,nr.concept)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -460,11 +466,11 @@ func (pc ProcessContext) Note(s string) ProcessContext {
 func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 
 	for i := 0; i < len(attr); i++ {
-		//Relation(m.ctx,true,m.description.hub,EXPRESSES,attr[i].hub)
 
-		s := "(" + attr[i].name + "," + attr[i].role + ")"
+		s := attr[i].hub
 		pc.tick = SmallTick(pc.tick)
-		WriteChainBlock(pc,s)
+		ConceptLink(pc.previous_concept,EXPRESSES,attr[i].concept)
+		WriteChainBlock(pc,s,attr[i].concept.Hash)
 	}
 	return pc
 }
@@ -473,12 +479,9 @@ func (pc ProcessContext) Attributes(attr ...NameAndRole) ProcessContext {
 
 func (pc ProcessContext) ReliesOn(nr NameAndRole) ProcessContext {
 
-// SRC uses DEST
-// uses
-	//var logmsg string = "-used " + nr.role + ": " + nr.name
-
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub)
+	ConceptLink(pc.previous_concept,USES,nr.concept)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -488,12 +491,9 @@ func (pc ProcessContext) Determines(nr NameAndRole) ProcessContext {
 
 	//var logmsg string = "-used by " + nr.role + ": " + nr.name
 
-// determines
-// DEST uses SRC
-	//Relation(m.ctx,true,m.description.hub,uses,nr.hub)
-
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub)
+	ConceptLink(nr.concept,DEPENDS,pc.previous_concept)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -504,7 +504,7 @@ func (pc ProcessContext) PartOf(nr NameAndRole) ProcessContext {
 	//var logmsg string = "- part of " + nr.role + ": " + nr.name
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -513,7 +513,7 @@ func (pc ProcessContext) PartOf(nr NameAndRole) ProcessContext {
 func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -522,7 +522,7 @@ func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 func (pc ProcessContext) FailedSlave(nr NameAndRole) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,nr.hub)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -535,7 +535,9 @@ func (pc ProcessContext) FailedBecause(name string) ProcessContext {
 func (pc ProcessContext) Intent(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
-	WriteChainBlock(pc,s)
+	nr := NR(s,INTENTION)
+	ConceptLink(pc.previous_concept,EXPRESSES,nr.concept)
+	WriteChainBlock(pc,nr.hub,nr.concept.Hash)
 	return pc
 }
 
@@ -552,6 +554,13 @@ func NR(name string, role string) NameAndRole {
 	n.name = name
 	n.role = role
 	n.hub = Hub(name,role)
+	c := CreateConcept(n.hub)
+	// Cache the hub's concept hash to avoid recomputing
+	n.concept = c
+	cn := CreateConcept(name)
+	cr := CreateConcept(role)
+	ConceptLink(c,HAS_ROLE,cr)
+	ConceptLink(c,EXPRESSES,cn)
 	return n
 }
 
@@ -625,7 +634,7 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 	// Put the dir in /tmp for now, assuming effectively private in cloud
 
-	BASEDIR = BASEDIR+"/"+path
+	BASEDIR = strings.Replace(BASEDIR+"/"+path," ","_",-1)
 	err = os.MkdirAll(BASEDIR, 0755)
 
 	tpath := fmt.Sprintf("%s/transaction_%d",BASEDIR,pid)
@@ -691,14 +700,12 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 
 // ****************************************************************************
 
-func WriteChainBlock(pc ProcessContext, remark string) {
+func WriteChainBlock(pc ProcessContext, remark string, hash string) {
 
 	pid := os.Getpid()
 
-	c := CreateConcept(remark)
-
-	entry := fmt.Sprintf("%d , %d , %d , %d , %d ;%s\n",pid,time.Now().Unix(),
-		pc.tick.proper,pc.tick.exterior,pc.tick.previous,c.Hash)
+	entry := fmt.Sprintf("%d , %d , %d , %d , %d ; %s\n",pid,time.Now().Unix(),
+		pc.tick.proper,pc.tick.exterior,pc.tick.previous,hash)
 
 	pc.tf.WriteString(entry)
 }
@@ -726,21 +733,15 @@ func (pc ProcessContext) AddError(err error) ProcessContext {
 
 	n := NR(err.Error(),SYS_ERR_MSG)
 	pc.FailedSlave(n)
-
-/*	AnnotateNR(m.ctx,n)
-	Relation(m.ctx,true,n.hub,has_role,n.role)
-	Relation(m.ctx,true,m.description.hub,EXPRESSES,n.hub)
-	Relation(m.ctx,true,n.hub,FOLLOWS,m.description.hub)
-	*/
 	return pc
 }
 
 // ****************************************************************************
 
 func CloseProcess(ctx context.Context) {
-//	pc, _ := GetProcessContext(ctx)
-//	pc.tf.Close();
-//	pc.gf.Close();
+	pc, _ := ctx.Value(PROCESS_CTX).(ProcessContext)
+	pc.tf.Close();
+	pc.gf.Close();
 }
 
 // ****************************************************************************
@@ -754,6 +755,7 @@ func ConceptLink(c1 Concept, rel int, c2 Concept) {
 	var path string
 	var err error
 	var index int
+	var file *os.File
 
 	if rel < 0 {
 		index = -2*rel
@@ -772,7 +774,8 @@ func ConceptLink(c1 Concept, rel int, c2 Concept) {
 	}
 
 	// inode's name is concept hash for the link of type STtype
-	os.Create(path + c2.Hash)
+	file, err = os.Create(path + c2.Hash)
+	file.Close()
 
 	path = fmt.Sprintf("%s/concepts/%s/%d/%d/",BASEDIR,c2.Hash,-ASSOCIATIONS[index].STtype,ASSOCIATIONS[index].Key)
 	err = os.MkdirAll(path, 0755)
@@ -783,17 +786,20 @@ func ConceptLink(c1 Concept, rel int, c2 Concept) {
 	}
 
 	// inode's name is concept hash for the INVERSE link of type -STtype
-	os.Create(path + c1.Hash)
+	file,err = os.Create(path + c1.Hash)
+	file.Close()
 }
 
 // ****************************************************************************
 
-func CreateConcept(description string) Concept {
+func CreateConcept(vardescription string) Concept {
 
 	// Using a hash to avoid overthinking this unique key problem for now
 
 	var concept Concept
 	var err error
+
+	description := InvariantDescription(vardescription)
 
 	concept.Name = description
 	concept.Key = fnvhash([]byte(description))
@@ -802,6 +808,7 @@ func CreateConcept(description string) Concept {
 	path := fmt.Sprintf("%s/concepts/%s",BASEDIR,concept.Hash)
 
 	err = os.MkdirAll(path, 0755)
+
 	if err != nil {
 		fmt.Println("Couldn't make directory "+path)
 		os.Exit(1)
@@ -812,9 +819,22 @@ func CreateConcept(description string) Concept {
 	if !FileExists(cpath) {
 		content := []byte(concept.Name)
 		err = ioutil.WriteFile(cpath, content, 0644)
+
+		if err != nil {
+			fmt.Println("Couldn't write concept "+cpath,err.Error())
+			os.Exit(1)
+		}
+
 	}
 
 	return concept
+}
+
+//**************************************************************
+
+func InvariantDescription(s string) string {
+
+return s
 }
 
 //**************************************************************
@@ -826,8 +846,7 @@ func ConceptName(app,concept_hash string) string {
 	description, err := ioutil.ReadFile(descr)
 
 	if err != nil {
-		fmt.Println("Couldn't read concept file - "+descr)
-		os.Exit(1)
+		return "Couldn't read concept descriptor for - "+descr
 	}
 
 	return string(description)

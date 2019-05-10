@@ -240,6 +240,7 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 	
 	if err != nil {
 		m.Note("file read failed").AddError(err)
+		fmt.Println("ERROR......")
 	}
 	
 	defer file.Close()
@@ -309,8 +310,8 @@ func LookupContainerDef(ctx context.Context, search string, in []byte, out []byt
 	}
 
 	if !found {
-		m.FailedBecause("No container definition found")
-		return append(yaml,"<No Such Container> !!")
+		m.FailedBecause("No container definition found").AddError(err)
+		return append(yaml,"<No Such Container>!! "+search)
 	}
 
 	// Get the wire endings to sub for IN and OUT, generate YAML
@@ -459,6 +460,8 @@ func ReadOneTask(ctx context.Context, bb BreadBoard, in []byte, op []byte,out []
 	ctask := H.CreateConcept("data pipeline task "+string(operator))
 	H.ConceptLink(ctask,H.EXPRESSES,H.CreateConcept("task name"))
 	H.ConceptLink(CPIPELINE,H.CONTAINS,ctask)
+	cop := H.CreateConcept(string(operator))
+	H.ConceptLink(CPIPELINE,H.USES,cop)
 
 	// generate inputs
 
@@ -622,7 +625,7 @@ func InOutSplit (r rune) bool {
 
 func GetInputPolicy(ctx context.Context,in string) (string,int,int,int) {
 
-	m := H.SignPost(&ctx,"GetInputPolicy")
+	m := H.SignPost(&ctx,"GetInputPolicy from file")
 
 	var min,max int
 	var ch rune

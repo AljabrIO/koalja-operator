@@ -53,6 +53,16 @@ command: /bin/serverprocess
 
 #
 
+( predict
+image: special
+image_version: 1.2.3
+command: /bin/clientprocess
+arg: <IN> <OUT>
+# dummy connectors
+)
+
+#
+
 ( count_lines
 image_version: 1.2.3
 command: /bin/ksh

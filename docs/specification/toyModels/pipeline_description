@@ -30,21 +30,21 @@
 
 # 2. Linecount example
 
-[running_average]
+#[running_average]
 
  # wire[buffer/slide]
 
- (in1[10/1], in2[3/3]) compute_average (out)
+# (in1[10/1], in2[3/3]) compute_average (out)
 
 
 # 3. Tensor flow example
 #
-#[tfmodel]
-#
-#                   (in) learn-tf (model)
-#                (model) server   (lookup implicit)
-#                   (in) convert (json)
-#(json, lookup implicit) predict (out_prediction)
+[tfmodel]
+
+                   (in) learn-tf (model)
+                (model) server   (lookup implicit)
+                   (in) convert (json)
+(json, lookup implicit) predict (out_prediction)
 
 
 # 4. Other examples, the order of the args matches the container

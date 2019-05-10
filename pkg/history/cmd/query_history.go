@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"strings"
 	"fmt"
@@ -20,6 +21,16 @@ import (
 
 func main() {
 
+	ctx := context.Background()
+	ctx = H.SetLocationInfo(ctx, map[string]string{
+		"Pod":        "Koalja_empty_pod",
+		"Deployment": "Koalja query_history",  // insert instance data from env?
+		"Version":    "0.1",
+	})
+
+	m := H.SignPost(&ctx,"Show process history").
+		PartOf(H.N("Koalja"))
+
 	// 1. test cellibrium - need an invariant name (non trivial in cloud)
 
 	flag.Usage = usage
@@ -27,7 +38,7 @@ func main() {
 	args := flag.Args()
 
 	if len(args) < 1 {
-		fmt.Println("Input process missing.");
+		ListProcesses();
 		os.Exit(1);
 	}
 
@@ -41,49 +52,77 @@ func main() {
 		os.Exit(1)
 	}
 
+	m.Note("For each file, open")
+
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(),"transaction") {
-			ShowFile(args[0],file.Name())
+			ShowFile(ctx,args[0],file.Name())
 		}
 	}
-
-
 }
 
 //**************************************************************
 
-func ShowFile(app,name string) {
+func ListProcesses() {
+
+	path := fmt.Sprintf("/tmp/cellibrium/")
+
+	files, err := ioutil.ReadDir(path)
+
+	if err != nil {
+		fmt.Println("Couldn't read concepts in "+path)
+		os.Exit(1)
+	}
+
+	fmt.Println("Available processes:")
+
+	for _, file := range files {
+
+		fmt.Println(" - "+file.Name())
+	}
+}
+
+//**************************************************************
+
+func ShowFile(ctx context.Context,app,name string) {
+
+	m := H.SignPost(&ctx,"ShowFile")
 
 	path := fmt.Sprintf("/tmp/cellibrium/%s/",app)
 
 	file, err := os.Open(path+name)
 
 	if err != nil {
+		m.FailedBecause("Opening "+path+" to show history").AddError(err)
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	defer file.Close()
-	
 	scanner := bufio.NewScanner(file)
 
 	parts := strings.Split(name,"_")
 
+	m.Note("Start history dump")
+
 	fmt.Println("\nNew process timeline for (",app,") originally started as pid ",parts[1],"\n")
 
 	for scanner.Scan() {
-		ParseLine(app,scanner.Text(),parts[1])
+		ParseLine(m,app,scanner.Text(),parts[1])
 	}
+
+	m.Note("End history dump")
 
 	if err := scanner.Err(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	file.Close()
 }
 
 //**************************************************************
 
-func ParseLine(app string, s string, fpid string) {
+func ParseLine(m H.ProcessContext, app string, s string, fpid string) {
 
 	var t,proper,exterior,prev int
 	var pid string
