@@ -128,7 +128,7 @@ func ParseLine(m H.ProcessContext, app string, s string, fpid string) {
 	var pid string
 
 	fmt.Sscanf(s,"%s , %d , %d , %d , %d",&pid,&t,&proper,&exterior,&prev)
-	remark := strings.Split(s,";")
+	remark := strings.Split(s,"; ")
 
 	if (fpid != pid) {
 		fmt.Println("process forked -- ",pid," != ",fpid)
