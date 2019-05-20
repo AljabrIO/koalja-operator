@@ -370,24 +370,6 @@ return result
 }
 
 //************************************
-// advanced wave
-
-func ExploreBwdCone(app string, nextlinks H.Links, region H.NeighbourConcepts) {
-
-	for direction := range nextlinks.Fwd[H.GR_CONTAINS] {
-
-		if region[direction] == nil {
-			region[direction] = make([]string,0)
-		}
-
-		// iterate over the links of same type
-
-		for next_location := 0; next_location < len(nextlinks.Bwd[H.GR_CONTAINS][direction]); next_location++ {
-			region[direction] = append(region[direction],nextlinks.Bwd[H.GR_CONTAINS][direction][next_location])
-		}
-	}
-}
-
 
 //**************************************************************
 
