@@ -104,7 +104,12 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 // ****************************************************************************
 
-type NeighbourConcepts map[int][]string // a list of concept hashes reachable by int type of relation
+type Pair struct {
+	Name string
+	Prev string
+}
+
+type NeighbourConcepts map[int][]Pair // a list of concept hashes reachable by int type of relation
 
 type Links struct {
 	Fwd [5]NeighbourConcepts  // The association links, classified by direction and ST type
@@ -149,6 +154,7 @@ const (
 	CONTAINS int = 1
 	GENERALIZES int = 3
 	USES int = 12
+	CAUSES int = 11
 	ALIAS int = 24
 	DEPENDS int = 8
 
@@ -192,7 +198,7 @@ var (
 		{-8,GR_FOLLOWS,"doesn't depend on","doesn't determine"},
 
 		{9,GR_FOLLOWS,"was created by","created"},
-		{-9,GR_FOLLOWS,"was not created by","did not creat"},
+		{-9,GR_FOLLOWS,"was not created by","did not create"},
 
 		{10,GR_FOLLOWS,"reached to","reponded to"},
 		{-10,GR_FOLLOWS,"did not reach to","did not repond to"},
@@ -394,53 +400,18 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 	// Part 2. Build invariant picture
 	// location ... and metric space of concepts
 
-	cloc := CreateConcept("locations")
-	csigns  := CreateConcept("signpost")
-	cevent := CreateConcept("events")
-
-	here, now := HereAndNow()
-
-	// prefix contains the deployment
-	hereandnow := here + " of " + pc.prefix + now
-
-	chn  := CreateConcept(hereandnow)      // disambiguator
-	cwhere := CreateConcept(here)
-	cwhen := CreateConcept(now)
-
 	// the remark sets semantics of this disambiguated region
 
-	signpost := remark + hereandnow        // unique semantic event + spacetime
-
-	cthissign := CreateConcept(signpost)       // specific combinatoric instance
-	cremark  := CreateConcept(remark)      // possibly used elsewhere/when
-
-	ConceptLink(csigns,CONTAINS,cthissign)
-
-	ConceptLink(cthissign,EXPRESSES,cremark)
-	ConceptLink(cthissign,EXPRESSES,chn)
-	ConceptLink(cthissign,EXPRESSES,cwhere)
-
-	// invariants CONTAIN when as a special case
-
-	ConceptLink(cevent,GENERALIZES,chn)
-	ConceptLink(cloc,GENERALIZES,cwhere)
-	ConceptLink(cevent,GENERALIZES,chn)
-
-	ConceptLink(chn,EXPRESSES,cwhere)
-	ConceptLink(chn,EXPRESSES,cwhen)
+	cremark  := CreateConcept(remark)          // possibly used elsewhere/when
 
 	// Graph causality - must be idempotent/invariant, so no specific coordinates
 
 	ConceptLink(cremark,FOLLOWS,pc.previous_concept)
 
-	// This is variant, but orthogonal (testing, as this doesn't converge)
-	ConceptLink(cthissign,FOLLOWS,pc.previous_event)
-
 	// Update this local copy of context, each time we erect a signpost
 	// to hand down to the next layer
 
 	pc.previous_concept = cremark
-	pc.previous_event = cthissign
 
 	*ctx = context.WithValue(cctx, PROCESS_CTX, pc)
 
@@ -660,11 +631,11 @@ func SetLocationInfo(ctx context.Context, m map[string]string) context.Context {
 	// prefix contains the deployment
 	hereandnow := here + " of " + pc.prefix + now
 
-	chn  := CreateConcept(hereandnow)      // disambiguator
-	CreateConcept(here)
-	CreateConcept(now)
+	event := "program start" + hereandnow
 
-	pc.previous_event = chn
+	start := CreateConcept(event)
+
+	ConceptLink(pc.previous_concept,CONTAINS,start)
 
 	PROPER_PATHS = make(SparseGraph)
 
@@ -862,11 +833,15 @@ func ConeTest() {
 	metro := CreateConcept("metropolis")
 	district := CreateConcept("district")
 	house := CreateConcept("house")
+	factory := CreateConcept("factory")
+	output := CreateConcept("industrial output")
 	apartment := CreateConcept("apartment")
 	flat := CreateConcept("flat")
 	home := CreateConcept("home")
 	dwelling := CreateConcept("dwelling")
 	oslo := CreateConcept("Oslo")
+
+	ConceptLink(factory,CAUSES,output)
 
 	ConceptLink(country,CONTAINS,city)
 	ConceptLink(city,CONTAINS,district)
@@ -877,6 +852,7 @@ func ConeTest() {
 	ConceptLink(apartment,GENERALIZES,flat)
 	ConceptLink(dwelling,GENERALIZES,home)
 	ConceptLink(metro,GENERALIZES,city)
+	ConceptLink(metro,CONTAINS,factory)
 
 	ConceptLink(city,GENERALIZES,town)
 	ConceptLink(town,GENERALIZES,oslo)

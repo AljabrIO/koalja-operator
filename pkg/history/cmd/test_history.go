@@ -71,7 +71,7 @@ func MainLoop(ctx context.Context){
 
 	H.SignPost(&ctx,"Commence testing")
 
-	go ConceptConeGeneralizations(ctx)
+	ConceptConeGeneralizations(ctx)
 
 	DataPipelineExample(ctx)
 	
