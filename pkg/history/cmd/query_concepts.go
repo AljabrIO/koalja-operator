@@ -369,8 +369,6 @@ func JoinNeighbours(master H.NeighbourConcepts, delta H.NeighbourConcepts) H.Nei
 return result
 }
 
-//************************************
-
 //**************************************************************
 
 func GetLinksFrom(app,concept_hash string, visited map[string]bool) H.Links {
