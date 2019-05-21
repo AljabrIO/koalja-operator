@@ -597,12 +597,6 @@ func BigTick(t PTime) PTime {
 
 	PROPER_PATHS[t.previous] = append(PROPER_PATHS[t.previous], t.exterior)
 
-	// Check for discontinuous time
-
-	if t.exterior - t.previous != 1 {
-		fmt.Println("TIME JUMP ... ",t.previous,t.exterior)
-	}
-
 	return t
 }
 
@@ -649,8 +643,8 @@ func DetectCPU(pc ProcessContext) {
 
 	fq := float64(q)	
 	delta := fq - CPU.q
-	av = 0.5 * CPU.av + 0.5 * delta
-	varq = delta*delta
+	av = 0.5 * CPU.av + 0.5 * fq
+	varq = 0.5 * CPU.varq + 0.5 * delta*delta
 
         if CPU.varq > 0 && CPU.q > 0 {
 
@@ -659,7 +653,9 @@ func DetectCPU(pc ProcessContext) {
 			pc.Anomaly("Possibly anomalous CPU spike for this virtual CPU").
 				Attributes(NR(anomaly,"anomalous CPU spike"))
 		}
-        }
+        } else {
+		av = fq
+	}
 
         CPU.av = av
 	CPU.q = float64(q)

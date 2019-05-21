@@ -105,7 +105,7 @@ func ShowFile(ctx context.Context,app,name string) {
 	m.Note("Start history dump")
 
 	fmt.Println("\nNew process timeline for (",app,") originally started as pid ",parts[1],"\n")
-	fmt.Println("Unix clock context              | root --> seq,sub   Comment indented by subtime")
+	fmt.Println("Unix clock context              | root --> NOW,delta  Comment indented by subtime")
 	fmt.Println("------------------------------------------------------------------------------------------")
 
 	for scanner.Scan() {
