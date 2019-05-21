@@ -137,7 +137,7 @@ func DescribeConcept (app string, level int, concept_hash string, name string) {
 				I(level),
 				H.ASSOCIATIONS[l].Bwd,
 				H.ConceptName(app,links.Bwd[H.GR_EXPRESSES][l][next].Name),
-				links.Bwd[H.GR_EXPRESSES][l][next])
+				links.Bwd[H.GR_EXPRESSES][l][next].Name)
 		}
 	}
 	
@@ -149,7 +149,7 @@ func DescribeConcept (app string, level int, concept_hash string, name string) {
 				I(level),
 				H.ASSOCIATIONS[l].Fwd,
 				H.ConceptName(app,links.Fwd[H.GR_EXPRESSES][l][next].Name),
-				links.Fwd[H.GR_EXPRESSES][l][next])
+				links.Fwd[H.GR_EXPRESSES][l][next].Name)
 		}
 	}
 
@@ -498,8 +498,6 @@ func GetLinksFrom(app,concept_hash string, visited map[string]int, depth int) H.
 		os.Exit(1)
 	}
 
-	//cname := H.ConceptName(app,concept_hash)
-	
 	var links H.Links = H.LinkInit()
 	
 	for _, file := range files {
@@ -559,10 +557,8 @@ func GetLinksFrom(app,concept_hash string, visited map[string]int, depth int) H.
 						a.Depth = depth
 
 						if sttype < 0 {
-							//fmt.Printf("    N> \"%s\" %s \"%s\"\n",cname,H.ASSOCIATIONS[index].Bwd,H.ConceptName(app,ssfile.Name()))
 							links.Bwd[-sttype][index] = append(links.Bwd[-sttype][index],a)
 						} else {
-							//fmt.Printf("    N> \"%s\" %s \"%s\"\n",cname,H.ASSOCIATIONS[index].Fwd,H.ConceptName(app,ssfile.Name()))
 							links.Fwd[sttype][index] = append(links.Fwd[sttype][index],a)
 						}
 					}

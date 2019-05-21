@@ -172,7 +172,7 @@ var (
 	ASSOCIATIONS = [99]Association{
 		{0,0, "", ""},
 
-		{1,GR_CONTAINS,"contains","belongs to or is part of"},
+		{1,GR_CONTAINS,"contains case","belongs to or is part of"},
 		{-1,GR_CONTAINS,"does not contain","is not part of"},
 
 		// blue satisfies colour, colour is satisfied by blue
