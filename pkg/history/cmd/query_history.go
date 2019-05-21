@@ -105,6 +105,8 @@ func ShowFile(ctx context.Context,app,name string) {
 	m.Note("Start history dump")
 
 	fmt.Println("\nNew process timeline for (",app,") originally started as pid ",parts[1],"\n")
+	fmt.Println("Unix clock context              | root --> seq,sub   Comment indented by subtime")
+	fmt.Println("------------------------------------------------------------------------------------------")
 
 	for scanner.Scan() {
 		ParseLine(m,app,scanner.Text(),parts[1])
@@ -157,17 +159,17 @@ func I(level int) string {
 
 //**************************************************************
 
-func R(previous,now,t int) string {
+func R(previous,now,proper int) string {
 
-	if t == 1 {
+	if proper == 1 {
 
 		if now != previous+1 {
-			return fmt.Sprintf("%d go> %d. %s",previous,now,I(t))
+			return fmt.Sprintf("%4d go> %3d,%-3d %s",previous,now,proper,I(proper))
 		} else {
-			return fmt.Sprintf("%d --> %d. %s",previous,now,I(t))
+			return fmt.Sprintf("%4d --> %3d,%-3d %s",previous,now,proper,I(proper))
 		}
 	} else {
-		return fmt.Sprintf("   -> %d. %s",now,I(t))
+		return fmt.Sprintf("      -> %3d,%-3d %s",now,proper,I(proper))
 	}
 }
 //**************************************************************

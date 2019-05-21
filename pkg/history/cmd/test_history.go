@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"sort"
+	"time"
 
 //	H "github.com/AljabrIO/koalja-operator/pkg/history"
 	H "history"
@@ -81,6 +82,7 @@ func MainLoop(ctx context.Context){
 	H.SignPost(&ctx,"Show the signposts")
 	ShowMap()
 
+	time.Sleep(3 * time.Second)
 }
 
 //**************************************************************
@@ -100,13 +102,30 @@ func ConceptConeGeneralizations(ctx context.Context) {
 
 func DataPipelineExample(ctx context.Context){
 
+	m := H.SignPost(&ctx,"Starting Kubernetes deployment").
+		PartOf(H.N("Commence testing"))
+
+	time.Sleep(3 * time.Second)
+
 	// Initiate pod for the description
+
+	m.Note("Starting kubernetes pod")
+	time.Sleep(3 * time.Second)
 
 	// for each input signal an arrival from sensor
 
+	m.Note("File drop in pipeline")
+	time.Sleep(3 * time.Second)
+
 	// Look up data in a model service
 
+	m.Note("Querying data model")
+	time.Sleep(3 * time.Second)
+
 	// trigger an output result
+
+	m.Note("Submit transformation result")
+	time.Sleep(3 * time.Second)
 
 	// request to build or get from cache
 }

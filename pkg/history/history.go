@@ -14,14 +14,13 @@ package history
 import (
 	"strings"
 	"sync/atomic"
+	"bufio"
 	"context"
 	"time"
 	"runtime"
 	"io/ioutil"
-//	"crypto/sha1"
 	"fmt"
 	"os"
-
 	// Try this for local string -> int
 	"hash/fnv"
 )
@@ -41,7 +40,7 @@ type Neighbours []int
 type SparseGraph map[int]Neighbours
 type BreadBoard map[string]List
 
-var INTERIOR_TIME int64 = 0 
+var EXTERIOR_TIME int64 = 0 
 var PROPER_PATHS SparseGraph
 var PROCESS_CTX string
 
@@ -104,13 +103,28 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 
 // ****************************************************************************
 
+type CPUstats struct {
+	av float64
+	q float64
+	varq float64
+	lastseen int64
+}
+
+var CPU CPUstats
+
+// ****************************************************************************
+
 type Pair struct {
 	Name string
 	Prev string
 	Depth int
 }
 
+// ****************************************************************************
+
 type NeighbourConcepts map[int][]Pair // a list of concept hashes reachable by int type of relation
+
+// ****************************************************************************
 
 type Links struct {
 	Fwd [5]NeighbourConcepts  // The association links, classified by direction and ST type
@@ -161,7 +175,7 @@ const (
 
 	PROCESS_MARKER string = "process reference marker"
 	SYS_ERR_MSG string = "system error message"
-	UNSPEC_ROLE string = "unspecified role"
+	UNSPEC_ROLE string = "btw"
 	INTENTION string = "intent: "	
 	REMARK string = "remarked: "
 )
@@ -418,6 +432,8 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 
 	WriteChainBlock(pc, remark,cremark.Hash)
 
+	DetectCPU(pc)
+
 	// Pass on local data relative to current context
 	return pc
 }
@@ -427,6 +443,16 @@ func SignPost(ctx *context.Context, remark string) ProcessContext {
 func (pc ProcessContext) Note(s string) ProcessContext {
 
 	pc.tick = SmallTick(pc.tick)
+	nr := NR(s,REMARK)
+	ConceptLink(pc.previous_concept,EXPRESSES,nr.Ccpt)
+	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
+	return pc
+}
+
+// ****************************************************************************
+
+func (pc ProcessContext) Anomaly(s string) ProcessContext {
+
 	nr := NR(s,REMARK)
 	ConceptLink(pc.previous_concept,EXPRESSES,nr.Ccpt)
 	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
@@ -490,6 +516,8 @@ func (pc ProcessContext) Contains(nr NameAndRole) ProcessContext {
 }
 
 // ****************************************************************************
+// * Failures
+// ****************************************************************************
 
 func (pc ProcessContext) FailedSlave(nr NameAndRole) ProcessContext {
 
@@ -497,6 +525,8 @@ func (pc ProcessContext) FailedSlave(nr NameAndRole) ProcessContext {
 	WriteChainBlock(pc,nr.Hub,nr.Ccpt.Hash)
 	return pc
 }
+
+// ****************************************************************************
 
 func (pc ProcessContext) FailedBecause(name string) ProcessContext {
 	return pc.FailedSlave(N(name))
@@ -546,14 +576,18 @@ func N(name string) NameAndRole {
 
 func BigTick(t PTime) PTime {
 
-	// Since proper time gets reset by new exec, we should keep x,t clear
-	// And x should depend on the execution is possible
+	// The exterior time encapsulates proper time bubbles
+	// advances signpost by signpost, with linkage
 
-	var next int64 = atomic.AddInt64(&INTERIOR_TIME,1)
+	var next int64 = atomic.AddInt64(&EXTERIOR_TIME,1)
+
 	// record the ancestry
 	t.previous = t.exterior
+
 	// and add to unique timeline
 	t.exterior = int(next)
+
+	// Reset the proper time relative to this step
 	t.proper = 1
 	t.utc = time.Now().Unix()
 
@@ -565,6 +599,9 @@ func BigTick(t PTime) PTime {
 
 	// Check for discontinuous time
 
+	if t.exterior - t.previous != 1 {
+		fmt.Println("TIME JUMP ... ",t.previous,t.exterior)
+	}
 
 	return t
 }
@@ -573,12 +610,60 @@ func BigTick(t PTime) PTime {
 
 func SmallTick(t PTime) PTime {
 
+	// A small tick only advances proper time (subtime)
+
 	t.proper += 1
 	t.utc = time.Now().Unix()
 
 	// Check for discontinuous time
 
 	return t
+}
+
+// ****************************************************************************
+
+func DetectCPU(pc ProcessContext) {
+
+        file, err := os.Open("/proc/stat")
+        if err != nil {
+		pc.Intent("Opening the /proc").AddError(err)
+        }
+
+        scanner := bufio.NewScanner(file)
+
+	var q int
+	var varq, av float64
+	var field string
+
+	// Just get summary first line for environment
+	scanner.Scan() 
+	line := scanner.Text()
+		
+	fmt.Sscanf(line,"%s %d",&field,&q)
+        
+	file.Close()
+
+        if err := scanner.Err(); err != nil {
+		pc.Intent("Reading the /proc").AddError(err)
+        }
+
+	fq := float64(q)	
+	delta := fq - CPU.q
+	av = 0.5 * CPU.av + 0.5 * delta
+	varq = delta*delta
+
+        if CPU.varq > 0 && CPU.q > 0 {
+
+		if fq*fq > CPU.av*CPU.av + CPU.varq {
+			anomaly := fmt.Sprintf("CPU %f > average %f",fq,CPU.av)
+			pc.Anomaly("Possibly anomalous CPU spike for this virtual CPU").
+				Attributes(NR(anomaly,"anomalous CPU spike"))
+		}
+        }
+
+        CPU.av = av
+	CPU.q = float64(q)
+        CPU.varq = varq
 }
 
 // ****************************************************************************
