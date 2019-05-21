@@ -107,6 +107,7 @@ type ProcessContext struct {  // Embed this in ctx as stigmergic memory
 type Pair struct {
 	Name string
 	Prev string
+	Depth int
 }
 
 type NeighbourConcepts map[int][]Pair // a list of concept hashes reachable by int type of relation
@@ -154,7 +155,7 @@ const (
 	CONTAINS int = 1
 	GENERALIZES int = 3
 	USES int = 12
-	CAUSES int = 11
+	CAUSEDBY int = 11
 	ALIAS int = 24
 	DEPENDS int = 8
 
@@ -841,7 +842,7 @@ func ConeTest() {
 	dwelling := CreateConcept("dwelling")
 	oslo := CreateConcept("Oslo")
 
-	ConceptLink(factory,CAUSES,output)
+	ConceptLink(output,CAUSEDBY,factory)
 
 	ConceptLink(country,CONTAINS,city)
 	ConceptLink(city,CONTAINS,district)
