@@ -43,7 +43,7 @@ type BreadBoard map[string]List
 var EXTERIOR_TIME int64 = 0 
 var PROPER_PATHS SparseGraph
 var PROCESS_CTX string
-
+var ANOMALY_POLICY_LIMIT int = 5 // min number of calls between anomaly reporting
 var BASEDIR string = "/tmp/cellibrium"
 
 // ****************************************************************************
@@ -107,7 +107,7 @@ type CPUstats struct {
 	av float64
 	q float64
 	varq float64
-	lastseen int64
+	lastseen int
 }
 
 var CPU CPUstats
@@ -648,10 +648,16 @@ func DetectCPU(pc ProcessContext) {
 
         if CPU.varq > 0 && CPU.q > 0 {
 
-		if fq*fq > CPU.av*CPU.av + CPU.varq {
-			anomaly := fmt.Sprintf("CPU %f > average %f",fq,CPU.av)
-			pc.Anomaly("Possibly anomalous CPU spike for this virtual CPU").
-				Attributes(NR(anomaly,"anomalous CPU spike"))
+		if pc.tick.exterior > CPU.lastseen + ANOMALY_POLICY_LIMIT {
+
+			// Check it's not too soon to report, so we don't spam and waste resources
+			CPU.lastseen = pc.tick.exterior
+
+			if fq*fq > CPU.av*CPU.av + CPU.varq {
+				anomaly := fmt.Sprintf("CPU %f > average %f",fq,CPU.av)
+				pc.Anomaly("Possibly anomalous CPU spike for this virtual CPU").
+					Attributes(NR(anomaly,"anomalous CPU spike"))
+			}
 		}
         } else {
 		av = fq
