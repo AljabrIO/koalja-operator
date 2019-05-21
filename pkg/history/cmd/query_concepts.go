@@ -161,7 +161,7 @@ func DescribeConcept (app string, level int, concept_hash string, name string) {
 func GetGeneralizationCone (app string, concept_hash string) []string {
 	
 	// First establish how many different up/down CONTAINS relations attach to the anchor concept
-	// These form separate graphs
+	// This describes local entropy channels: generalization is increasing entropy
 
 	var visited = make(map[string]int)  // loop avoidance
 	var level int = 1
@@ -186,6 +186,8 @@ return region
 //**************************************************************
 
 func GetCausationCone (app string, cset []string) {
+
+	// This describes causal (order) relationships, forward is retarded
 	
 	var visited = make(map[string]int)  // loop avoidance
 
@@ -213,7 +215,7 @@ func GetSuperCausationCone (app string, cset []string) {
 	var visited = make(map[string]int)  // loop avoidance
 
 	fmt.Println("")
-	fmt.Println(I(1),"<begin GENERALIZED CAUSE>")
+	fmt.Println(I(1),"<begin NON-LOCAL CAUSE>")
 
 	for c := range cset {
 		concept_hash := cset[c]
@@ -223,7 +225,7 @@ func GetSuperCausationCone (app string, cset []string) {
 
 		ShowCone(app,concept_hash,fwd_cone,bwd_cone)		
 	}
-	fmt.Println(I(1),"<end GENERALIZED CAUSE>")
+	fmt.Println(I(1),"<end NON-LOCAL CAUSE>")
 	
 }
 
