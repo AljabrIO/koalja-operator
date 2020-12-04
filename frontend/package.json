@@ -6,7 +6,7 @@
     "content-type": "^1.0.4",
     "echarts": "^4.2.0-rc.2",
     "echarts-for-react": "^2.0.15-beta.0",
-    "highlight.js": "^9.13.1",
+    "highlight.js": "^10.4.1",
     "moment": "^2.22.2",
     "react": "^16.6.3",
     "react-dom": "^16.6.3",
